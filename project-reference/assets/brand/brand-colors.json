@@ -1,0 +1,9 @@
+{
+  "source": "derived from user-provided current logo reference",
+  "primaryDarkGreen": "#182605",
+  "accentCoralRed": "#FF422C",
+  "usage": {
+    "primaryDarkGreen": "backgrounds, header/footer, contrast surfaces",
+    "accentCoralRed": "logo, CTAs, accents, highlights"
+  }
+}

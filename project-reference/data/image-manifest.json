@@ -1,0 +1,32 @@
+[
+  {
+    "filename": "01-boda-civil-jardin.jpg",
+    "sourceUrl": "https://www.elportondelacondesa.com/wp-content/uploads/2022/09/finca_bodas_murcia_salones_celebraciones_El_Port_n_de_la_Condesa_Bodas_Civiles_-10.jpg",
+    "bytes": 273149,
+    "sha256": "a887c18ee0505a472255e665124d3da2757bb2c17d2b3833151994a813b08bf8"
+  },
+  {
+    "filename": "02-salon-celebraciones.jpg",
+    "sourceUrl": "https://www.elportondelacondesa.com/wp-content/uploads/2022/03/Salon-de-celebraciones-Porton-Condesa-Bodas-Murcia-Silvia-Ferrer-29.jpg",
+    "bytes": 123705,
+    "sha256": "6e873624504adf2de9ae9ce4bb8db4cd983104b7a6e72c7378ef835060ee5879"
+  },
+  {
+    "filename": "03-boda-civil-invitados.jpg",
+    "sourceUrl": "https://www.elportondelacondesa.com/wp-content/uploads/2022/09/finca_bodas_murcia_salones_celebraciones_El_Port_n_de_la_Condesa_Bodas_Civiles_-27.jpg",
+    "bytes": 275916,
+    "sha256": "3df13c85e68b769f8ca85aa97b8cb64b876209c6e87bf9abba13efa241767ed8"
+  },
+  {
+    "filename": "04-exterior-finca.jpg",
+    "sourceUrl": "https://www.elportondelacondesa.com/wp-content/uploads/2020/07/Finca-bodas-Porton-Condesa-Fotografo-Fredy-Mazza-28.jpg",
+    "bytes": 80887,
+    "sha256": "d82b87c808d68c4a76c8f98b7ef8cc93914b73b27af4e7e291a9ae9340e50447"
+  },
+  {
+    "filename": "05-salon-porton-decoracion.jpg",
+    "sourceUrl": "https://elportondelacondesa.com/wp-content/uploads/2023/03/bodas-civiles-fincas-celebraciones-Porton-Condesa-FredyMazza-342.jpg",
+    "bytes": 213653,
+    "sha256": "cc04d0cf74c76f47706b28fab47257de12c3c79c76c319dc22a1d51abf7d26cc"
+  }
+]

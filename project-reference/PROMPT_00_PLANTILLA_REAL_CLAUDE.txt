@@ -1,0 +1,141 @@
+Actúa como desarrollador senior full-stack y arquitecto de software. Estás trabajando SOBRE una plantilla Next.js existente que ya está en este repositorio. No quiero que generes una web desde cero: quiero que evoluciones esta base preservando al máximo su diseño, composición, animaciones, espaciado, tipografías y comportamiento responsive.
+
+OBJETIVO DEL PROYECTO
+Construir la nueva web de El Portón de la Condesa y, posteriormente, un backend CRM para captación y seguimiento de leads. En esta primera ejecución debes preparar correctamente la base y realizar la primera adaptación frontend sin abordar todavía el CRM completo.
+
+ANTES DE TOCAR CÓDIGO
+1. Lee `project-reference/README.md`.
+2. Lee todos los documentos de `project-reference/docs/`, especialmente:
+   - `01-extraccion-web.md`
+   - `05-instagram-research.md`
+   - `06-analisis-plantilla-base.md`
+3. Revisa `project-reference/data/`.
+4. Revisa `public/brand/` y `public/images/porton/`.
+5. Audita la estructura real del repositorio.
+6. Ejecuta la instalación necesaria y comprueba el build inicial antes de hacer cambios.
+7. Indícame en 10-15 bullets qué vas a modificar y qué vas a conservar. Después continúa sin pedirme confirmación salvo que encuentres un bloqueo real.
+
+REGLAS NO NEGOCIABLES
+- No rediseñes desde cero.
+- Conserva Cormorant Garamond + DM Sans salvo incompatibilidad técnica.
+- Conserva el carácter editorial, grandes espacios en blanco, líneas finas, grid, parallax, `ImageReveal` y animaciones existentes.
+- Mantén `--radius: 0rem`.
+- No inventes información empresarial, cifras, capacidades, premios, direcciones, teléfonos o testimonios. Usa solo datos disponibles en `project-reference` y marca de forma clara cualquier contenido pendiente.
+- No dejes nombres, textos, coordenadas, metadata, imágenes o referencias de la demo original.
+- No dejes referencias de la plataforma con la que se creó originalmente la plantilla.
+- No elimines componentes UI útiles simplemente porque todavía no se usen.
+- No implementes autenticación ni CRM completo en esta fase.
+- Debes mantener el proyecto compilando al finalizar.
+
+ESTRUCTURA REAL QUE VAS A ENCONTRAR
+La home actual usa:
+- `components/header.tsx`
+- `components/sections/hero.tsx`
+- `components/sections/vision.tsx`
+- `components/sections/philosophy.tsx`
+- `components/sections/experience.tsx`
+- `components/sections/dishes.tsx`
+- `components/sections/contact.tsx`
+- `components/footer.tsx`
+
+Existe además `components/sections/projects.tsx`, que actualmente no está montado y quiero reutilizar posteriormente como bloque interactivo de Espacios/Salones.
+
+FASE 1 — IDENTIDAD Y CONFIGURACIÓN
+1. Configura `html lang="es"`.
+2. Sustituye metadata demo por metadata de El Portón de la Condesa utilizando solo información confirmada.
+3. Usa el logotipo real disponible en `/public/brand/logo-porton-transparent-hq.png`.
+4. Utiliza `/public/brand/icon-porton-hq.png` como base para iconografía/favicons si técnicamente procede.
+5. Adapta el sistema de color sin destruir la estética:
+   - primary aproximado: `#182605`
+   - accent aproximado: `#FF422C`
+   - conserva el fondo marfil cálido de la plantilla.
+6. No conviertas toda la web en verde y rojo: deben actuar como colores de marca, no como pintura de brocha gorda.
+
+FASE 2 — HEADER
+Adapta `components/header.tsx`.
+- Sustituye `ESSENCE` por el logo gráfico.
+- Mantén comportamiento transparente → fondo al hacer scroll.
+- Mantén menú móvil y animaciones.
+- Navegación inicial recomendada:
+  `Bodas`, `Espacios`, `Gastronomía`, `Celebraciones`, `Catering`, `Bodas reales`, `Contacto`.
+- CTA principal: `Solicita información`.
+- De momento usa anclas cuando la ruta todavía no exista, pero estructura los enlaces para que sea fácil migrarlos a páginas reales.
+
+FASE 3 — HERO
+Adapta `components/sections/hero.tsx`.
+- Conserva estructura, parallax, retícula arquitectónica, tamaño tipográfico y timings.
+- Sustituye la fotografía por la mejor fotografía horizontal disponible en `public/images/porton/` para una primera versión.
+- Sustituye el contenido gastronómico ficticio por un mensaje centrado en bodas y celebraciones, utilizando la información de referencia.
+- CTA principal: solicitud de información.
+- CTA secundario: descubrir espacios o bodas reales.
+- Elimina las coordenadas ficticias. Si no existe un dato exacto confirmado, elimina ese elemento decorativo antes que inventarlo.
+
+FASE 4 — CONTENIDO DE LA HOME
+Transforma gradualmente las secciones existentes manteniendo su composición visual:
+
+`VisionSection`
+→ presentación del lugar/propuesta de valor + métricas únicamente verificadas.
+
+`PhilosophySection`
+→ filosofía del servicio: celebración, gastronomía, personalización y acompañamiento.
+
+`ExperienceSection`
+→ `Tu celebración, paso a paso`: descubrimiento/visita, propuesta, personalización y celebración.
+
+`DishesSection`
+→ gastronomía del evento utilizando imágenes y contenido disponible.
+
+Después activa `ProjectsSection` en `app/page.tsx` y transfórmala conceptualmente en `SpacesSection` o renómbrala si hacerlo mejora el código:
+- navegación entre espacios/salones;
+- fotografía grande;
+- descripción;
+- capacidad/características solo cuando estén confirmadas;
+- CTA hacia contacto.
+
+No es obligatorio terminar todas las rutas secundarias en esta ejecución. La prioridad es dejar una home coherente y una arquitectura limpia.
+
+FASE 5 — FORMULARIO DE LEADS, SOLO FRONTEND PREPARADO
+Adapta `ContactSection` para que deje de parecer una reserva de restaurante.
+Campos:
+- nombre
+- apellidos
+- email
+- teléfono
+- tipo de evento
+- fecha prevista
+- invitados aproximados
+- mensaje
+- aceptación obligatoria de política de privacidad
+- consentimiento comercial opcional separado
+
+Prepara también campos internos para futura atribución:
+- utm_source
+- utm_medium
+- utm_campaign
+- utm_content
+- landing_url
+- referrer
+
+En esta fase NO simules que el lead se ha almacenado si todavía no existe API. Crea una abstracción clara para conectar el endpoint posteriormente y deja un TODO técnico explícito.
+
+FASE 6 — CONTENIDO CENTRALIZADO
+Evita volver a llenar todos los componentes de strings hardcodeados.
+Crea una capa sencilla de contenido, por ejemplo:
+- `data/site-content.ts`
+o una estructura equivalente apropiada.
+
+Mueve ahí navegación, textos, espacios, gastronomía y datos de contacto que convenga reutilizar.
+
+FASE 7 — CALIDAD
+Al terminar:
+1. Ejecuta lint/build.
+2. Corrige errores TypeScript.
+3. Comprueba responsive visualmente a nivel de código para mobile/tablet/desktop.
+4. Comprueba que no quedan textos de demo (`ESSENCE`, Michelin, Paris, Seattle, etc.).
+5. Comprueba que no quedan referencias a la plataforma creadora original.
+6. Comprueba accesibilidad básica: `alt`, labels, navegación con teclado, aria del menú.
+7. Enumera todos los archivos modificados.
+8. Resume decisiones y TODOs para la siguiente fase: páginas secundarias + API + BBDD + CRM `/admin`.
+
+IMPORTANTE
+No me entregues solamente una explicación. Realiza los cambios en el repositorio. Trabaja de forma incremental y conserva el diseño original como referencia visual principal.

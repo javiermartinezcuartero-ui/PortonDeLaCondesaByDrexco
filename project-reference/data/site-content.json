@@ -1,0 +1,104 @@
+{
+  "brand": {
+    "name": "El Portón de la Condesa",
+    "website": "https://elportondelacondesa.com/",
+    "email": "info@elportondelacondesa.com",
+    "phonePrimary": "968 13 98 00",
+    "address": "Avda. Principal la Alcayna, s/n, 30500 Molina de Segura, Murcia",
+    "coordinates": {
+      "latitude": "38°04’37.8\" N",
+      "longitude": "1°09’01.5\" W"
+    },
+    "verificationNotes": [
+      "Existen diferencias de teléfono/código postal entre la página de contacto y textos legales. Verificar antes de producción."
+    ],
+    "logo": {
+      "reference": "project-reference/assets/brand/logo-porton-current-reference.png",
+      "hq": "project-reference/assets/brand/logo-porton-hq.png",
+      "transparent": "project-reference/assets/brand/logo-porton-transparent-hq.png",
+      "icon": "project-reference/assets/brand/icon-porton-hq.png"
+    },
+    "palette": {
+      "darkGreen": "#182605",
+      "coralRed": "#FF422C"
+    }
+  },
+  "navigation": [
+    "Inicio",
+    "Bodas",
+    "Espacios",
+    "Gastronomía",
+    "Celebraciones",
+    "Catering",
+    "Eventos corporativos",
+    "Inspiración",
+    "Contacto"
+  ],
+  "spaces": [
+    {
+      "name": "Salón Portón",
+      "slug": "salon-porton"
+    },
+    {
+      "name": "Salón Zafiro",
+      "slug": "salon-zafiro"
+    },
+    {
+      "name": "Salón Cristal",
+      "slug": "salon-cristal"
+    },
+    {
+      "name": "Salón Conde",
+      "slug": "salon-conde"
+    }
+  ],
+  "eventTypes": [
+    "Bodas",
+    "Ceremonias civiles",
+    "Comuniones",
+    "Bautizos",
+    "Aniversarios",
+    "Eventos corporativos",
+    "Congresos",
+    "Convenciones",
+    "Workshops",
+    "Ruedas de prensa",
+    "Presentaciones",
+    "Galas",
+    "Entregas de premios",
+    "Catering externo"
+  ],
+  "leadCapture": {
+    "fields": [
+      "firstName",
+      "lastName",
+      "email",
+      "phone",
+      "eventType",
+      "eventDate",
+      "guestCount",
+      "message",
+      "privacyConsent",
+      "marketingConsent"
+    ],
+    "tracking": [
+      "landingPath",
+      "referrer",
+      "utmSource",
+      "utmMedium",
+      "utmCampaign",
+      "utmContent",
+      "utmTerm",
+      "sourceContentId",
+      "sourceContentType"
+    ]
+  },
+  "social": {
+    "instagram": {
+      "handle": "@elportondelacondesa",
+      "url": "https://www.instagram.com/elportondelacondesa/",
+      "researchFile": "project-reference/docs/05-instagram-research.md",
+      "dataFile": "project-reference/data/instagram-content.json"
+    }
+  }
+}

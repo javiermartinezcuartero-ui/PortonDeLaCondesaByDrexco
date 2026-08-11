@@ -1,0 +1,39 @@
+Actúa como arquitecto y desarrollador senior full-stack. Vas a evolucionar la plantilla existente descargada de la plantilla base para construir una nueva versión moderna de la web de El Portón de la Condesa, manteniendo la calidad visual de la plantilla y reutilizando los contenidos y recursos disponibles en `project-reference`.
+
+OBJETIVO
+- Modernizar completamente la experiencia pública.
+- Mantener y reorganizar la información comercial de la web actual.
+- Utilizar las imágenes locales extraídas de la web actual.
+- Añadir captación de leads y un backend CRM para seguimiento comercial.
+- Crear una zona VIP desbloqueable mediante email/enlace mágico.
+- Preparar el proyecto para ser presentado como TFM y desplegado como producto real.
+
+REGLAS DE TRABAJO
+1. No empieces reescribiendo la aplicación desde cero.
+2. Audita primero el stack real y la estructura de la plantilla.
+3. Respeta el sistema visual existente: layout, tipografías, espaciado, componentes, responsive y animaciones.
+4. Elimina referencias visibles de demo, la plantilla base o marcas ajenas cuando formen parte del contenido de demostración. No rompas dependencias necesarias para el despliegue.
+5. Lee antes de modificar código:
+   - `project-reference/README.md`
+   - `project-reference/docs/01-extraccion-web.md`
+   - `project-reference/docs/02-prompts-claude-code.md`
+   - `project-reference/docs/03-arquitectura-crm-leads.md`
+   - `project-reference/docs/04-imagenes.md`
+   - `project-reference/docs/05-instagram-research.md`
+   - `project-reference/data/site-content.json`
+   - `project-reference/data/instagram-content.json`
+6. Usa los recursos de `project-reference/images/original-site` como banco visual inicial.
+7. El logotipo oficial de referencia del proyecto está en `project-reference/assets/brand/`. Utiliza `logo-porton-transparent-hq.png` como opción preferente en cabeceras y `icon-porton-hq.png` para favicon/app icon. No sustituyas la marca por un wordmark tipográfico improvisado.
+8. No hagas hotlinking: copia las imágenes que se vayan a utilizar a la estructura pública del proyecto.
+9. Mantén el contenido desacoplado de los componentes mediante objetos TypeScript, JSON, CMS o capa de datos equivalente.
+10. No inventes datos operativos. Si detectas contradicciones entre páginas, márcalas como `PENDIENTE_VERIFICAR`.
+11. Cada cambio debe terminar con lint, typecheck y tests disponibles.
+
+ARQUITECTURA FUNCIONAL ESPERADA
+- Web pública: Inicio, Bodas, Bodas civiles, Bodas reales/Inspiración, Espacios, Salón Portón, Salón Zafiro, Salón Cristal, Salón Conde, Gastronomía, Celebraciones/Comuniones, Catering, Eventos corporativos, Eventos propios/Campañas, Blog y Contacto.
+- Captación: formularios contextualizados, CTAs, tracking UTM/referrer, origen del lead, `sourceContentId`, `sourceContentType` y actividad. Debe poder atribuir leads a Instagram/Reels/campañas concretas.
+- Zona VIP: reportajes, galerías ampliadas, dossier y contenido premium mediante enlace mágico.
+- Administración: dashboard, tabla de leads, pipeline Kanban, ficha 360º del lead, actividades, tags, scoring, próximas acciones, métricas y exportación.
+
+PRIMERA TAREA
+Ejecuta únicamente el Prompt 0 de `project-reference/docs/02-prompts-claude-code.md`. No cambies código hasta terminar la auditoría y mostrarme el plan.

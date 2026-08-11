@@ -136,7 +136,7 @@ export function Footer() {
               href={brand.social.instagram.url}
               aria-label="Instagram"
               title="Instagram"
-              className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors duration-300"
+              className="flex items-center justify-center h-8 w-8 opacity-80 hover:opacity-100 transition-opacity duration-300"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -146,7 +146,7 @@ export function Footer() {
               href={brand.social.facebook.url}
               aria-label="Facebook"
               title="Facebook"
-              className="flex items-center justify-center h-8 w-8 text-muted-foreground hover:text-foreground transition-colors duration-300"
+              className="flex items-center justify-center h-8 w-8 opacity-80 hover:opacity-100 transition-opacity duration-300"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -182,15 +182,8 @@ export function Footer() {
           </button>
         </div>
 
-        {/* Large Decorative Text */}
-        <div className="mt-16 md:mt-24">
-          <p className="font-serif text-[9vw] sm:text-[7vw] md:text-[5vw] lg:text-[3.4vw] font-light tracking-[-0.02em] text-foreground/[0.04] leading-[1.05]">
-            {footerContent.decorativePhrase}
-          </p>
-        </div>
-
         {/* Credit */}
-        <div className="mt-8 flex justify-center md:justify-end">
+        <div className="mt-16 flex justify-start">
           <a
             href={brand.credits.url}
             target="_blank"

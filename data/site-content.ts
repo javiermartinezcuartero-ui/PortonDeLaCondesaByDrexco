@@ -75,7 +75,6 @@ export const brand = {
     name: "Solucionesbonicas.com",
     url: "https://www.solucionesbonicas.com",
   },
-  positioningPhrase: "El escenario perfecto para días únicos e irrepetibles",
 } as const
 
 export type NavItem = {
@@ -349,7 +348,6 @@ export const footerContent = {
     { label: "Política de privacidad", href: "/politica-privacidad" },
     { label: "Política de cookies", href: "/politica-cookies" },
   ],
-  decorativePhrase: brand.positioningPhrase,
 }
 
 export const cookieConsentContent = {

@@ -208,7 +208,6 @@ export const footerContent = {
     { label: "Privacy policy", href: "/politica-privacidad" },
     { label: "Cookie policy", href: "/politica-cookies" },
   ],
-  decorativePhrase: "The perfect setting for unique, unrepeatable days",
 }
 
 export const cookieConsentContent = {

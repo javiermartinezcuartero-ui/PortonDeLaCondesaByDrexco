@@ -16,6 +16,9 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY)
+    // Restaura el idioma guardado tras montar (no hay acceso a localStorage
+    // durante el render en servidor); no aplica el React Compiler.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored === "en" || stored === "es") setLocale(stored)
   }, [])
 

@@ -1,89 +1,52 @@
 "use client"
 
-import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Settings } from "lucide-react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
 import { adminAccessContent as adminAccessContentEs } from "@/data/site-content"
 import { adminAccessContent as adminAccessContentEn } from "@/data/site-content.en"
 import { useLocale } from "@/lib/i18n"
+import { authClient } from "@/lib/auth-client"
 
-export function AdminAccess() {
+/**
+ * Acceso al panel privado desde la cabecera pública.
+ *
+ * Vive en el header (arriba a la derecha, junto al CTA) y no como botón
+ * flotante: es un único punto de entrada en toda la web, no dos.
+ *
+ * Su visibilidad no es una vulnerabilidad: `/admin/login` es una ruta pública
+ * por diseño y todo lo que hay detrás se valida en servidor (ver
+ * docs/autenticacion.md). Si ya existe sesión, lleva directamente a `/admin`.
+ */
+export function AdminAccess({ className }: { className?: string }) {
   const { locale } = useLocale()
   const adminAccessContent = locale === "en" ? adminAccessContentEn : adminAccessContentEs
-  const [open, setOpen] = useState(false)
-  const [password, setPassword] = useState("")
-  const [showMessage, setShowMessage] = useState(false)
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // TODO(admin-backend): sustituir por autenticación real (NextAuth/Auth.js)
-    // contra /admin cuando el backend de administración esté implementado.
-    setShowMessage(true)
-  }
+  const router = useRouter()
+  const { data: session } = authClient.useSession()
 
   return (
-    <>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-label={adminAccessContent.tooltip}
-            className="floating-action fixed bottom-5 left-5 z-40 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground opacity-70 shadow-md transition-[opacity,bottom] duration-300 hover:opacity-100"
-          >
-            <Settings className="h-4 w-4" />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="right">{adminAccessContent.tooltip}</TooltipContent>
-      </Tooltip>
-
-      <Dialog
-        open={open}
-        onOpenChange={(next) => {
-          setOpen(next)
-          if (!next) {
-            setPassword("")
-            setShowMessage(false)
-          }
-        }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{adminAccessContent.dialogTitle}</DialogTitle>
-            <DialogDescription>{adminAccessContent.dialogDescription}</DialogDescription>
-          </DialogHeader>
-          {showMessage ? (
-            <p className="text-sm text-muted-foreground">{adminAccessContent.pendingMessage}</p>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <Input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={adminAccessContent.placeholder}
-                autoFocus
-              />
-              <DialogFooter>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 text-sm tracking-[0.1em] uppercase text-primary-foreground bg-primary hover:bg-primary/90 transition-colors duration-300"
-                >
-                  {adminAccessContent.submitLabel}
-                </button>
-              </DialogFooter>
-            </form>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={() => router.push(session ? "/admin" : "/admin/login")}
+          aria-label={adminAccessContent.tooltip}
+          className={cn(
+            "group inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+            // En reposo, apenas se insinúa: un lavado verde muy tenue y el
+            // icono en el mismo gris que los enlaces del menú.
+            "bg-primary/5 text-muted-foreground",
+            // Al pasar por encima toma el verde de marca y una sombra suave.
+            "transition-all duration-300 hover:bg-primary/10 hover:text-primary hover:shadow-sm",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            className
           )}
-        </DialogContent>
-      </Dialog>
-    </>
+        >
+          <Settings className="h-4 w-4 transition-transform duration-500 group-hover:rotate-90" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{adminAccessContent.tooltip}</TooltipContent>
+    </Tooltip>
   )
 }

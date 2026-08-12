@@ -1,0 +1,680 @@
+// Modelo de datos de El Portón de la Condesa.
+// Ver docs/modelo-datos.md para el detalle narrado y el diagrama ER.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Autenticación (compatible con el esquema oficial de Better Auth)
+// ---------------------------------------------------------------------------
+// User/Session/Account/Verification siguen el esquema que espera el adaptador
+// de Prisma de Better Auth (better-auth.com/docs/adapters/prisma). No se
+// añade ninguna tabla de contraseñas paralela: la contraseña de un usuario
+// con proveedor "credential" vive en Account.password, igual que la gestiona
+// Better Auth internamente. `role` es un campo adicional propio del proyecto.
+
+enum Role {
+  ADMIN
+  SALES
+  CONTENT
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  role          Role     @default(CONTENT)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+
+  ownedLeadRequests LeadRequest[]  @relation("LeadRequestOwner")
+  activities        LeadActivity[] @relation("ActivityActor")
+  notes             LeadNote[]
+  followUpTasks     FollowUpTask[] @relation("FollowUpAssignee")
+  createdContent    ContentEntry[] @relation("ContentCreatedBy")
+  updatedContent    ContentEntry[] @relation("ContentUpdatedBy")
+  auditEvents       AuditEvent[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  /// Hash de contraseña del proveedor "credential". Nunca texto en claro.
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("verification")
+}
+
+/// Tabla de rate limit persistente de Better Auth (better-auth.com/docs/concepts/rate-limit).
+/// `lastRequest` es epoch-millis; se guarda como BigInt porque Date.now() excede Int32.
+model RateLimit {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  count       Int?
+  lastRequest BigInt?
+
+  @@map("rateLimit")
+}
+
+/// Contador de rate limit de la propia aplicación (formulario de acceso VIP y,
+/// más adelante, el endpoint de leads). Tabla propia y no la de Better Auth
+/// para no depender de su lógica interna de purga ni de su formato de clave.
+/// `key` es siempre un hash HMAC irreversible: nunca contiene una IP en claro
+/// (ver lib/security/rate-limit.ts y lib/security/hash.ts).
+model RateLimitCounter {
+  key             String   @id
+  count           Int      @default(0)
+  windowStartedAt DateTime
+
+  @@index([windowStartedAt])
+  @@map("rate_limit_counter")
+}
+
+// ---------------------------------------------------------------------------
+// CRM — Lead / captación
+// ---------------------------------------------------------------------------
+
+enum LeadLifecycle {
+  ACTIVE
+  UNSUBSCRIBED
+  ANONYMIZED
+}
+
+enum LeadRequestStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  VISIT_SCHEDULED
+  PROPOSAL_SENT
+  NEGOTIATION
+  WON
+  LOST
+  NURTURING
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum ConsentPurpose {
+  PRIVACY
+  MARKETING
+}
+
+enum ActivityType {
+  FORM_SUBMITTED
+  VIP_ACCESSED
+  DOSSIER_DOWNLOADED
+  EMAIL_SENT
+  EMAIL_OPENED
+  LINK_CLICKED
+  CALL
+  WHATSAPP
+  NOTE
+  STATUS_CHANGED
+  VISIT
+  PROPOSAL
+}
+
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+}
+
+enum NotificationChannel {
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+/// Persona identificada por email. Una única fila por email normalizado;
+/// puede acumular varias LeadRequest a lo largo del tiempo.
+model Lead {
+  id              String        @id @default(cuid())
+  email           String
+  emailNormalized String        @unique
+  firstName       String?
+  lastName        String?
+  phone           String?
+  phoneNormalized String?
+  lifecycle       LeadLifecycle @default(ACTIVE)
+  score           Int           @default(0)
+  /// Canal/origen de la primera solicitud (p. ej. "organic", "instagram").
+  firstSource     String?
+  /// Canal/origen de la solicitud más reciente.
+  lastSource      String?
+  firstSeenAt     DateTime      @default(now())
+  lastActivityAt  DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  /// Fecha en la que se anonimizó (lifecycle = ANONYMIZED). Null si nunca.
+  anonymizedAt    DateTime?
+
+  requests      LeadRequest[]
+  consents      ConsentEvent[]
+  activities    LeadActivity[]
+  notes         LeadNote[]
+  tags          LeadTag[]
+  vipSessions   VipAccessSession[]
+  interactions  ContentInteraction[]
+  followUps     FollowUpTask[]
+  notifications NotificationLog[]
+
+  @@index([lifecycle])
+  @@index([lastActivityAt])
+  @@map("lead")
+}
+
+/// Una solicitud concreta (una sumisión de formulario). Nunca se sobrescribe:
+/// cada nueva solicitud del mismo email crea una fila nueva enlazada al
+/// mismo Lead.
+model LeadRequest {
+  id               String            @id @default(cuid())
+  leadId           String
+  /// Clave de idempotencia que genera el formulario público en cada intento de
+  /// envío. Es única, así que un doble clic (dos peticiones con la misma clave)
+  /// solo puede crear una fila: la segunda choca con el índice y se resuelve
+  /// devolviendo la solicitud ya creada. Null en las solicitudes que no vienen
+  /// de un formulario web (altas manuales del CRM, seed).
+  submissionId     String?           @unique
+  eventType        String
+  eventDate        DateTime?
+  guestCount       Int?
+  company          String?
+  jobTitle         String?
+  audiovisualNeeds String?
+  preferredSpace   String?
+  budgetRange      String?
+  subject          String?
+  message          String?
+  status           LeadRequestStatus @default(NEW)
+  priority         Priority          @default(NORMAL)
+  ownerId          String?
+  nextActionAt     DateTime?
+  lostReason       String?
+  sourcePage       String?
+  sourceForm       String?
+  sourceContentId  String?
+  referrer         String?
+  utmSource        String?
+  utmMedium        String?
+  utmCampaign      String?
+  utmContent       String?
+  utmTerm          String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  archivedAt       DateTime?
+
+  lead       Lead           @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  owner      User?          @relation("LeadRequestOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  activities LeadActivity[]
+
+  @@index([status, ownerId, nextActionAt])
+  @@index([createdAt])
+  @@index([leadId])
+  @@index([utmSource, utmMedium, utmCampaign])
+  @@map("lead_request")
+}
+
+/// Registro de consentimiento inmutable: nunca se actualiza una fila
+/// existente. Una revocación se modela como un nuevo evento granted=false.
+model ConsentEvent {
+  id            String         @id @default(cuid())
+  leadId        String
+  purpose       ConsentPurpose
+  granted       Boolean
+  policyVersion String
+  source        String?
+  createdAt     DateTime       @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, purpose])
+  @@map("consent_event")
+}
+
+/// Traza de interacción comercial. `metadata` debe pasar por el saneador de
+/// lib/domain/metadata.ts antes de guardarse (sin PII, tokens ni contraseñas).
+model LeadActivity {
+  id             String       @id @default(cuid())
+  leadId         String
+  leadRequestId  String?
+  contentEntryId String?
+  actorId        String?
+  type           ActivityType
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+
+  lead         Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadRequest  LeadRequest?  @relation(fields: [leadRequestId], references: [id], onDelete: SetNull)
+  contentEntry ContentEntry? @relation(fields: [contentEntryId], references: [id], onDelete: SetNull)
+  actor        User?         @relation("ActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([leadId, createdAt])
+  @@map("lead_activity")
+}
+
+model LeadNote {
+  id        String   @id @default(cuid())
+  leadId    String
+  authorId  String?
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lead   Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@map("lead_note")
+}
+
+model FollowUpTask {
+  id          String         @id @default(cuid())
+  leadId      String
+  assigneeId  String?
+  title       String
+  dueAt       DateTime
+  priority    Priority       @default(NORMAL)
+  status      FollowUpStatus @default(PENDING)
+  completedAt DateTime?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  lead     Lead  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  assignee User? @relation("FollowUpAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([assigneeId, status, dueAt])
+  @@map("follow_up_task")
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  leads LeadTag[]
+
+  @@map("tag")
+}
+
+model LeadTag {
+  leadId    String
+  tagId     String
+  createdAt DateTime @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([leadId, tagId])
+  @@map("lead_tag")
+}
+
+/// Peso configurable de cada señal de scoring (ver docs/modelo-datos.md).
+model ScoringRule {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  label     String
+  points    Int
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("scoring_rule")
+}
+
+model NotificationLog {
+  id        String              @id @default(cuid())
+  leadId    String
+  channel   NotificationChannel @default(EMAIL)
+  template  String
+  status    NotificationStatus  @default(PENDING)
+  error     String?
+  createdAt DateTime            @default(now())
+  sentAt    DateTime?
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId, createdAt])
+  @@map("notification_log")
+}
+
+/// Traza de auditoría de cambios administrativos relevantes. No se borra en
+/// cascada cuando se elimina el actor: sobrevive con actorId = null.
+model AuditEvent {
+  id         String   @id @default(cuid())
+  actorId    String?
+  entityType String
+  entityId   String
+  action     String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_event")
+}
+
+// ---------------------------------------------------------------------------
+// CMS — contenido de inspiración (bodas reales / catering)
+// ---------------------------------------------------------------------------
+
+enum ContentType {
+  REAL_WEDDING
+  CATERING_EVENT
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum MediaType {
+  IMAGE
+  EXTERNAL_VIDEO
+  REEL
+}
+
+enum Locale {
+  ES
+  EN
+}
+
+/// Ficha de contenido (boda real o evento de catering). El texto vive en
+/// ContentTranslation; aquí solo los campos estructurados y de gestión.
+model ContentEntry {
+  id                  String        @id @default(cuid())
+  type                ContentType
+  slug                String
+  status              ContentStatus @default(DRAFT)
+  /// Contenido de ejemplo (los 6 casos ilustrativos migrados desde
+  /// data/vip-stories.ts). Nunca se publica en producción salvo
+  /// ENABLE_DEMO_CONTENT=true (ver lib/domain/content.ts).
+  isDemo              Boolean       @default(false)
+  featured            Boolean       @default(false)
+  sortOrder           Int           @default(0)
+  eventDate           DateTime?
+  season              String?
+  space               String?
+  decor               String?
+  photocall           String?
+  weather             String?
+  restaurantSolutions String?
+  testimonialQuote    String?
+  testimonialAuthor   String?
+  priceFrom           Int?
+  priceTo             Int?
+  priceCurrency       String?
+  priceNote           String?
+  /// Texto del CTA final de la ficha. Si es null, la UI usa el texto por
+  /// defecto según el tipo (ver components/vip/story-detail.tsx).
+  ctaLabel            String?
+  /// Destino del CTA. Solo se aceptan rutas internas (empiezan por "/"),
+  /// validado en lib/validation/content.ts — nunca una URL externa.
+  ctaHref             String?
+  /// SEO: si es true, la ficha se sirve con noindex aunque esté publicada.
+  /// Por defecto true porque hoy todo el contenido es de ejemplo (isDemo).
+  seoNoindex          Boolean       @default(true)
+  publishedAt         DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  archivedAt          DateTime?
+  createdById         String?
+  updatedById         String?
+
+  createdBy User? @relation("ContentCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User? @relation("ContentUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  translations ContentTranslation[]
+  media        ContentMedia[]
+  providers    ContentProvider[]
+  menuSections ContentMenuSection[]
+  timeline     ContentTimelineItem[]
+  highlights   ContentHighlight[]
+  activities   LeadActivity[]
+  interactions ContentInteraction[]
+
+  @@unique([type, slug])
+  @@index([type, status, sortOrder])
+  @@index([status, publishedAt])
+  @@map("content_entry")
+}
+
+/// Texto localizado de una ficha. Debe existir siempre una fila `ES`; `EN`
+/// es opcional (invariante validada en lib/domain/content.ts, no en el
+/// esquema, ya que Prisma no expresa "al menos una fila de este tipo").
+model ContentTranslation {
+  id             String   @id @default(cuid())
+  contentEntryId String
+  locale         Locale
+  title          String
+  subtitle       String?
+  /// Párrafo de introducción de la ficha (texto libre, localizado).
+  intro          String?
+  /// SEO básico, localizado. Si son null, la ruta pública usa title/subtitle.
+  seoTitle       String?
+  seoDescription String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  contentEntry ContentEntry @relation(fields: [contentEntryId], references: [id], onDelete: Cascade)
+
+  @@unique([contentEntryId, locale])
+  @@map("content_translation")
+}
+
+model ContentMedia {
+  id             String    @id @default(cuid())
+  contentEntryId String
+  type           MediaType
+  /// Ruta en Supabase Storage (bucket privado `vip-content`) para IMAGE.
+  /// Null si es `url` externa. El nombre de objeto lo genera el servidor
+  /// (aleatorio), nunca proviene del nombre de archivo del usuario.
+  storagePath    String?
+  /// URL externa (EXTERNAL_VIDEO/REEL, o imagen ya pública heredada del seed).
+  url            String?
+  /// Miniatura de un vídeo/Reel externo (objeto de Storage o URL validada).
+  thumbnailUrl   String?
+  alt            String?
+  caption        String?
+  sortOrder      Int       @default(0)
+  isHero         Boolean   @default(false)
+  /// Si aparece en la galería pública de la ficha. Se pone a false en los
+  /// archivos que solo ilustran a un proveedor: pertenecen a la ficha, pero no
+  /// deben duplicarse en la cuadrícula de la galería.
+  inGallery      Boolean   @default(true)
+  /// Metadatos reales del archivo subido, verificados en servidor
+  /// (lib/storage/validate-image.ts). Null para media externa.
+  mimeType       String?
+  sizeBytes      Int?
+  width          Int?
+  height         Int?
+  createdAt      DateTime  @default(now())
+
+  contentEntry ContentEntry      @relation(fields: [contentEntryId], references: [id], onDelete: Cascade)
+  providers    ContentProvider[]
+
+  @@index([contentEntryId, sortOrder])
+  /// Permite comprobar si un objeto de Storage sigue referenciado por otra
+  /// ficha antes de borrarlo (p. ej. tras "duplicar como borrador").
+  @@index([storagePath])
+  @@map("content_media")
+}
+
+model ContentProvider {
+  id             String   @id @default(cuid())
+  contentEntryId String
+  category       String
+  name           String
+  mediaId        String?
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  contentEntry ContentEntry  @relation(fields: [contentEntryId], references: [id], onDelete: Cascade)
+  media        ContentMedia? @relation(fields: [mediaId], references: [id], onDelete: SetNull)
+
+  @@index([contentEntryId, sortOrder])
+  @@map("content_provider")
+}
+
+model ContentMenuSection {
+  id             String @id @default(cuid())
+  contentEntryId String
+  course         String
+  sortOrder      Int    @default(0)
+
+  contentEntry ContentEntry      @relation(fields: [contentEntryId], references: [id], onDelete: Cascade)
+  items        ContentMenuItem[]
+
+  @@index([contentEntryId, sortOrder])
+  @@map("content_menu_section")
+}
+
+model ContentMenuItem {
+  id        String @id @default(cuid())
+  sectionId String
+  label     String
+  sortOrder Int    @default(0)
+
+  section ContentMenuSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId, sortOrder])
+  @@map("content_menu_item")
+}
+
+model ContentTimelineItem {
+  id             String @id @default(cuid())
+  contentEntryId String
+  time           String
+  moment         String
+  sortOrder      Int    @default(0)
+
+  contentEntry ContentEntry @relation(fields: [contentEntryId], references: [id], onDelete: Cascade)
+
+  @@index([contentEntryId, sortOrder])
+  @@map("content_timeline_item")
+}
+
+/// Momentos/sorpresas destacados de la celebración (bullet points cortos).
+model ContentHighlight {
+  id             String @id @default(cuid())
+  contentEntryId String
+  label          String
+  sortOrder      Int    @default(0)
+
+  contentEntry ContentEntry @relation(fields: [contentEntryId], references: [id], onDelete: Cascade)
+
+  @@index([contentEntryId, sortOrder])
+  @@map("content_highlight")
+}
+
+// ---------------------------------------------------------------------------
+// Acceso VIP e interacción
+// ---------------------------------------------------------------------------
+
+enum InteractionType {
+  GATE_GRANTED
+  SECTION_VIEWED
+  CONTENT_VIEWED
+  CTA_CLICKED
+}
+
+/// Sesión de acceso a la zona VIP. Solo se guarda el hash del token (HMAC),
+/// nunca el token en claro (ver lib/security/tokens.ts).
+model VipAccessSession {
+  id         String    @id @default(cuid())
+  leadId     String
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@map("vip_access_session")
+}
+
+model ContentInteraction {
+  id             String          @id @default(cuid())
+  leadId         String
+  contentEntryId String?
+  section        ContentType
+  type           InteractionType
+  utmSource      String?
+  utmMedium      String?
+  utmCampaign    String?
+  createdAt      DateTime        @default(now())
+
+  lead         Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  contentEntry ContentEntry? @relation(fields: [contentEntryId], references: [id], onDelete: SetNull)
+
+  @@index([leadId, createdAt])
+  @@index([contentEntryId, createdAt])
+  @@map("content_interaction")
+}

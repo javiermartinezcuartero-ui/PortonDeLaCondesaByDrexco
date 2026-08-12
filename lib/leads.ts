@@ -1,79 +1,79 @@
-import type { LeadAttribution } from "@/lib/attribution"
+import { getAttribution } from "@/lib/attribution"
+import { PRIVACY_POLICY_VERSION } from "@/lib/legal"
+import type { LeadRequestFormValues, LeadRequestResponse, SourceFormCode } from "@/lib/validation/lead-request"
 
-export type LeadFormPayload = {
-  firstName: string
-  lastName: string
-  email: string
-  phone: string
-  eventType: string
-  eventDate: string
-  guestCount: string
-  message?: string
-  privacyConsent: boolean
-  marketingConsent?: boolean
-  attribution: LeadAttribution
-}
+/** Endpoint propio que sustituye al envío directo del navegador a Web3Forms. */
+export const LEAD_REQUESTS_ENDPOINT = "/api/leads/requests"
 
-export type SubmitLeadResult = {
-  ok: boolean
-  reason?: "not-configured" | "error"
+export type SubmitLeadRequestContext = {
+  sourceForm: SourceFormCode
+  /** Ficha de la que viene el CTA ("Quiero una boda así"), si aplica. */
+  sourceContentId?: string
+  /** Clave de idempotencia del envío. Ver `newSubmissionId`. */
+  submissionId: string
+  /** Milisegundos desde que se pintó el formulario hasta el envío. */
+  formElapsedMs: number
 }
 
 /**
- * Envío del formulario de leads a través de Web3Forms (https://web3forms.com):
- * un servicio que reenvía la sumisión por email sin necesidad de backend ni
- * credenciales SMTP propias. Requiere una access key gratuita vinculada al
- * email de destino, configurada en `NEXT_PUBLIC_WEB3FORMS_KEY`.
- *
- * TODO(leads-api): cuando exista un backend propio (ver
- * project-reference/docs/03-arquitectura-crm-leads.md), sustituir esta llamada
- * por `POST /api/leads` con validación en servidor, rate limit, honeypot,
- * deduplicación por email y persistencia en el CRM.
+ * Clave de idempotencia por intento de envío. `randomUUID` existe en todos los
+ * navegadores con contexto seguro (incluido localhost); el respaldo cubre
+ * navegadores antiguos sin él y no necesita ser criptográfico: solo tiene que
+ * distinguir dos envíos distintos.
  */
-export async function submitLead(payload: LeadFormPayload): Promise<SubmitLeadResult> {
-  const accessKey = process.env.NEXT_PUBLIC_WEB3FORMS_KEY
+export function newSubmissionId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID()
+  }
+  return `sub-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+}
 
-  if (!accessKey) {
-    console.warn(
-      "[leads] NEXT_PUBLIC_WEB3FORMS_KEY no configurada: el formulario no puede enviarse todavía.",
-      payload
-    )
-    return { ok: false, reason: "not-configured" }
+/**
+ * Envía una solicitud comercial al endpoint propio.
+ *
+ * La atribución, la ruta de origen y la versión de la política se completan
+ * aquí, para que el componente de interfaz no tenga que conocer el contrato del
+ * endpoint.
+ *
+ * No lanza: cualquier fallo se devuelve como resultado, de modo que el
+ * formulario pueda mostrar un estado de error y **conservar lo que la persona
+ * escribió**.
+ */
+export async function submitLeadRequest(
+  values: LeadRequestFormValues,
+  context: SubmitLeadRequestContext
+): Promise<LeadRequestResponse> {
+  const attribution = getAttribution()
+
+  const body = {
+    ...values,
+    // El servidor exige una ruta interna; sin `window` (que no debería ocurrir
+    // en un formulario) se envía la raíz.
+    sourcePage: attribution.path ?? "/",
+    sourceForm: context.sourceForm,
+    sourceContentId: context.sourceContentId,
+    referrer: attribution.referrer ?? undefined,
+    utmSource: attribution.utmSource ?? undefined,
+    utmMedium: attribution.utmMedium ?? undefined,
+    utmCampaign: attribution.utmCampaign ?? undefined,
+    utmContent: attribution.utmContent ?? undefined,
+    utmTerm: attribution.utmTerm ?? undefined,
+    policyVersion: PRIVACY_POLICY_VERSION,
+    submissionId: context.submissionId,
+    formElapsedMs: context.formElapsedMs,
   }
 
   try {
-    const response = await fetch("https://api.web3forms.com/submit", {
+    const response = await fetch(LEAD_REQUESTS_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({
-        access_key: accessKey,
-        subject: `Nueva solicitud — ${payload.eventType} — El Portón de la Condesa`,
-        from_name: `${payload.firstName} ${payload.lastName}`,
-        email: payload.email,
-        phone: payload.phone,
-        event_type: payload.eventType,
-        event_date: payload.eventDate,
-        guest_count: payload.guestCount,
-        message: payload.message || "(sin mensaje)",
-        marketing_consent: payload.marketingConsent ? "sí" : "no",
-        utm_source: payload.attribution.utmSource ?? "",
-        utm_medium: payload.attribution.utmMedium ?? "",
-        utm_campaign: payload.attribution.utmCampaign ?? "",
-        utm_content: payload.attribution.utmContent ?? "",
-        landing_url: payload.attribution.landingUrl ?? "",
-        referrer: payload.attribution.referrer ?? "",
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     })
 
-    const data = await response.json()
-    if (!response.ok || !data.success) {
-      console.error("[leads] Web3Forms rechazó el envío:", data)
-      return { ok: false, reason: "error" }
-    }
-
-    return { ok: true }
-  } catch (error) {
-    console.error("[leads] error de red al enviar el formulario:", error)
-    return { ok: false, reason: "error" }
+    return (await response.json()) as LeadRequestResponse
+  } catch {
+    // Sin red o con respuesta ilegible: el mensaje al visitante es el mismo que
+    // si hubiera fallado la persistencia, porque para él es indistinguible.
+    return { ok: false, code: "persistence-failed" }
   }
 }

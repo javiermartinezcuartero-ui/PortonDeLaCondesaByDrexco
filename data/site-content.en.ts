@@ -9,6 +9,7 @@
  */
 import type { NavItem } from "@/data/site-content"
 import { brand } from "@/data/site-content"
+import type { EventTypeCode } from "@/lib/validation/lead-request"
 
 export const navigation: NavItem[] = [
   { label: "Weddings", href: "/#vision", isRoute: false },
@@ -177,17 +178,18 @@ export const spacesSectionContent = {
   cta: { label: "Check availability", href: "/#contacto" },
 }
 
-export const eventTypes = [
-  "Wedding",
-  "Civil ceremony",
-  "First communion",
-  "Christening",
-  "Anniversary",
-  "Corporate event",
-  "Congress or convention",
-  "External catering",
-  "Other",
-] as const
+/** Etiquetas en inglés de los mismos códigos de tipo de evento. */
+export const eventTypeLabels: Record<EventTypeCode, string> = {
+  WEDDING: "Wedding",
+  CIVIL_CEREMONY: "Civil ceremony",
+  COMMUNION: "First communion",
+  CHRISTENING: "Christening",
+  ANNIVERSARY: "Anniversary",
+  CORPORATE_EVENT: "Corporate event",
+  CONGRESS: "Congress or convention",
+  EXTERNAL_CATERING: "External catering",
+  OTHER: "Other",
+}
 
 export const contactContent = {
   label: "Contact",
@@ -220,10 +222,4 @@ export const cookieConsentContent = {
 
 export const adminAccessContent = {
   tooltip: "Admin area",
-  dialogTitle: "Restricted access",
-  dialogDescription: "This area is reserved for the El Portón de la Condesa team.",
-  placeholder: "Password",
-  submitLabel: "Enter",
-  pendingMessage:
-    "The admin backend isn't connected yet. Once you send me the prompt for /admin, this access will become operational.",
 }

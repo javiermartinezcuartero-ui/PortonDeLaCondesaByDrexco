@@ -4,7 +4,6 @@ import { DM_Sans, Cormorant_Garamond, JetBrains_Mono } from 'next/font/google'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { WhatsAppButton } from '@/components/whatsapp-button'
-import { AdminAccess } from '@/components/admin-access'
 import { CookieConsent } from '@/components/cookie-consent'
 import { LocaleProvider } from '@/lib/i18n'
 import { LocalBusinessJsonLd } from '@/components/structured-data'
@@ -102,8 +101,9 @@ export default function RootLayout({
           <Header />
           {children}
           <Footer />
+          {/* El acceso al panel privado vive ahora en el header (arriba a la
+              derecha), no como botón flotante: un único punto de entrada. */}
           <WhatsAppButton />
-          <AdminAccess />
           <CookieConsent />
         </LocaleProvider>
       </body>

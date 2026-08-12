@@ -27,7 +27,7 @@ export default function PoliticaPrivacidadPage() {
             <h2 className="text-sm tracking-[0.15em] uppercase text-muted-foreground mb-3">2. Qué datos tratamos</h2>
             <p>Tratamos los datos que nos facilitas voluntariamente a través de:</p>
             <ul className="mt-3 space-y-2">
-              <li className="flex items-start gap-3"><span className="w-1 h-1 mt-2 bg-accent shrink-0" />El formulario de contacto: nombre, apellidos, email, teléfono, tipo de evento, fecha prevista, número de invitados y mensaje.</li>
+              <li className="flex items-start gap-3"><span className="w-1 h-1 mt-2 bg-accent shrink-0" />El formulario de solicitud de información: nombre, apellidos, email, teléfono, tipo de evento, fecha prevista, número de invitados, espacio de interés, presupuesto orientativo, asunto y mensaje. En eventos de empresa, también la empresa u organización, el cargo y las necesidades audiovisuales que nos indiques.</li>
               <li className="flex items-start gap-3"><span className="w-1 h-1 mt-2 bg-accent shrink-0" />El acceso a la biblioteca VIP de bodas reales y catering: email.</li>
               <li className="flex items-start gap-3"><span className="w-1 h-1 mt-2 bg-accent shrink-0" />Datos técnicos de navegación y de origen de la visita (página de entrada, referente y parámetros UTM), para saber qué canal generó tu consulta.</li>
             </ul>
@@ -54,16 +54,19 @@ export default function PoliticaPrivacidadPage() {
           <section>
             <h2 className="text-sm tracking-[0.15em] uppercase text-muted-foreground mb-3">5. Con quién compartimos tus datos</h2>
             <p>
-              El envío de formularios se procesa a través de{" "}
-              <a href="https://web3forms.com" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
-                Web3Forms
-              </a>
-              , un proveedor externo que reenvía la solicitud por email a nuestro equipo. No cedemos tus datos a
-              terceros para fines distintos, salvo obligación legal.
+              Los formularios de esta web se procesan en nuestros propios servidores y los datos se guardan en la base
+              de datos de gestión de clientes de {brand.name}, alojada en Supabase (infraestructura en la Unión
+              Europea), que actúa como encargado del tratamiento. No cedemos tus datos a terceros para fines distintos,
+              salvo obligación legal.
+            </p>
+            <p className="mt-3">
+              Ya no utilizamos ningún servicio externo de reenvío de formularios por email para tratar estos datos.
             </p>
             <p className="mt-3 text-sm text-muted-foreground italic">
-              [PENDIENTE: si en el futuro se implementa un CRM propio o se cambia de proveedor de formularios, actualizar
-              este apartado con el nuevo tratamiento de datos.]
+              [PENDIENTE DE REVISIÓN JURÍDICA: este apartado describe el tratamiento técnico real, pero el texto legal
+              definitivo —incluida la identificación del encargado del tratamiento, el contrato de encargo y las
+              transferencias internacionales si las hubiera— debe redactarlo o validarlo un profesional antes de
+              publicar en producción.]
             </p>
           </section>
 

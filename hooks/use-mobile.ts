@@ -11,6 +11,9 @@ export function useIsMobile() {
       setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     }
     mql.addEventListener('change', onChange)
+    // Lee el valor inicial de un sistema externo (matchMedia) tras montar;
+    // no aplica el React Compiler (no está activado en este proyecto).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
     return () => mql.removeEventListener('change', onChange)
   }, [])

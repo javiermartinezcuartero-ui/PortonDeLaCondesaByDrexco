@@ -14,6 +14,10 @@ export function HeroSection() {
   const sectionRef = useRef<HTMLElement>(null)
 
   useEffect(() => {
+    // Dispara la transición de entrada tras el primer pintado; no puede
+    // hacerse durante el render sin perder el efecto de fade-in. No aplica
+    // el React Compiler (no está activado en este proyecto).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoaded(true)
 
     const handleScroll = () => {

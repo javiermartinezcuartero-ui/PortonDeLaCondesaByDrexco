@@ -346,26 +346,7 @@ export const cateringStories: VipStory[] = [
   },
 ]
 
-export const vipGateContent = {
-  title: "Biblioteca VIP",
-  description:
-    "Déjanos tu email para acceder a los casos completos: proveedores, decoración, menús y opiniones de quienes ya celebraron con nosotros.",
-  placeholder: "tu@email.com",
-  submitLabel: "Acceder",
-  consentLabel: "Acepto recibir información de El Portón de la Condesa por email.",
-  successMessage: "¡Gracias! Ya puedes ver todos los casos.",
-  skipLabel: "Saltar verificación (solo desarrollo)",
-}
-
-// TODO(i18n): las fichas de bodas/catering (VipStory[]) siguen solo en
-// español; aquí solo se traduce la interfaz del gate VIP.
-export const vipGateContentEn = {
-  title: "VIP library",
-  description:
-    "Leave us your email to access the full case studies: suppliers, decor, menus and reviews from those who've already celebrated with us.",
-  placeholder: "you@email.com",
-  submitLabel: "Access",
-  consentLabel: "I agree to receive information from El Portón de la Condesa by email.",
-  successMessage: "Thank you! You can now see every case.",
-  skipLabel: "Skip verification (dev only)",
-}
+// Los textos del gate VIP ya no viven aquí: están en
+// components/vip/vip-gate.tsx, porque el gate de la Fase 5 separa el
+// consentimiento de privacidad del de marketing (el texto anterior los
+// mezclaba en una sola casilla) y ya no existe la opción de saltarlo.

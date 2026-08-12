@@ -95,6 +95,9 @@ function Carousel({
 
   React.useEffect(() => {
     if (!api) return
+    // Sincroniza el estado inicial desde embla-carousel (sistema externo);
+    // no aplica el React Compiler (no está activado en este proyecto).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     onSelect(api)
     api.on('reInit', onSelect)
     api.on('select', onSelect)

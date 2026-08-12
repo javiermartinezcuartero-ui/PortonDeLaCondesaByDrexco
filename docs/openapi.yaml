@@ -1,0 +1,444 @@
+openapi: 3.1.0
+
+# Contrato de la API pública de El Portón de la Condesa.
+#
+# Regla que se aplica a todo este archivo: NINGÚN ejemplo contiene datos
+# personales reales. Los valores de muestra usan dominios reservados
+# (example.test) y nombres genéricos. Las respuestas del servidor tampoco
+# devuelven PII: los errores de validación solo enumeran nombres de campo, nunca
+# los valores recibidos.
+
+info:
+  title: El Portón de la Condesa — API pública
+  version: "1.0.0"
+  description: |
+    Endpoints públicos de la web. Hoy solo existe el alta de solicitudes
+    comerciales; el resto de la captación (gate VIP) va por Server Actions y no
+    por HTTP, así que no aparece aquí.
+
+    El panel de administración (`/api/admin/*`) y Better Auth (`/api/auth/*`)
+    quedan fuera de este contrato: son superficie privada, documentada en
+    docs/autenticacion.md.
+
+servers:
+  - url: http://localhost:3000
+    description: Desarrollo
+  - url: https://elportondelacondesa.com
+    description: Producción
+
+tags:
+  - name: Leads
+    description: Captación comercial desde los formularios públicos.
+
+paths:
+  /api/leads/requests:
+    post:
+      tags: [Leads]
+      summary: Registrar una solicitud comercial
+      description: |
+        Da de alta una solicitud enviada desde un formulario público. En una sola
+        transacción crea o actualiza el `Lead`, **crea siempre una `LeadRequest`
+        nueva** (nunca sobrescribe una anterior), registra el consentimiento de
+        privacidad —y el de marketing solo si se concede— y anota la actividad
+        `FORM_SUBMITTED`.
+
+        No requiere autenticación. Está protegido por:
+
+        - validación de mismo origen cuando llega la cabecera `Origin`;
+        - límite de tamaño de cuerpo (32 KiB);
+        - honeypot (campo `honeypot`);
+        - tiempo mínimo de formulario (`formElapsedMs`);
+        - rate limit persistente por IP y por email;
+        - clave de idempotencia (`submissionId`) contra el doble envío.
+
+        No hay CAPTCHA: se ha descartado mientras no haya abuso demostrado.
+      operationId: createLeadRequest
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadRequestInput"
+            examples:
+              contactoHome:
+                summary: Formulario general de la home
+                value:
+                  firstName: Nombre
+                  lastName: Apellidos
+                  email: persona@example.test
+                  phone: "+34 600 000 000"
+                  eventType: WEDDING
+                  eventDate: "2027-06-12"
+                  guestCount: 150
+                  preferredSpace: salon-porton
+                  budgetRange: 20000-35000
+                  subject: Boda en septiembre
+                  message: Nos gustaría visitar la finca y conocer disponibilidad.
+                  privacyConsent: true
+                  marketingConsent: false
+                  policyVersion: "2026-08"
+                  sourcePage: /
+                  sourceForm: contact-home
+                  submissionId: 11111111-2222-3333-4444-555555555555
+                  formElapsedMs: 15400
+              eventoCorporativo:
+                summary: Evento de empresa (exige `company`)
+                value:
+                  firstName: Nombre
+                  lastName: Apellidos
+                  email: persona@example.test
+                  eventType: CORPORATE_EVENT
+                  company: Empresa de ejemplo SL
+                  jobTitle: Responsable de eventos
+                  audiovisualNeeds: Proyector, sonido y streaming
+                  preferredSpace: salon-cristal
+                  subject: Convención anual
+                  message: Buscamos espacio para 200 personas en octubre.
+                  privacyConsent: true
+                  policyVersion: "2026-08"
+                  sourcePage: /
+                  sourceForm: contact-home
+                  submissionId: 22222222-3333-4444-5555-666666666666
+                  formElapsedMs: 42000
+              ctaDeFicha:
+                summary: CTA "Quiero una boda así" desde una ficha VIP
+                value:
+                  firstName: Nombre
+                  lastName: Apellidos
+                  email: persona@example.test
+                  eventType: WEDDING
+                  preferredSpace: sin-preferencia
+                  subject: Quiero una boda así
+                  message: Nos ha encantado esta boda, queremos algo parecido.
+                  privacyConsent: true
+                  marketingConsent: true
+                  policyVersion: "2026-08"
+                  sourcePage: /bodas-reales/nombre-de-la-ficha
+                  sourceForm: vip-story-cta
+                  sourceContentId: ckz0000000000000000000000
+                  utmSource: instagram
+                  utmMedium: social
+                  submissionId: 33333333-4444-5555-6666-777777777777
+                  formElapsedMs: 21000
+      responses:
+        "201":
+          description: Solicitud creada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadRequestAccepted"
+              example: { ok: true, duplicate: false }
+        "200":
+          description: |
+            La `submissionId` ya estaba registrada: no se ha creado nada nuevo y
+            se confirma la solicitud existente (doble clic o reintento).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadRequestAccepted"
+              example: { ok: true, duplicate: true }
+        "202":
+          description: |
+            Aceptada sin efecto. Es la respuesta al honeypot relleno: deliberadamente
+            indistinguible de un éxito para no informar al bot, pero **no se guarda
+            nada**.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadRequestAccepted"
+              example: { ok: true, duplicate: false }
+        "400":
+          description: |
+            Payload inválido (`invalid-payload`, con la lista de campos afectados)
+            o enviado por debajo del tiempo mínimo de formulario (`too-fast`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadRequestError"
+              examples:
+                camposInvalidos:
+                  value: { ok: false, code: invalid-payload, fields: [email, eventDate] }
+                demasiadoRapido:
+                  value: { ok: false, code: too-fast }
+        "403":
+          description: Origen distinto del host de la petición (`invalid-request`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadRequestError"
+              example: { ok: false, code: invalid-request }
+        "409":
+          description: |
+            `policyVersion` no coincide con la política vigente en el servidor: el
+            navegador tenía la página abierta desde antes de un cambio de política y
+            debe recargar antes de volver a consentir.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadRequestError"
+              example: { ok: false, code: policy-version-mismatch }
+        "413":
+          description: Cuerpo por encima de 32 KiB (`payload-too-large`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadRequestError"
+              example: { ok: false, code: payload-too-large }
+        "415":
+          description: El `Content-Type` no es `application/json` (`invalid-request`).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadRequestError"
+              example: { ok: false, code: invalid-request }
+        "429":
+          description: |
+            Límite de envíos agotado por IP o por email. Respuesta genérica: no
+            distingue cuál de los dos límites se ha alcanzado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadRequestError"
+              example: { ok: false, code: rate-limited, retryAfterSeconds: 540 }
+        "503":
+          description: |
+            No se ha podido escribir en la base de datos. El motivo real queda en el
+            log del servidor; la respuesta nunca lo describe.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LeadRequestError"
+              example: { ok: false, code: persistence-failed }
+
+components:
+  schemas:
+    EventType:
+      type: string
+      description: |
+        Código estable del tipo de evento. Se guarda el código, no la etiqueta
+        traducida, para que "Boda" y "Wedding" agrupen igual en el CRM.
+      enum:
+        - WEDDING
+        - CIVIL_CEREMONY
+        - COMMUNION
+        - CHRISTENING
+        - ANNIVERSARY
+        - CORPORATE_EVENT
+        - CONGRESS
+        - EXTERNAL_CATERING
+        - OTHER
+
+    PreferredSpace:
+      type: string
+      description: |
+        Slug del espacio, el mismo con el que la web publica cada salón.
+        `sin-preferencia` es una respuesta válida, no un hueco.
+      enum: [salon-porton, salon-zafiro, salon-cristal, salon-conde, sin-preferencia]
+
+    BudgetRange:
+      type: string
+      description: |
+        Tramo orientativo. Pendiente de confirmación de negocio (ver README
+        §Pendientes); `por-definir` permite no comprometerse.
+      enum: [hasta-10000, 10000-20000, 20000-35000, mas-35000, por-definir]
+
+    SourceForm:
+      type: string
+      description: Formulario que originó la solicitud.
+      enum: [contact-home, vip-story-cta]
+
+    LeadRequestInput:
+      type: object
+      additionalProperties: false
+      required:
+        - firstName
+        - lastName
+        - email
+        - eventType
+        - preferredSpace
+        - subject
+        - message
+        - privacyConsent
+        - policyVersion
+        - sourcePage
+        - sourceForm
+        - submissionId
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 120
+        email:
+          type: string
+          format: email
+          maxLength: 320
+          description: Se normaliza a minúsculas para deduplicar el `Lead`.
+        phone:
+          type: string
+          maxLength: 32
+          description: |
+            Opcional. Formato flexible (prefijo, espacios, puntos, guiones y
+            paréntesis) con un mínimo de 6 dígitos reales. Se guarda tal como se
+            escribió; la normalización a E.164 es interna.
+        eventType:
+          $ref: "#/components/schemas/EventType"
+        eventDate:
+          type: string
+          description: |
+            Opcional, `YYYY-MM-DD`. Se admite hoy, no una fecha anterior, y como
+            máximo 5 años en el futuro.
+          examples: ["2027-06-12"]
+        guestCount:
+          description: |
+            Opcional. Entero entre 1 y 600 (tope anti-abuso, no la capacidad de la
+            finca). Se acepta también como cadena de dígitos, que es lo que envía un
+            `<input type="number">`.
+          oneOf:
+            - type: integer
+              minimum: 1
+              maximum: 600
+            - type: string
+        company:
+          type: string
+          maxLength: 160
+          description: |
+            **Obligatorio si `eventType` es `CORPORATE_EVENT` o `CONGRESS`.** Con
+            cualquier otro tipo de evento se descarta y no se persiste.
+        jobTitle:
+          type: string
+          maxLength: 120
+          description: Opcional. Solo se persiste en eventos corporativos.
+        audiovisualNeeds:
+          type: string
+          maxLength: 1000
+          description: Opcional. Solo se persiste en eventos corporativos.
+        preferredSpace:
+          $ref: "#/components/schemas/PreferredSpace"
+        budgetRange:
+          $ref: "#/components/schemas/BudgetRange"
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 160
+        message:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        privacyConsent:
+          type: boolean
+          const: true
+          description: Obligatorio. Sin base legal no se guarda nada.
+        marketingConsent:
+          type: boolean
+          default: false
+          description: |
+            Consentimiento separado y opcional. Solo se registra un `ConsentEvent`
+            de MARKETING cuando es `true`: dejarlo en `false` no revoca un
+            consentimiento concedido antes por otra vía.
+        policyVersion:
+          type: string
+          maxLength: 32
+          description: |
+            Versión de la política de privacidad que se aceptó. El servidor la
+            compara con la vigente y rechaza con 409 si no coinciden.
+          examples: ["2026-08"]
+        sourcePage:
+          type: string
+          maxLength: 300
+          description: Ruta interna desde la que se envió. Debe empezar por `/`.
+        sourceForm:
+          $ref: "#/components/schemas/SourceForm"
+        sourceContentId:
+          type: string
+          maxLength: 64
+          description: |
+            Id de la ficha (`ContentEntry`) de la que venía el CTA. Se verifica
+            contra contenido publicado: si no existe o no está publicado se descarta
+            silenciosamente y la solicitud se guarda igual.
+        referrer:
+          type: string
+          maxLength: 300
+        utmSource:
+          type: string
+          maxLength: 300
+        utmMedium:
+          type: string
+          maxLength: 300
+        utmCampaign:
+          type: string
+          maxLength: 300
+        utmContent:
+          type: string
+          maxLength: 300
+        utmTerm:
+          type: string
+          maxLength: 300
+        honeypot:
+          type: string
+          maxLength: 300
+          description: |
+            Campo trampa. Debe llegar vacío. Si trae contenido, la respuesta es un
+            202 indistinguible de un éxito y no se guarda nada.
+        formElapsedMs:
+          type: integer
+          minimum: 0
+          description: |
+            Milisegundos entre el pintado del formulario y el envío. Por debajo de
+            3000 se responde `too-fast`. No es una defensa criptográfica: el valor
+            lo envía el cliente.
+        submissionId:
+          type: string
+          minLength: 8
+          maxLength: 64
+          description: |
+            Clave de idempotencia del intento. Dos peticiones con la misma clave
+            producen una sola `LeadRequest`.
+
+    LeadRequestAccepted:
+      type: object
+      additionalProperties: false
+      required: [ok, duplicate]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        duplicate:
+          type: boolean
+          description: "`true` si la `submissionId` ya existía y no se creó nada."
+
+    LeadRequestError:
+      type: object
+      additionalProperties: false
+      required: [ok, code]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        code:
+          type: string
+          description: |
+            Código estable, no un texto: el idioma lo decide el cliente (ver
+            components/sections/contact.tsx).
+          enum:
+            - invalid-payload
+            - policy-version-mismatch
+            - too-fast
+            - rate-limited
+            - payload-too-large
+            - persistence-failed
+            - invalid-request
+        fields:
+          type: array
+          description: |
+            Solo en `invalid-payload`. Nombres de los campos con problemas. **Nunca
+            incluye los valores recibidos**, para que un error no filtre PII.
+          items:
+            type: string
+        retryAfterSeconds:
+          type: integer
+          description: Solo en `rate-limited`. Segundos que quedan de ventana.

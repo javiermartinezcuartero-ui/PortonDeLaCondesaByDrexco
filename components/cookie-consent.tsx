@@ -14,9 +14,12 @@ export function CookieConsent() {
   useEffect(() => {
     const stored = window.localStorage.getItem(cookieConsentContent.storageKey)
     if (!stored) {
+      // Restaura el estado desde localStorage tras montar (no hay acceso a
+      // localStorage durante el render en servidor); no aplica el React Compiler.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVisible(true)
     }
-  }, [])
+  }, [cookieConsentContent.storageKey])
 
   // Los botones flotantes (WhatsApp / Zona Admin) se desplazan mientras el
   // banner esté visible para que no queden bloqueados detrás de él.

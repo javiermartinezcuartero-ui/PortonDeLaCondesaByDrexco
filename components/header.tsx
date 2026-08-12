@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils"
 import { brand, navigation as navigationEs, headerCta as headerCtaEs } from "@/data/site-content"
 import { navigation as navigationEn, headerCta as headerCtaEn } from "@/data/site-content.en"
 import { useLocale } from "@/lib/i18n"
+import { AdminAccess } from "@/components/admin-access"
 
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -92,22 +93,10 @@ export function Header() {
             <span className={cn("text-xs tracking-[0.1em]", locale === "en" ? "text-foreground" : "text-muted-foreground")}>EN</span>
           </label>
 
-          {/* CTA Button */}
-          <div className="hidden xl:block shrink-0">
-            <Link
-              href={headerCta.href}
-              className="inline-flex items-center gap-2 px-5 py-3 text-xs tracking-[0.1em] uppercase text-primary-foreground bg-primary hover:bg-primary/90 transition-all duration-300 whitespace-nowrap"
-            >
-              <span>{headerCta.label}</span>
-              <svg
-                className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
-            </Link>
+          {/* Acceso al panel privado. El CTA de contacto se retiró de la barra
+              superior; sigue disponible en el menú móvil y en la home. */}
+          <div className="hidden xl:flex items-center shrink-0">
+            <AdminAccess />
           </div>
 
           {/* Mobile Menu Button */}
@@ -182,6 +171,11 @@ export function Header() {
             </span>
             <span className={cn("text-xs tracking-[0.1em]", locale === "en" ? "text-foreground" : "text-muted-foreground")}>EN</span>
           </label>
+
+          {/* El mismo acceso, para que en móvil no quede fuera de alcance */}
+          <div onClick={() => setIsMobileMenuOpen(false)}>
+            <AdminAccess />
+          </div>
         </nav>
       </div>
     </header>

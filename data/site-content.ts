@@ -13,6 +13,8 @@
  * finca. `05` se recortó para eliminar la marca de agua de Fredy Mazza.
  */
 
+import type { EventTypeCode } from "@/lib/validation/lead-request"
+
 export const brand = {
   name: "El Portón de la Condesa",
   website: "https://elportondelacondesa.com/",
@@ -317,17 +319,22 @@ export const spacesSectionContent = {
   cta: { label: "Consultar disponibilidad", href: "#contacto" },
 }
 
-export const eventTypes = [
-  "Boda",
-  "Ceremonia civil",
-  "Comunión",
-  "Bautizo",
-  "Aniversario",
-  "Evento corporativo",
-  "Congreso o convención",
-  "Catering externo",
-  "Otro",
-] as const
+/**
+ * Etiqueta visible de cada tipo de evento. El código (`WEDDING`, …) es lo que se
+ * guarda en el CRM y vive en `lib/validation/lead-request.ts`; aquí solo está el
+ * texto, para que "Boda" y "Wedding" acaben en la misma categoría.
+ */
+export const eventTypeLabels: Record<EventTypeCode, string> = {
+  WEDDING: "Boda",
+  CIVIL_CEREMONY: "Ceremonia civil",
+  COMMUNION: "Comunión",
+  CHRISTENING: "Bautizo",
+  ANNIVERSARY: "Aniversario",
+  CORPORATE_EVENT: "Evento corporativo",
+  CONGRESS: "Congreso o convención",
+  EXTERNAL_CATERING: "Catering externo",
+  OTHER: "Otro",
+}
 
 export const contactContent = {
   label: "Contacto",
@@ -361,11 +368,4 @@ export const cookieConsentContent = {
 
 export const adminAccessContent = {
   tooltip: "Zona Admin",
-  dialogTitle: "Acceso restringido",
-  dialogDescription:
-    "Esta zona está reservada al equipo de El Portón de la Condesa.",
-  placeholder: "Contraseña",
-  submitLabel: "Entrar",
-  pendingMessage:
-    "El backend de administración todavía no está conectado. Cuando me pases el prompt para /admin, este acceso quedará operativo.",
 }

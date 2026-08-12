@@ -4,9 +4,9 @@ import { useEffect, useRef, useState } from "react"
 import { InstagramIcon } from "@/components/icons/instagram-icon"
 import { FacebookIcon } from "@/components/icons/facebook-icon"
 import { BodasNetIcon } from "@/components/icons/bodas-net-icon"
-import { useForm } from "react-hook-form"
+import Link from "next/link"
+import { useForm, useWatch, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { z } from "zod"
 import {
   Form,
   FormControl,
@@ -25,95 +25,220 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { brand, contactContent as contactContentEs, mapContent as mapContentEs, eventTypes as eventTypesEs } from "@/data/site-content"
-import { contactContent as contactContentEn, mapContent as mapContentEn, eventTypes as eventTypesEn } from "@/data/site-content.en"
+import {
+  brand,
+  contactContent as contactContentEs,
+  mapContent as mapContentEs,
+  eventTypeLabels as eventTypeLabelsEs,
+  spacesContent,
+} from "@/data/site-content"
+import { contactContent as contactContentEn, mapContent as mapContentEn, eventTypeLabels as eventTypeLabelsEn } from "@/data/site-content.en"
 import { useLocale } from "@/lib/i18n"
-import { getAttribution } from "@/lib/attribution"
-import { submitLead } from "@/lib/leads"
+import { PRIVACY_POLICY_PATH } from "@/lib/legal"
+import { newSubmissionId, submitLeadRequest } from "@/lib/leads"
+import {
+  BUDGET_RANGES,
+  EVENT_TYPES,
+  NO_SPACE_PREFERENCE,
+  isCorporateEventType,
+  isEventTypeCode,
+  leadRequestFormSchema,
+  type BudgetRangeCode,
+  type LeadRequestErrorCode,
+  type LeadRequestFormValues,
+} from "@/lib/validation/lead-request"
 
 const formCopy = {
   es: {
-    firstName: "Nombre", firstNamePh: "Tu nombre", firstNameErr: "Introduce tu nombre",
-    lastName: "Apellidos", lastNamePh: "Tus apellidos", lastNameErr: "Introduce tus apellidos",
-    email: "Email", emailPh: "tu@email.com", emailErr: "Introduce un email válido",
-    phone: "Teléfono", phonePh: "+34 ___ ___ ___", phoneErr: "Introduce un teléfono válido",
-    eventType: "Tipo de evento", eventTypePh: "Selecciona una opción", eventTypeErr: "Selecciona el tipo de evento",
-    eventDate: "Fecha prevista", eventDateErr: "Indica la fecha prevista",
-    guestCount: "Invitados aproximados", guestCountPh: "Ej. 120", guestCountErr: "Indica un número aproximado de invitados",
-    message: "Mensaje (opcional)", messagePh: "Cuéntanos más sobre tu celebración...",
-    privacyLabel: "He leído y acepto la política de privacidad *", privacyErr: "Debes aceptar la política de privacidad",
+    firstName: "Nombre", firstNamePh: "Tu nombre",
+    lastName: "Apellidos", lastNamePh: "Tus apellidos",
+    email: "Email", emailPh: "tu@email.com",
+    phone: "Teléfono (opcional)", phonePh: "+34 ___ ___ ___",
+    eventType: "Tipo de evento", eventTypePh: "Selecciona una opción",
+    eventDate: "Fecha prevista (opcional)",
+    guestCount: "Invitados aproximados (opcional)", guestCountPh: "Ej. 120",
+    budgetRange: "Presupuesto orientativo (opcional)", budgetRangePh: "Selecciona un tramo",
+    preferredSpace: "Espacio que te interesa", preferredSpacePh: "Selecciona un espacio",
+    noSpacePreference: "Sin preferencia, aconsejadme",
+    company: "Empresa u organización", companyPh: "Nombre de la empresa",
+    jobTitle: "Cargo (opcional)", jobTitlePh: "Tu puesto",
+    audiovisualNeeds: "Necesidades audiovisuales (opcional)", audiovisualNeedsPh: "Proyector, sonido, streaming…",
+    corporateNote: "Al ser un evento de empresa, estos datos nos ayudan a preparar una propuesta ajustada.",
+    subject: "Asunto", subjectPh: "Ej. Boda en septiembre para 120 invitados",
+    message: "Mensaje", messagePh: "Cuéntanos más sobre tu celebración...",
+    privacyPrefix: "He leído y acepto la", privacyLink: "política de privacidad", privacySuffix: "*",
     marketingLabel: "Acepto recibir comunicaciones comerciales (opcional)",
-    submit: "Solicitar información",
-    successMsg: "Gracias, hemos recibido tu solicitud. Te contactaremos lo antes posible.",
-    notConfiguredMsg: "Formulario validado correctamente. El envío por email está pendiente de activar (falta la clave de Web3Forms).",
-    errorMsg: "No hemos podido enviar tu solicitud. Escríbenos por WhatsApp o llámanos, por favor.",
+    submit: "Solicitar información", submitting: "Enviando…",
+    successTitle: "Solicitud recibida",
+    successBody: "Gracias por escribirnos. Hemos registrado tu solicitud y nos pondremos en contacto contigo para hablar de tu celebración.",
     finca: "Finca", emailLabel: "Email", phoneLabel: "Teléfono",
+    subjectFromStory: { WEDDING: "Quiero una boda así", EXTERNAL_CATERING: "Quiero un catering así" },
+    fieldErrors: {
+      firstName: "Introduce tu nombre",
+      lastName: "Introduce tus apellidos",
+      email: "Introduce un email válido",
+      phone: "Introduce un teléfono válido",
+      eventType: "Selecciona el tipo de evento",
+      eventDate: "Indica una fecha válida que no sea anterior a hoy",
+      guestCount: "Indica un número de invitados válido",
+      company: "Indica la empresa u organización",
+      jobTitle: "Revisa este campo",
+      audiovisualNeeds: "El texto es demasiado largo",
+      preferredSpace: "Selecciona el espacio que te interesa",
+      budgetRange: "Selecciona un tramo válido",
+      subject: "Escribe un asunto",
+      message: "Escribe tu mensaje",
+      privacyConsent: "Debes aceptar la política de privacidad",
+    },
+    errors: {
+      "invalid-payload": "Revisa los datos marcados e inténtalo de nuevo.",
+      "policy-version-mismatch": "La política de privacidad se ha actualizado. Recarga la página y vuelve a enviar el formulario.",
+      "too-fast": "El envío se ha hecho demasiado rápido. Vuelve a pulsar el botón, por favor.",
+      "rate-limited": "Has enviado varias solicitudes seguidas. Espera unos minutos antes de volver a intentarlo.",
+      "payload-too-large": "El mensaje es demasiado largo. Acórtalo un poco e inténtalo de nuevo.",
+      "persistence-failed": "No hemos podido registrar tu solicitud. Escríbenos por WhatsApp o llámanos, por favor.",
+      "invalid-request": "No hemos podido procesar la solicitud. Recarga la página e inténtalo de nuevo.",
+    } satisfies Record<LeadRequestErrorCode, string>,
+    budgetLabels: {
+      "hasta-10000": "Hasta 10.000 €",
+      "10000-20000": "Entre 10.000 y 20.000 €",
+      "20000-35000": "Entre 20.000 y 35.000 €",
+      "mas-35000": "Más de 35.000 €",
+      "por-definir": "Prefiero hablarlo",
+    } satisfies Record<BudgetRangeCode, string>,
   },
   en: {
-    firstName: "First name", firstNamePh: "Your first name", firstNameErr: "Please enter your first name",
-    lastName: "Last name", lastNamePh: "Your last name", lastNameErr: "Please enter your last name",
-    email: "Email", emailPh: "you@email.com", emailErr: "Please enter a valid email",
-    phone: "Phone", phonePh: "+34 ___ ___ ___", phoneErr: "Please enter a valid phone number",
-    eventType: "Event type", eventTypePh: "Select an option", eventTypeErr: "Please select the event type",
-    eventDate: "Planned date", eventDateErr: "Please indicate the planned date",
-    guestCount: "Approximate guests", guestCountPh: "E.g. 120", guestCountErr: "Please indicate an approximate guest count",
-    message: "Message (optional)", messagePh: "Tell us more about your celebration...",
-    privacyLabel: "I have read and accept the privacy policy *", privacyErr: "You must accept the privacy policy",
+    firstName: "First name", firstNamePh: "Your first name",
+    lastName: "Last name", lastNamePh: "Your last name",
+    email: "Email", emailPh: "you@email.com",
+    phone: "Phone (optional)", phonePh: "+34 ___ ___ ___",
+    eventType: "Event type", eventTypePh: "Select an option",
+    eventDate: "Planned date (optional)",
+    guestCount: "Approximate guests (optional)", guestCountPh: "E.g. 120",
+    budgetRange: "Indicative budget (optional)", budgetRangePh: "Select a range",
+    preferredSpace: "Space you're interested in", preferredSpacePh: "Select a space",
+    noSpacePreference: "No preference, please advise",
+    company: "Company or organisation", companyPh: "Company name",
+    jobTitle: "Job title (optional)", jobTitlePh: "Your role",
+    audiovisualNeeds: "Audiovisual needs (optional)", audiovisualNeedsPh: "Projector, sound, streaming…",
+    corporateNote: "As this is a corporate event, these details help us prepare a tailored proposal.",
+    subject: "Subject", subjectPh: "E.g. September wedding for 120 guests",
+    message: "Message", messagePh: "Tell us more about your celebration...",
+    privacyPrefix: "I have read and accept the", privacyLink: "privacy policy", privacySuffix: "*",
     marketingLabel: "I agree to receive marketing communications (optional)",
-    submit: "Request information",
-    successMsg: "Thank you, we've received your request. We'll get back to you as soon as possible.",
-    notConfiguredMsg: "Form validated successfully. Email delivery is pending activation (missing Web3Forms key).",
-    errorMsg: "We couldn't send your request. Please reach us on WhatsApp or by phone.",
+    submit: "Request information", submitting: "Sending…",
+    successTitle: "Request received",
+    successBody: "Thank you for writing to us. Your request has been registered and we'll get in touch to talk about your celebration.",
     finca: "Venue", emailLabel: "Email", phoneLabel: "Phone",
+    subjectFromStory: { WEDDING: "I want a wedding like this", EXTERNAL_CATERING: "I want catering like this" },
+    fieldErrors: {
+      firstName: "Please enter your first name",
+      lastName: "Please enter your last name",
+      email: "Please enter a valid email",
+      phone: "Please enter a valid phone number",
+      eventType: "Please select the event type",
+      eventDate: "Please enter a valid date, not earlier than today",
+      guestCount: "Please enter a valid guest count",
+      company: "Please enter the company or organisation",
+      jobTitle: "Please check this field",
+      audiovisualNeeds: "This text is too long",
+      preferredSpace: "Please select the space you're interested in",
+      budgetRange: "Please select a valid range",
+      subject: "Please write a subject",
+      message: "Please write your message",
+      privacyConsent: "You must accept the privacy policy",
+    },
+    errors: {
+      "invalid-payload": "Please review the highlighted fields and try again.",
+      "policy-version-mismatch": "The privacy policy has been updated. Please reload the page and submit again.",
+      "too-fast": "That was submitted too quickly. Please press the button again.",
+      "rate-limited": "You've sent several requests in a row. Please wait a few minutes before trying again.",
+      "payload-too-large": "Your message is too long. Please shorten it and try again.",
+      "persistence-failed": "We couldn't register your request. Please reach us on WhatsApp or by phone.",
+      "invalid-request": "We couldn't process the request. Please reload the page and try again.",
+    } satisfies Record<LeadRequestErrorCode, string>,
+    budgetLabels: {
+      "hasta-10000": "Up to €10,000",
+      "10000-20000": "Between €10,000 and €20,000",
+      "20000-35000": "Between €20,000 and €35,000",
+      "mas-35000": "More than €35,000",
+      "por-definir": "I'd rather discuss it",
+    } satisfies Record<BudgetRangeCode, string>,
   },
 } as const
 
 const underlineFieldClass =
   "rounded-none border-0 border-b border-border bg-transparent px-0 py-3 h-auto shadow-none text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:border-foreground"
 
+const EMPTY_VALUES: LeadRequestFormValues = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  phone: "",
+  eventType: "",
+  eventDate: "",
+  guestCount: "",
+  company: "",
+  jobTitle: "",
+  audiovisualNeeds: "",
+  preferredSpace: "",
+  budgetRange: "",
+  subject: "",
+  message: "",
+  privacyConsent: false,
+  marketingConsent: false,
+  honeypot: "",
+}
+
 export function ContactSection() {
   const { locale } = useLocale()
   const contactContent = locale === "en" ? contactContentEn : contactContentEs
   const mapContent = locale === "en" ? mapContentEn : mapContentEs
-  const eventTypes = locale === "en" ? eventTypesEn : eventTypesEs
+  const eventTypeLabels = locale === "en" ? eventTypeLabelsEn : eventTypeLabelsEs
   const t = formCopy[locale]
 
-  const contactSchema = z.object({
-    firstName: z.string().min(1, t.firstNameErr),
-    lastName: z.string().min(1, t.lastNameErr),
-    email: z.string().email(t.emailErr),
-    phone: z.string().min(6, t.phoneErr),
-    eventType: z.string().min(1, t.eventTypeErr),
-    eventDate: z.string().min(1, t.eventDateErr),
-    guestCount: z.string().min(1, t.guestCountErr),
-    message: z.string().optional(),
-    privacyConsent: z.boolean().refine((v) => v === true, {
-      message: t.privacyErr,
-    }),
-    marketingConsent: z.boolean().optional(),
-  })
-
-  type ContactFormValues = z.infer<typeof contactSchema>
-
   const [isVisible, setIsVisible] = useState(false)
-  const [submitState, setSubmitState] = useState<"idle" | "success" | "not-configured" | "error">("idle")
-  const sectionRef = useRef<HTMLElement>(null)
+  const [submitState, setSubmitState] = useState<"idle" | "success" | "error">("idle")
+  const [errorCode, setErrorCode] = useState<LeadRequestErrorCode | null>(null)
+  /** Cambia en cada respuesta del servidor, para mover el foco también cuando el resultado se repite. */
+  const [resultNonce, setResultNonce] = useState(0)
 
-  const form = useForm<ContactFormValues>({
-    resolver: zodResolver(contactSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      eventType: "",
-      eventDate: "",
-      guestCount: "",
-      message: "",
-      privacyConsent: false,
-      marketingConsent: false,
-    },
-  })
+  const sectionRef = useRef<HTMLElement>(null)
+  const resultRef = useRef<HTMLDivElement>(null)
+  /** Momento en que el formulario quedó listo, para el tiempo mínimo de envío. */
+  const readyAtRef = useRef<number>(0)
+  /** Clave de idempotencia del intento en curso: se renueva solo tras un envío correcto. */
+  const submissionIdRef = useRef<string>("")
+  /**
+   * Ficha de origen leída de la URL. Va en una ref y no en estado porque no
+   * interviene en el renderizado: solo se lee al enviar. Así el efecto de
+   * precarga no dispara un render en cascada.
+   */
+  const sourceContentIdRef = useRef<string | undefined>(undefined)
+  const prefilledRef = useRef(false)
+
+  /**
+   * El esquema es el mismo que valida el endpoint; lo único que se añade aquí es
+   * el idioma. Se sustituye el mensaje de cada error por su traducción según el
+   * nombre del campo, así no hay dos juegos de reglas que puedan desalinearse.
+   */
+  const resolver: Resolver<LeadRequestFormValues> = async (values, context, options) => {
+    const result = await zodResolver(leadRequestFormSchema)(values, context, options)
+    const errors = result.errors as Record<string, { message?: string } | undefined>
+    for (const [field, error] of Object.entries(errors)) {
+      const message = t.fieldErrors[field as keyof typeof t.fieldErrors]
+      if (error && message) error.message = message
+    }
+    return result
+  }
+
+  const form = useForm<LeadRequestFormValues>({ resolver, defaultValues: EMPTY_VALUES })
+
+  // `useWatch` en vez de `form.watch()`: devuelve un valor suscrito en vez de
+  // una función nueva en cada render, así el compilador de React puede memoizar
+  // el componente (`form.watch` lo obliga a saltárselo).
+  const eventType = useWatch({ control: form.control, name: "eventType" })
+  const isCorporate = isCorporateEventType(eventType ?? "")
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -132,19 +257,83 @@ export function ContactSection() {
     return () => observer.disconnect()
   }, [])
 
-  const onSubmit = async (values: ContactFormValues) => {
-    const result = await submitLead({
-      ...values,
-      attribution: getAttribution(),
+  /**
+   * Precarga desde un CTA de ficha VIP ("Quiero una boda así"): el enlace llega
+   * como `/?ficha=<id>&tipo=<CÓDIGO>#contacto`. Se lee de `window` en vez de con
+   * `useSearchParams` para no forzar a toda la home a renderizado dinámico.
+   *
+   * Solo se ejecuta una vez: cambiar de idioma no debe sobrescribir lo que la
+   * persona ya haya escrito.
+   */
+  useEffect(() => {
+    if (prefilledRef.current) return
+    prefilledRef.current = true
+
+    readyAtRef.current = Date.now()
+    submissionIdRef.current = newSubmissionId()
+
+    const params = new URLSearchParams(window.location.search)
+    const contentId = params.get("ficha")
+    const type = params.get("tipo")
+
+    if (contentId) sourceContentIdRef.current = contentId
+
+    if (type && isEventTypeCode(type)) {
+      form.setValue("eventType", type)
+      // Asunto sugerido: es el texto del botón que la persona acaba de pulsar,
+      // no contenido inventado. Sigue siendo editable.
+      const suggestedSubject =
+        type === "WEDDING" || type === "EXTERNAL_CATERING" ? t.subjectFromStory[type] : undefined
+      if (contentId && suggestedSubject) form.setValue("subject", suggestedSubject)
+    }
+  }, [form, t])
+
+  // El foco va al resultado en cuanto el servidor responde, para que quien
+  // navega con teclado o lector de pantalla no tenga que buscarlo.
+  useEffect(() => {
+    if (resultNonce > 0) resultRef.current?.focus()
+  }, [resultNonce])
+
+  const onSubmit = async (values: LeadRequestFormValues) => {
+    setSubmitState("idle")
+    setErrorCode(null)
+
+    const sourceContentId = sourceContentIdRef.current
+
+    const result = await submitLeadRequest(values, {
+      sourceForm: sourceContentId ? "vip-story-cta" : "contact-home",
+      sourceContentId,
+      submissionId: submissionIdRef.current,
+      formElapsedMs: readyAtRef.current ? Date.now() - readyAtRef.current : 0,
     })
 
     if (result.ok) {
       setSubmitState("success")
-      form.reset()
+      form.reset(EMPTY_VALUES)
+      // Un envío nuevo es una solicitud nueva: clave y reloj se reinician.
+      submissionIdRef.current = newSubmissionId()
+      readyAtRef.current = Date.now()
     } else {
-      setSubmitState(result.reason === "not-configured" ? "not-configured" : "error")
+      // No se toca el formulario: lo escrito se conserva tal cual. Se mantiene
+      // también la misma clave de idempotencia, para que un reintento sobre un
+      // envío que sí llegó a guardarse no cree una solicitud duplicada.
+      setSubmitState("error")
+      setErrorCode(result.code)
     }
+
+    setResultNonce((nonce) => nonce + 1)
   }
+
+  /**
+   * `form.handleSubmit(...)` se construye dentro del manejador y no durante el
+   * render: `onSubmit` lee refs y el reloj, y eso solo es legítimo cuando de
+   * verdad hay un evento (regla `react-hooks/refs` del compilador de React).
+   */
+  const handleFormSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    void form.handleSubmit(onSubmit)(event)
+  }
+
+  const isSubmitting = form.formState.isSubmitting
 
   return (
     <section
@@ -306,7 +495,7 @@ export function ContactSection() {
               {/* Right Column - Form */}
               <Form {...form}>
                 <form
-                  onSubmit={form.handleSubmit(onSubmit)}
+                  onSubmit={handleFormSubmit}
                   noValidate
                   className="space-y-8"
                   style={{
@@ -327,7 +516,7 @@ export function ContactSection() {
                         <FormItem>
                           <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.firstName}</FormLabel>
                           <FormControl>
-                            <Input placeholder={t.firstNamePh} className={underlineFieldClass} {...field} />
+                            <Input placeholder={t.firstNamePh} autoComplete="given-name" className={underlineFieldClass} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -340,7 +529,7 @@ export function ContactSection() {
                         <FormItem>
                           <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.lastName}</FormLabel>
                           <FormControl>
-                            <Input placeholder={t.lastNamePh} className={underlineFieldClass} {...field} />
+                            <Input placeholder={t.lastNamePh} autoComplete="family-name" className={underlineFieldClass} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -357,7 +546,7 @@ export function ContactSection() {
                         <FormItem>
                           <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.email}</FormLabel>
                           <FormControl>
-                            <Input type="email" placeholder={t.emailPh} className={underlineFieldClass} {...field} />
+                            <Input type="email" placeholder={t.emailPh} autoComplete="email" className={underlineFieldClass} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -370,7 +559,7 @@ export function ContactSection() {
                         <FormItem>
                           <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.phone}</FormLabel>
                           <FormControl>
-                            <Input type="tel" placeholder={t.phonePh} className={underlineFieldClass} {...field} />
+                            <Input type="tel" placeholder={t.phonePh} autoComplete="tel" className={underlineFieldClass} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -393,9 +582,9 @@ export function ContactSection() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {eventTypes.map((type) => (
-                                <SelectItem key={type} value={type}>
-                                  {type}
+                              {EVENT_TYPES.map((code) => (
+                                <SelectItem key={code} value={code}>
+                                  {eventTypeLabels[code]}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -419,15 +608,138 @@ export function ContactSection() {
                     />
                   </div>
 
-                  {/* Guests */}
+                  {/* Guests & Budget */}
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <FormField
+                      control={form.control}
+                      name="guestCount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.guestCount}</FormLabel>
+                          <FormControl>
+                            <Input type="number" min={1} placeholder={t.guestCountPh} className={underlineFieldClass} {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="budgetRange"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.budgetRange}</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                            <FormControl>
+                              <SelectTrigger className={`${underlineFieldClass} w-full`}>
+                                <SelectValue placeholder={t.budgetRangePh} />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {BUDGET_RANGES.map((code) => (
+                                <SelectItem key={code} value={code}>
+                                  {t.budgetLabels[code]}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Preferred space */}
                   <FormField
                     control={form.control}
-                    name="guestCount"
+                    name="preferredSpace"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.guestCount}</FormLabel>
+                        <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.preferredSpace}</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger className={`${underlineFieldClass} w-full`}>
+                              <SelectValue placeholder={t.preferredSpacePh} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {spacesContent.map((space) => (
+                              <SelectItem key={space.slug} value={space.slug}>
+                                {space.name}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value={NO_SPACE_PREFERENCE}>{t.noSpacePreference}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Corporate-only fields. Solo se piden cuando el tipo de
+                      evento los hace pertinentes; en cualquier otro caso el
+                      servidor los descarta aunque lleguen. */}
+                  {isCorporate && (
+                    <div className="space-y-6 border-l border-border pl-6">
+                      <p className="text-sm text-muted-foreground leading-relaxed">{t.corporateNote}</p>
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <FormField
+                          control={form.control}
+                          name="company"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.company}</FormLabel>
+                              <FormControl>
+                                <Input placeholder={t.companyPh} autoComplete="organization" className={underlineFieldClass} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="jobTitle"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.jobTitle}</FormLabel>
+                              <FormControl>
+                                <Input placeholder={t.jobTitlePh} autoComplete="organization-title" className={underlineFieldClass} {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="audiovisualNeeds"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.audiovisualNeeds}</FormLabel>
+                            <FormControl>
+                              <Textarea
+                                rows={2}
+                                placeholder={t.audiovisualNeedsPh}
+                                className={`${underlineFieldClass} resize-none min-h-0`}
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+
+                  {/* Subject */}
+                  <FormField
+                    control={form.control}
+                    name="subject"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.subject}</FormLabel>
                         <FormControl>
-                          <Input type="number" min={1} placeholder={t.guestCountPh} className={underlineFieldClass} {...field} />
+                          <Input placeholder={t.subjectPh} className={underlineFieldClass} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -454,6 +766,19 @@ export function ContactSection() {
                     )}
                   />
 
+                  {/* Honeypot: invisible para personas, fuera del recorrido de
+                      teclado y de los lectores de pantalla. */}
+                  <div aria-hidden className="absolute left-[-9999px] h-0 w-0 overflow-hidden">
+                    <label htmlFor="contact-website">Website</label>
+                    <input
+                      id="contact-website"
+                      type="text"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      {...form.register("honeypot")}
+                    />
+                  </div>
+
                   {/* Consents */}
                   <div className="space-y-4 pt-2">
                     <FormField
@@ -466,7 +791,11 @@ export function ContactSection() {
                           </FormControl>
                           <div className="space-y-1">
                             <FormLabel className="text-sm font-normal leading-relaxed text-foreground/80">
-                              {t.privacyLabel}
+                              {t.privacyPrefix}{" "}
+                              <Link href={PRIVACY_POLICY_PATH} className="underline hover:text-foreground transition-colors duration-300">
+                                {t.privacyLink}
+                              </Link>{" "}
+                              {t.privacySuffix}
                             </FormLabel>
                             <FormMessage />
                           </div>
@@ -479,7 +808,7 @@ export function ContactSection() {
                       render={({ field }) => (
                         <FormItem className="flex flex-row items-start gap-3 space-y-0">
                           <FormControl>
-                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                            <Checkbox checked={field.value ?? false} onCheckedChange={field.onChange} />
                           </FormControl>
                           <div className="space-y-1">
                             <FormLabel className="text-sm font-normal leading-relaxed text-foreground/80">
@@ -495,10 +824,11 @@ export function ContactSection() {
                   <div className="pt-4 space-y-4">
                     <button
                       type="submit"
-                      disabled={form.formState.isSubmitting}
+                      disabled={isSubmitting}
+                      aria-busy={isSubmitting}
                       className="group inline-flex items-center gap-4 px-8 py-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300 disabled:opacity-60"
                     >
-                      <span className="text-sm tracking-[0.15em] uppercase">{t.submit}</span>
+                      <span className="text-sm tracking-[0.15em] uppercase">{isSubmitting ? t.submitting : t.submit}</span>
                       <svg
                         className="w-5 h-5 transition-transform duration-300 group-hover:translate-x-1"
                         fill="none"
@@ -509,15 +839,25 @@ export function ContactSection() {
                       </svg>
                     </button>
 
-                    {submitState === "success" && (
-                      <p className="text-sm text-foreground">{t.successMsg}</p>
-                    )}
-                    {submitState === "not-configured" && (
-                      <p className="text-sm text-muted-foreground italic">{t.notConfiguredMsg}</p>
-                    )}
-                    {submitState === "error" && (
-                      <p className="text-sm text-destructive">{t.errorMsg}</p>
-                    )}
+                    {/* Región de resultado: anunciada por lectores de pantalla y
+                        enfocable, para poder llevar el foco aquí al responder. */}
+                    <div
+                      ref={resultRef}
+                      tabIndex={-1}
+                      aria-live="polite"
+                      aria-atomic="true"
+                      className="scroll-mt-32 focus-visible:outline-none"
+                    >
+                      {submitState === "success" && (
+                        <div className="border-l-2 border-primary pl-4 space-y-1">
+                          <p className="text-sm tracking-[0.1em] uppercase text-foreground">{t.successTitle}</p>
+                          <p className="text-sm text-muted-foreground leading-relaxed">{t.successBody}</p>
+                        </div>
+                      )}
+                      {submitState === "error" && errorCode && (
+                        <p className="text-sm text-destructive leading-relaxed">{t.errors[errorCode]}</p>
+                      )}
+                    </div>
                   </div>
                 </form>
               </Form>

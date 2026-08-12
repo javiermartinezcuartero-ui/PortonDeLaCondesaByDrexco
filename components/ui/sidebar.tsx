@@ -606,10 +606,11 @@ function SidebarMenuSkeleton({
 }: React.ComponentProps<'div'> & {
   showIcon?: boolean
 }) {
-  // Random width between 50 to 90%.
-  const width = React.useMemo(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`
-  }, [])
+  // Random width between 50 to 90%, calculado una sola vez por instancia
+  // (deps vacías) para variar el ancho del esqueleto de carga; no aplica el
+  // React Compiler (no está activado en este proyecto).
+  // eslint-disable-next-line react-hooks/purity
+  const width = React.useMemo(() => `${Math.floor(Math.random() * 40) + 50}%`, [])
 
   return (
     <div

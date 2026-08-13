@@ -26,10 +26,14 @@ describe("middleware de /admin", () => {
     expect(response.headers.get("location")).toBeNull()
   })
 
-  it("redirige /admin/login a /admin si ya hay cookie de sesión", () => {
+  it("deja pasar /admin/login incluso con cookie de sesión: la redirección la decide la página", () => {
+    // Antes redirigía a /admin por el simple hecho de haber cookie, y eso montaba
+    // un bucle infinito con una cookie que sobrevivía a su sesión: el panel
+    // mandaba al login (no hay sesión) y el middleware devolvía al panel (hay
+    // cookie), hasta ERR_TOO_MANY_REDIRECTS. Quien sí tiene sesión válida lo
+    // resuelve `app/admin/login/page.tsx`, que puede consultar la base de datos.
     const response = middleware(buildRequest("/admin/login", "better-auth.session_token=valor-no-verificado.firma"))
-    expect(response.status).toBe(307)
-    expect(response.headers.get("location")).toBe("http://localhost:3001/admin")
+    expect(response.headers.get("location")).toBeNull()
   })
 
   it("deja pasar /admin/login sin cookie de sesión", () => {

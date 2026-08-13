@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function PoliticaPrivacidadPage() {
   return (
-    <main className="min-h-screen bg-background pt-32 md:pt-40 pb-24 md:pb-32">
+    <main id="contenido" className="min-h-screen bg-background pt-32 md:pt-40 pb-24 md:pb-32">
       <div className="max-w-3xl mx-auto px-6 md:px-12">
         <h1 className="font-serif text-4xl md:text-5xl font-light text-foreground mb-12">Política de privacidad</h1>
 
@@ -52,29 +52,60 @@ export default function PoliticaPrivacidadPage() {
           </section>
 
           <section>
-            <h2 className="text-sm tracking-[0.15em] uppercase text-muted-foreground mb-3">5. Con quién compartimos tus datos</h2>
+            <h2 className="text-sm tracking-[0.15em] uppercase text-muted-foreground mb-3">5. Quién trata tus datos por nuestra cuenta</h2>
             <p>
               Los formularios de esta web se procesan en nuestros propios servidores y los datos se guardan en la base
-              de datos de gestión de clientes de {brand.name}, alojada en Supabase (infraestructura en la Unión
-              Europea), que actúa como encargado del tratamiento. No cedemos tus datos a terceros para fines distintos,
-              salvo obligación legal.
+              de datos de gestión de clientes de {brand.name}. Intervienen estos proveedores como encargados del
+              tratamiento:
             </p>
+            <ul className="mt-3 space-y-2">
+              <li className="flex items-start gap-3">
+                <span className="w-1 h-1 mt-2 bg-accent shrink-0" />
+                <span>
+                  <strong>Supabase</strong> — base de datos PostgreSQL donde se guardan tus datos de contacto y tu
+                  solicitud, y almacenamiento privado de los archivos de las fichas.
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="w-1 h-1 mt-2 bg-accent shrink-0" />
+                <span>
+                  <strong>Vercel</strong> — alojamiento y ejecución de la web.
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="w-1 h-1 mt-2 bg-accent shrink-0" />
+                <span>
+                  <strong>SendGrid</strong> — envío de los correos de aviso y de confirmación,{" "}
+                  <em>únicamente si el envío de correo está activado</em>. A fecha de esta versión no lo está y ningún
+                  dato tuyo se envía a este proveedor.
+                </span>
+              </li>
+            </ul>
             <p className="mt-3">
-              Ya no utilizamos ningún servicio externo de reenvío de formularios por email para tratar estos datos.
+              No cedemos tus datos a terceros para fines distintos de los descritos, salvo obligación legal. No
+              utilizamos ningún servicio externo de reenvío de formularios por email.
             </p>
             <p className="mt-3 text-sm text-muted-foreground italic">
-              [PENDIENTE DE REVISIÓN JURÍDICA: este apartado describe el tratamiento técnico real, pero el texto legal
-              definitivo —incluida la identificación del encargado del tratamiento, el contrato de encargo y las
-              transferencias internacionales si las hubiera— debe redactarlo o validarlo un profesional antes de
-              publicar en producción.]
+              [PENDIENTE DE REVISIÓN JURÍDICA: este apartado describe el tratamiento técnico real y verificado en el
+              código, pero el texto legal definitivo —la identificación registral de cada encargado, los contratos de
+              encargo del artículo 28 del RGPD y la ubicación de los servidores y sus posibles transferencias
+              internacionales— debe redactarlo o validarlo un profesional antes de publicar en producción.]
             </p>
           </section>
 
           <section>
             <h2 className="text-sm tracking-[0.15em] uppercase text-muted-foreground mb-3">6. Cuánto tiempo conservamos tus datos</h2>
             <p>
-              Conservamos tus datos mientras sean necesarios para gestionar tu solicitud y, en caso de haber dado tu
-              consentimiento comercial, hasta que retires dicho consentimiento.
+              Conservamos tus datos mientras sean necesarios para gestionar tu solicitud y, si has dado tu
+              consentimiento comercial, hasta que lo retires. Pasado ese periodo, los datos que te identifican se
+              anonimizan de forma no reversible y solo se conservan cifras agregadas que no permiten volver a
+              identificarte.
+            </p>
+            <p className="mt-3 text-sm text-muted-foreground italic">
+              [PENDIENTE DE REVISIÓN JURÍDICA: el sistema tiene un plazo de retención configurable y un procedimiento de
+              anonimización ya implementado y verificado, pero <strong>el plazo concreto que debe aplicarse no está
+              fijado por un profesional</strong>. No se indica aquí una cifra para no dar por definitivo un plazo que
+              nadie ha validado.]
             </p>
           </section>
 
@@ -84,6 +115,11 @@ export default function PoliticaPrivacidadPage() {
               Puedes ejercer tus derechos de acceso, rectificación, supresión, oposición, limitación y portabilidad
               escribiendo a {brand.email}. También puedes reclamar ante la Agencia Española de Protección de Datos
               (www.aepd.es) si consideras que no hemos tratado tus datos correctamente.
+            </p>
+            <p className="mt-3">
+              En particular: podemos entregarte una copia completa de todo lo que consta sobre ti en nuestro sistema,
+              retirar tu consentimiento de comunicaciones comerciales sin que eso afecte a la gestión de tu solicitud, y
+              revocar el acceso a la biblioteca VIP asociado a tu email.
             </p>
           </section>
         </div>

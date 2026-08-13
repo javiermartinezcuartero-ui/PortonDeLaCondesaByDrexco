@@ -23,7 +23,7 @@ export async function VipStory({ type, slug }: { type: ContentType; slug: string
 
   if (!lead) {
     return (
-      <main className="min-h-screen bg-background px-6 pt-32 pb-24 md:px-12 md:pt-40 lg:px-20">
+      <main id="contenido" className="min-h-screen bg-background px-6 pt-32 pb-24 md:px-12 md:pt-40 lg:px-20">
         {/* `returnPath` devuelve al visitante a esta misma ficha tras acceder. */}
         <VipGate section={type} returnPath={`${basePath}/${slug}`} />
       </main>
@@ -40,7 +40,7 @@ export async function VipStory({ type, slug }: { type: ContentType; slug: string
   const story = toStoryDetailData(entry, urlsByMediaId)
 
   return (
-    <main className="min-h-screen bg-background">
+    <main id="contenido" className="min-h-screen bg-background">
       <TrackVipView section={type} contentEntryId={entry.id} />
       <StoryDetail story={story} backHref={basePath} kind={type === "REAL_WEDDING" ? "bodas" : "catering"} />
     </main>

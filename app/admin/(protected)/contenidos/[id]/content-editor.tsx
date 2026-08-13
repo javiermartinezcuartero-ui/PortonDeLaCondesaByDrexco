@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import type { ContentStatus, ContentType, MediaType } from "@prisma/client"
+import type { ContentStatus, ContentType } from "@prisma/client"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -16,20 +16,12 @@ import {
   uploadContentImageAction,
 } from "../actions"
 import { MediaPanel } from "./media-panel"
+import type { EditorMedia } from "./editor-media"
 
-export type EditorMedia = {
-  id: string
-  type: MediaType
-  previewUrl: string | null
-  thumbnailUrl: string | null
-  alt: string
-  caption: string
-  sortOrder: number
-  isHero: boolean
-  inGallery: boolean
-  isExternal: boolean
-  dimensions: string | null
-}
+// Se reexporta para no romper a quien ya lo importaba desde aquí; la definición
+// vive en `editor-media.ts`, que también la comparten la página y la acción de
+// subida (así un archivo nuevo se construye igual que los ya guardados).
+export type { EditorMedia }
 
 type Translation = {
   title: string

@@ -1,286 +1,1425 @@
-# El Portón de la Condesa — Web & Lead CRM
+# El Portón de la Condesa — Web pública y CRM de captación
 
-## 1. Descripción y objetivos
+Aplicación web full-stack para una finca de bodas y celebraciones real (El Portón de la Condesa, Molina de Segura, Murcia): la web pública de la marca, dos bibliotecas de contenido tras un gate de correo validado en servidor, un CMS propio para que el equipo publique sin tocar código, y un CRM que registra, puntúa y sigue cada consulta comercial hasta cerrarla.
 
-Web pública de El Portón de la Condesa (finca para bodas y celebraciones, Molina de Segura, Murcia), construida sobre una plantilla Next.js editorial adaptada a la marca real del negocio. El objetivo final del proyecto (TFM) es combinar esta experiencia pública con un backend propio de captación, cualificación y seguimiento comercial de leads (CRM), una zona VIP con acceso por email validado en servidor, y un panel de administración.
+Un único proyecto Next.js 16 con PostgreSQL y Prisma. Sin backend separado, sin CRM de terceros, sin que los datos de los contactos salgan de la infraestructura del proyecto.
 
-**Este documento es la referencia técnica viva del proyecto.** Se actualiza en cada fase; lo que no está confirmado o implementado se marca explícitamente como `PENDIENTE`, nunca como completado.
+Trabajo Fin de Máster. **Este documento es la referencia técnica completa y autocontenida:** con leerlo se entiende y se reproduce el proyecto entero. Los documentos de `docs/` amplían capítulos concretos, no los sustituyen.
 
-## 2. Estado actual
+Lo que no está confirmado o implementado se marca explícitamente como `PENDIENTE`, nunca como completado.
+
+---
+
+## Índice
+
+**Planteamiento** — [1. Resumen](#1-resumen) · [2. Problema](#2-problema) · [3. Objetivos](#3-objetivos) · [4. Alcance y fuera de alcance](#4-alcance-y-fuera-de-alcance) · [5. Usuarios y casos de uso](#5-usuarios-y-casos-de-uso) · [6. Estado actual](#6-estado-actual)
+
+**Producto** — [7. Funcionalidades públicas](#7-funcionalidades-públicas) · [8. Gate de acceso y captación](#8-gate-de-acceso-y-captación) · [9. CMS de Bodas Reales y Catering](#9-cms-de-bodas-reales-y-catering) · [10. CRM, pipeline, tareas e informes](#10-crm-pipeline-tareas-e-informes)
+
+**Ingeniería** — [11. Arquitectura](#11-arquitectura) · [12. Diagrama de componentes](#12-diagrama-de-componentes) · [13. Modelo de datos](#13-modelo-de-datos) · [14. Decisiones y justificación](#14-decisiones-y-justificación) · [15. Stack y versiones](#15-stack-y-versiones) · [16. Estructura del repositorio](#16-estructura-del-repositorio)
+
+**Operación** — [17. Instalación](#17-instalación) · [18. Variables de entorno](#18-variables-de-entorno) · [19. Supabase](#19-supabase) · [20. Prisma y migraciones](#20-prisma-y-migraciones) · [21. Bootstrap de administración](#21-bootstrap-de-administración) · [22. Sembrado y demostración](#22-sembrado-y-demostración) · [23. Scripts](#23-scripts)
+
+**Calidad** — [24. Pruebas y resultados reales](#24-pruebas-y-resultados-reales) · [25. Seguridad](#25-seguridad) · [26. Privacidad](#26-privacidad) · [27. Accesibilidad](#27-accesibilidad) · [28. SEO](#28-seo) · [29. Rendimiento](#29-rendimiento) · [30. Despliegue en Vercel](#30-despliegue-en-vercel)
+
+**Cierre** — [31. Metodología y uso de IA](#31-metodología-y-uso-de-ia) · [32. Limitaciones conocidas](#32-limitaciones-conocidas) · [33. Roadmap](#33-roadmap) · [34. Licencia](#34-licencia) · [35. Derechos de marca y assets](#35-derechos-de-marca-y-assets) · [36. Enlaces de entrega](#36-enlaces-de-entrega) · [37. Historial de fases](#37-historial-de-fases)
+
+---
+
+## 1. Resumen
+
+El Portón de la Condesa es una finca de celebraciones con una web bonita y ningún sistema detrás: el formulario de contacto enviaba los mensajes a un servicio de terceros y ahí se perdía el rastro. Nadie sabía cuántas consultas llegaban, cuáles se habían contestado, ni qué contenido las provocaba.
+
+Este proyecto sustituye eso por un sistema propio, en tres piezas que se apoyan una en otra:
+
+1. **Captación con contrapartida.** El contenido que más convence a quien busca dónde casarse son bodas ya celebradas en la finca. Ese contenido pasa a estar detrás de un gate: se entrega a cambio de un correo electrónico, con consentimiento de privacidad obligatorio y de marketing separado y opcional. La protección se valida **en servidor antes de consultar la base de datos**, así que sin acceso no hay contenido ni en el HTML ni en el payload del cliente.
+2. **Un CMS para el equipo.** Publicar una boda real o un catering no requiere desarrollador: borrador, imágenes en un bucket privado, previsualización y publicación, con la web reflejándolo al instante.
+3. **Un CRM que no pierde nada.** Cada solicitud entra con su origen —qué ficha la generó, de qué campaña venía—, se puntúa sola, se asigna a alguien, genera tareas con fecha y recorre un pipeline con transiciones validadas. Todo queda en un historial y en un registro de auditoría.
+
+El resultado, en una frase: la finca pasa de perder sus consultas a tener cada una registrada, puntuada y con responsable.
+
+**Cifras del proyecto:** 25 tablas, 9 migraciones, 3 roles, 12 fases de desarrollo, **698 pruebas unitarias y de integración** en 58 archivos, **23 pruebas end-to-end** que recorren los 13 escenarios críticos en un navegador real contra el build de producción, y **cero errores y cero advertencias** de lint, tipos y compilación.
+
+---
+
+## 2. Problema
+
+### Qué pasaba antes
+
+El sitio original conseguía interés y lo dejaba caer. El recorrido real de un cliente potencial era este:
+
+```
+Instagram / Bodas.net / búsqueda
+            │
+            ▼
+        web pública ──► contenido de bodas reales visible para cualquiera,
+            │           sin pedir nada a cambio
+            ▼
+    formulario de contacto
+            │
+            ▼
+      servicio de terceros ──► un correo en una bandeja
+            │
+            ▼
+            ?           sin registro, sin seguimiento,
+                        sin saber qué había funcionado
+```
+
+Cuatro problemas concretos, no genéricos:
+
+1. **Las consultas no quedaban en ningún sistema propio.** El formulario enviaba a Web3Forms. Si alguien no veía ese correo, la consulta desaparecía. No había forma de responder a «¿cuántas consultas llegaron en mayo?».
+2. **No se sabía qué contenido convence.** Ninguna solicitud llevaba pegado de dónde venía. Invertir en fotografía de bodas o en publicidad era una apuesta sin datos.
+3. **El activo más persuasivo se regalaba.** Las bodas ya celebradas son la prueba social más fuerte que tiene una finca, y estaban accesibles para cualquiera sin dejar ni un correo.
+4. **Publicar exigía desarrollador.** El contenido vivía en archivos del código. Añadir una boda era una tarea técnica, así que en la práctica no se añadían.
+
+### La oportunidad
+
+Las cuatro cosas se resuelven con la misma pieza: **convertir el contenido en la contrapartida de un dato de contacto**, y construir alrededor el sistema que registra, atribuye y sigue lo que entra por ahí.
+
+De ahí sale una consecuencia que condiciona todo el diseño: si el contenido es la moneda de cambio, el gate tiene que ser real. Uno que se salte con la tecla F12 no protege nada y, además, engaña al negocio con métricas de captación falsas.
+
+---
+
+## 3. Objetivos
+
+### Objetivo general
+
+Diseñar, construir y validar una aplicación web full-stack que resuelva el ciclo completo de captación comercial de una finca de celebraciones real: desde la visita anónima hasta el seguimiento del cliente potencial por parte del equipo, con las garantías de seguridad y privacidad que exige tratar datos personales.
+
+### Objetivos específicos
+
+| # | Objetivo | Estado | Dónde comprobarlo |
+|---|---|---|---|
+| OE-1 | Conservar la identidad visual y la experiencia de la web pública existente, sin degradar diseño, responsive ni animaciones | **Cumplido** | §7 |
+| OE-2 | Implementar un gate de correo cuya protección se valide en servidor antes de consultar contenido | **Cumplido** | §8, §25 |
+| OE-3 | Sustituir la dependencia de terceros para la captación por una API propia | **Cumplido** | §8 |
+| OE-4 | Construir un CMS que permita al equipo publicar sin conocimientos técnicos, con control de estados y validación de calidad | **Cumplido** | §9 |
+| OE-5 | Construir un CRM con contactos, solicitudes, pipeline, tareas, notas e informes, con permisos por rol | **Cumplido** | §10 |
+| OE-6 | Separar interfaz, validación, dominio y acceso a datos, con autorización comprobada en servidor en cada operación privada | **Cumplido** | §11, §25 |
+| OE-7 | Tratar los datos personales con minimización, consentimientos separados e inmutables, anonimización y derechos operativos | **Cumplido** (con revisión jurídica pendiente) | §26 |
+| OE-8 | Validar el sistema con pruebas automatizadas en todos los niveles, incluidas end-to-end en navegador real | **Cumplido** | §24 |
+| OE-9 | Dejar el proyecto reproducible y desplegable: un solo lockfile, build sin dependencias de red, migraciones documentadas | **Cumplido** | §30 |
+| OE-10 | Documentar el proyecto de forma que un tercero pueda entenderlo, reproducirlo y verificar cada afirmación | **Cumplido** | este documento y `docs/evidencias-tfm.md` |
+| OE-11 | Desplegar en producción con dominio propio | `PENDIENTE` | §30 — preparado y verificado, no ejecutado |
+
+---
+
+## 4. Alcance y fuera de alcance
+
+### Dentro del alcance
+
+- Web pública responsive, bilingüe en navegación, home, contacto y páginas legales.
+- Dos bibliotecas de contenido —Bodas Reales y Catering— tras un gate de correo con sesión en servidor.
+- CMS privado de fichas con borrador, media, previsualización y publicación.
+- API propia de alta de solicitudes comerciales, con antispam y rate limit.
+- CRM: contactos, solicitudes, pipeline, tareas, notas, informes y exportación CSV.
+- Autenticación administrativa con tres roles y permisos por área.
+- Correo transaccional desacoplado tras una interfaz de proveedor.
+- Seguridad: cabeceras, CSP, autorización en servidor, validación de imágenes por firma de bytes, anti-SSRF, rate limit persistente.
+- Privacidad: consentimientos separados e inmutables, minimización, anonimización, derechos RGPD, retención configurable.
+- Pruebas en todos los niveles y preparación completa del despliegue.
+
+### Fuera del alcance, y por qué
+
+| Fuera | Motivo |
+|---|---|
+| **Facturación, contratos y presupuestos formales** | Es gestión posterior a la venta. El proyecto acompaña hasta el cierre de la oportunidad; a partir de ahí interviene la gestoría de la finca con sus propias herramientas |
+| **Reserva y pago en línea** | La finca vende con visita previa y presupuesto a medida. Un carrito de la compra no encaja con cómo vende, y montarlo obligaría a integrar pasarela de pago y política de cancelaciones para un flujo que nadie usaría |
+| **Aplicación móvil nativa** | La web es responsive y el panel lo usa un equipo pequeño desde escritorio. Una app nativa duplicaría el mantenimiento sin resolver nada nuevo |
+| **Multi-finca / multi-tenant** | Hay una finca. Diseñar para N complica el modelo de datos, los permisos y cada consulta, a cambio de una necesidad hipotética |
+| **Chat en vivo o chatbot** | Exige alguien atendiendo. Sin ese compromiso del negocio, un chat sin respuesta es peor que no tenerlo |
+| **Automatización de marketing (secuencias de correo)** | Necesita base legal revisada y contenido comercial aprobado. Ninguna de las dos cosas existe todavía (§26) |
+| **Traducción completa del contenido** | Las fichas VIP y el texto íntegro de las páginas legales no están traducidos. Traducir textos legales sin revisión profesional sería peor que no traducirlos |
+| **Panel multilingüe** | Lo usa el equipo de la finca, en español. Es una decisión, no una carencia |
+
+---
+
+## 5. Usuarios y casos de uso
+
+### Los cinco actores
+
+| Actor | Quién es | Qué puede hacer |
+|---|---|---|
+| **Visitante anónimo** | Cualquiera que llega a la web | Ver la web pública. **No** ve el contenido de las bibliotecas: ni renderizado, ni en el HTML, ni en el payload del cliente |
+| **Visitante identificado** | Ha dejado su correo en el gate | Todo lo anterior, más las dos bibliotecas completas y sus fichas. Su sesión es una cookie `HttpOnly` respaldada por una fila en base de datos |
+| **CONTENT** | Quien publica contenido en la finca | Solo el CMS. **No accede a datos personales**: las nueve rutas del CRM le devuelven 404 |
+| **SALES** | Equipo comercial | Todo el CRM: contactos, solicitudes, pipeline, tareas, notas, informes. **No** publica contenido y **no** puede exportar |
+| **ADMIN** | Responsable del sistema | Todo, más gestión de usuarios, configuración del scoring, exportación CSV y las operaciones de privacidad (copia de datos, anonimizar, revocar) |
+
+Que la navegación oculte lo que un rol no puede usar es interfaz. La autorización real se comprueba en el servidor en cada página, cada Server Action y cada endpoint, y hay pruebas que invocan cada mutación con la sesión equivocada y verifican que la base de datos no cambia.
+
+### Casos de uso principales
+
+**CU-1 · El visitante descubre el contenido y deja su correo**
+Llega a `/bodas-reales`. Ve el gate. Escribe su correo, acepta la política de privacidad (obligatoria) y decide sobre comunicaciones comerciales (opcional, desmarcada de origen). En una sola transacción se crea o actualiza su contacto, se registran los consentimientos como eventos inmutables con la versión de la política, se anota la actividad y se abre la sesión de acceso. Si algo de eso falla, no se concede acceso.
+*Alternativas:* correo inválido → mismo mensaje de error exista o no ya en el sistema; cinco intentos en diez minutos → limitado, con la IP siempre hasheada.
+
+**CU-2 · El visitante consulta una ficha y pide presupuesto**
+Abre una boda concreta. La visita queda registrada como interacción, deduplicada para que recargar no la cuente dos veces. Pulsa «Quiero una boda así»: llega al formulario con el tipo de evento ya seleccionado y el asunto sugerido. Envía. Se crea una solicitud **nueva** (nunca se sobrescribe una anterior) con su ficha de origen verificada en servidor, su puntuación recalculada y el aviso interno enviado después del commit.
+*Alternativas:* honeypot rellenado → respuesta 202 indistinguible de un éxito, sin guardar nada; formulario enviado en menos de tres segundos → error recuperable; doble clic → una sola solicitud, garantizado por índice único.
+
+**CU-3 · CONTENT publica una boda real**
+Crea un borrador, rellena los campos, sube fotografías. Intenta publicar y la interfaz le dice exactamente qué falta —típicamente el texto alternativo de una imagen—. Lo completa, previsualiza con la misma vista que verá el público, publica. La ruta pública lo refleja de inmediato.
+*Alternativas:* slug repetido → rechazado con mensaje claro; otra persona ha guardado mientras editaba → aviso, sin pisar su trabajo.
+
+**CU-4 · SALES gestiona una solicitud**
+Ve la solicitud nueva en su listado, con su origen y su puntuación. La abre: el mensaje que escribió la persona está tal cual, sin reescribir. Añade su valoración como campo de gestión, se asigna la solicitud, crea una tarea con fecha y mueve el estado. Cada movimiento queda en el historial y en la auditoría, en la misma transacción.
+*Alternativas:* transición no válida → no aparece como opción, y el servidor la rechaza igualmente; marcar como perdida sin motivo → rechazado en el esquema y otra vez en el dominio.
+
+**CU-5 · ADMIN atiende un derecho de privacidad**
+Alguien pide su copia de datos: ADMIN la descarga en JSON desde la ficha del contacto. Pide darse de baja de comunicaciones: se registra un evento nuevo de revocación, sin destruir el historial. Pide supresión: se anonimiza, lo que vacía también el texto libre de sus solicitudes y borra las notas del equipo, conservando consentimientos y auditoría como prueba del tratamiento. Todo queda auditado.
+
+---
+
+## 6. Estado actual
 
 | Área | Estado |
 |---|---|
-| Frontend público (home, bodas reales, catering, legal) | **Implementado** — ver §4 y `docs/auditoria-v2.md` |
-| Saneamiento técnico (lint, typecheck real, tests, CI) | **Implementado** (Fase 1) — ver §13 y §18 |
-| Base de datos / Prisma / dominio | **Implementado** (Fase 2) — schema completo, migración aplicada, servicios de dominio y seed. Ver §8 |
-| Autenticación administrativa | **Implementado** (Fase 3) — Better Auth, `/admin` protegido, roles, rate limit persistente, bootstrap del primer ADMIN. Ver §9 y `docs/autenticacion.md` |
-| CMS de contenido (`ContentEntry`) | **Implementado** (Fase 4) — `/admin/contenidos` con listado, editor completo, media en Supabase Storage y preview autenticada. Ver §10 y `docs/cms.md` |
-| Rutas públicas VIP conectadas al CMS | **Implementado** (Fase 5) — `/bodas-reales` y `/catering` (listados y fichas) leen de `ContentEntry`; sin `generateStaticParams`, publicación visible de inmediato. Ver §11 y `docs/gate-vip.md` |
-| Gate de email con sesión en servidor | **Implementado** (Fase 5) — cookie `HttpOnly` respaldada por `VipAccessSession`, consentimientos separados, rate limit persistente. **Resuelto el riesgo crítico** de las Fases 0–4. Ver §11–§12 |
-| Captación de leads con backend propio | **Implementado** (Fase 6) — `POST /api/leads/requests` conecta el formulario público y los CTA de ficha con `Lead`/`LeadRequest`. Web3Forms retirado. Ver §11 y `docs/flujo-captacion.md` |
-| CRM (`Lead`/`LeadRequest`, pipeline, scoring) | **Modelo, servicios y alta desde la web implementados**; `PENDIENTE` la UI de `/admin` para trabajar el pipeline |
-| Zona VIP con sesión server-side | **Implementado** (Fase 5) — el gate valida en servidor antes de consultar contenido; sin `localStorage`, sin contenido desenfocado, sin opción de saltarlo |
-| Despliegue | `PENDIENTE` — no se ha desplegado en ningún entorno todavía |
+| Frontend público (home, bodas reales, catering, legal) | **Implementado** — §7 |
+| Saneamiento técnico (lint, typecheck real, tests, CI) | **Implementado** (Fase 1) — §24 |
+| Base de datos, Prisma y capa de dominio | **Implementado** (Fase 2) — §13, §20 |
+| Autenticación administrativa y roles | **Implementado** (Fase 3) — §21, `docs/autenticacion.md` |
+| CMS de contenido | **Implementado** (Fase 4) — §9, `docs/cms.md` |
+| Rutas públicas VIP conectadas al CMS | **Implementado** (Fase 5) — §7 |
+| Gate de correo con sesión en servidor | **Implementado** (Fase 5) — §8. **Resuelto el riesgo crítico** de las fases anteriores |
+| Captación con API propia | **Implementado** (Fase 6) — §8. Web3Forms retirado |
+| CRM: pipeline, tareas, informes | **Implementado** (Fase 7) — §10, `docs/crm.md` |
+| Correo transaccional | **Implementado** (Fase 8) — §10, `docs/email.md` |
+| Endurecimiento de seguridad y privacidad | **Implementado** (Fase 9) — §25, §26, `docs/modelo-amenazas.md` |
+| Pruebas E2E y base de pruebas aislada | **Implementado** (Fase 10) — §24, `docs/pruebas-e2e.md` |
+| Preparación del despliegue | **Implementado** (Fase 10) — §30, `docs/despliegue-vercel.md` |
+| Documentación de entrega y preparación de la publicación | **Implementado** (Fase 11) — §34, §36, `docs/publicacion-github.md` |
+| Auditoría correctiva final | **Implementado** (Fase 12) — 15 defectos reales corregidos con su prueba de regresión. Ver §37 |
+| Publicación del código y despliegue | **Implementado** (Fase 13) — §30, §36 |
+| **Despliegue en producción** | **Desplegado** (Fase 13) en https://elportondelacondesa.solucionesbonicas.com — §30 |
+| **Revisión jurídica de los textos legales** | `PENDIENTE` — la base jurídica y el plazo de retención los tiene que fijar un profesional. §26 |
+| **Licencia del código** | `PENDIENTE` — decisión del titular. §34 |
 
-## 3. Arquitectura
+---
 
-### Objetivo aprobado
+## 7. Funcionalidades públicas
 
-- Un único proyecto Next.js full-stack (no se crea un backend separado).
-- PostgreSQL + Prisma como ORM.
-- Supabase para PostgreSQL y Storage privado.
-- Better Auth para acceso administrativo (email/contraseña). **Registro público desactivado.**
-- CMS propio de `ContentEntry` para fichas `REAL_WEDDING` y `CATERING_EVENT` (sustituirá a `data/vip-stories.ts`).
-- CRM con `Lead` separado de `LeadRequest`, pipeline, scoring, actividad y propietario de lead (detalle en `project-reference/docs/03-arquitectura-crm-leads.md`).
-- Zona VIP con sesión server-side y cookie `HttpOnly` (sustituirá al `localStorage` actual).
+### Home
 
-### Estado real de implementación
+Una sola página con secciones ancladas: hero, la finca, espacios, gastronomía, bodas reales (llamada a la biblioteca), catering, testimonios, ubicación con mapa y formulario de contacto. Conserva el diseño, la tipografía, el color y las animaciones de la plantilla original adaptados a la marca real.
 
-- **Implementado (Fase 2):** PostgreSQL (Supabase) + Prisma como ORM único, con el modelo de datos completo (`prisma/schema.prisma`, ver `docs/modelo-datos.md`) y una capa de servicios de dominio tipados (`lib/domain/`) para Lead/LeadRequest/consentimientos/actividades/tareas/pipeline/contenido/sesiones VIP/interacciones/scoring.
-- **Implementado (Fase 3):** Better Auth sobre ese mismo esquema — `/admin` protegido en servidor (no solo en middleware), roles `ADMIN`/`SALES`/`CONTENT`, primer ADMIN vía `npm run admin:bootstrap`, rate limit persistente. Detalle en §9 y `docs/autenticacion.md`.
-- **Implementado (Fase 4):** CMS privado de bodas reales y catering en `/admin/contenidos` (listado con filtros y paginación server-side, editor completo, media en un bucket privado de Supabase Storage con validación real de bytes, preview autenticada, auditoría de todas las operaciones). Detalle en §10 y `docs/cms.md`.
-- **Implementado (Fase 5):** las cuatro rutas públicas VIP leen de `ContentEntry` y están protegidas por un gate de email con sesión en servidor (cookie `HttpOnly` + `VipAccessSession`), consentimientos separados, rate limit persistente y registro de interacción deduplicado. Detalle en §11 y `docs/gate-vip.md`.
-- **Sin implementar todavía:** la UI de administración del CRM, y la captación general (el formulario de contacto de la home sigue yendo a Web3Forms). Detalle de qué falta exactamente en `docs/arquitectura-backend.md` §7.
+- **Responsive** de móvil a escritorio.
+- **Bilingüe** (español/inglés) en navegación, home, contacto y enlaces legales, con conmutador en la cabecera. Las fichas VIP y el texto completo de las páginas legales no están traducidos (§32).
+- **Mapa sin clave de API**: se incrusta el mapa público de Google, con el color de marca aplicado por filtro CSS sobre el iframe. Ninguna clave de Google Maps Platform, ninguna cuota que agotar.
+- **Cero peticiones a terceros para pintar la página.** Las tipografías se sirven desde el propio dominio (§29), así que la IP del visitante no viaja a Google.
+- **Consentimiento de cookies** con privacidad y marketing como decisiones separadas.
 
-## 4. Stack y justificación
+### Páginas legales
 
-| Pieza | Elección | Justificación |
+`/aviso-legal`, `/politica-privacidad` y `/politica-cookies`. La política de privacidad describe el tratamiento técnico real, y lo que no está validado jurídicamente lleva un aviso explícito en lugar de una cifra inventada (§26).
+
+### Bibliotecas de contenido
+
+`/bodas-reales` y `/catering`: listado de fichas y ficha individual en `/[slug]`. Las cuatro rutas leen del CMS y están protegidas por el gate (§8). No se pregeneran slugs y no hay `generateStaticParams`: publicar se ve al instante.
+
+Cada ficha muestra galería, decoración, photocall, minuta, cronología, momentos destacados, proveedores, testimonio, desglose orientativo de presupuesto y una llamada a la acción contextual. Las fichas de ejemplo llevan la etiqueta **«Ejemplo ilustrativo»** visible mientras el equipo no publique casos reales.
+
+### Acceso al panel
+
+Un botón discreto en la cabecera lleva a `/admin/login` o a `/admin` según haya sesión. No es un enlace oculto ni una URL secreta: la seguridad está en la autenticación, no en que nadie encuentre la puerta.
+
+---
+
+## 8. Gate de acceso y captación
+
+Detalle completo en `docs/gate-vip.md` y `docs/flujo-captacion.md`. Contrato HTTP de la API en `docs/openapi.yaml`.
+
+### El gate
+
+**Lo importante en una frase: el contenido protegido no está oculto, no se ha consultado.**
+
+Sin una sesión de acceso válida, la capa de datos no se llama. No hay contenido en el HTML servido, ni en el payload del cliente, ni difuminado por CSS, ni un botón para saltarse la verificación. Comprobable con un `curl` y una búsqueda de texto (`docs/evidencias-tfm.md` §3), y con una prueba automática que espía la capa de datos para verificar que **no se la invoca** (`components/vip/access-boundary.test.tsx`).
+
+Cómo funciona:
+
+- Un correo, una vez. Desbloquea **las dos** bibliotecas.
+- La autorización vive en una cookie `HttpOnly` respaldada por la tabla `VipAccessSession`. La cookie contiene **solo un token**, nunca el correo ni el identificador del contacto; en la base solo se guarda su HMAC, verificado con comparación de tiempo constante.
+- Consentimiento de privacidad obligatorio y de marketing separado, opcional y desmarcado de origen. Los dos se persisten como eventos inmutables con la versión de la política aceptada.
+- Rate limit persistente de 5 intentos cada 10 minutos por IP, con la IP **siempre** hasheada.
+- El mensaje de error es idéntico exista o no el correo en el sistema.
+- Todo en una transacción: si falla, no se concede acceso.
+- Cada ficha abierta se registra como interacción, deduplicada por categoría para que recargar no la cuente dos veces.
+
+### La captación
+
+`POST /api/leads/requests` es el **único** camino de alta de una solicitud comercial. La interfaz nunca habla con Prisma: valida con el esquema compartido y envía a través de `lib/leads.ts`.
+
+- **Campos.** Contacto (nombre, apellidos, correo, teléfono opcional) y solicitud (tipo de evento, fecha y número de invitados opcionales, espacio de interés, presupuesto orientativo opcional, asunto, mensaje). En eventos corporativos aparecen además empresa —**obligatoria**—, cargo y necesidades audiovisuales; con cualquier otro tipo esos tres campos se descartan en servidor. Se exige la empresa porque es el dato que permite cualificar, no el cargo.
+- **Vocabulario estable.** El tipo de evento se guarda como código (`WEDDING`, `CORPORATE_EVENT`, …), nunca como etiqueta traducida, para que «Boda» y «Wedding» agrupen igual en el CRM. Un test comprueba que las listas de espacios de la web y del formulario no se desvíen.
+- **Transacción única.** Se crea o actualiza el contacto, se crea **siempre** una solicitud nueva, se registra el consentimiento de privacidad —y el de marketing solo si se concede— y se anota la actividad. El recálculo de puntuación y el aviso por correo van después del commit: son derivados y no deben alargar ni condicionar la transacción.
+- **Atribución.** `firstSource` se escribe solo al crear el contacto (first touch); `lastSource`, en cada solicitud (last touch). Cada solicitud conserva además su propia atribución completa: página, formulario, ficha de origen, referrer y las cinco UTMs.
+- **Llamada a la acción contextual.** «Quiero una boda así» enlaza a `/?tipo=<CÓDIGO>&ficha=<id>#contacto`. El servidor no se cree la ficha: verifica que corresponde a contenido publicado y, si no, descarta el origen pero **guarda la solicitud igual**.
+- **Consentimientos.** La versión de la política se valida contra la vigente (409 si no coincide, para no registrar un consentimiento sobre un texto que ya cambió). Dejar marketing sin marcar **no** registra un `granted=false`: no sería una petición de baja y revocaría un consentimiento dado antes por otra vía.
+- **Antispam.** Honeypot (responde 202, indistinguible de un éxito, y no guarda nada), tiempo mínimo de formulario de 3 s, rate limit de 5 envíos/15 min por IP y 3/60 min por correo con la clave hasheada, límite de cuerpo de 32 KiB, validación de mismo origen e idempotencia por `submissionId`. **Sin CAPTCHA**: descartado mientras no haya abuso demostrado, porque penaliza a todo el mundo por lo que hacen unos pocos.
+- **Errores que no filtran.** Se responde con códigos, no con textos, y nunca con los valores recibidos: en un error de validación solo viaja la lista de nombres de campo. Un fallo de escritura devuelve un error genérico y el motivo real queda solo en el log del servidor.
+- **Estados de la interfaz.** *Enviando*, *éxito* y *error*, con la región de resultado en `aria-live` recibiendo el foco. Un error **no borra lo escrito**.
+
+---
+
+## 9. CMS de Bodas Reales y Catering
+
+Detalle completo en `docs/cms.md`. Todas las rutas exigen `cms:access` (ADMIN o CONTENT), validado en la página **y** en cada Server Action.
+
+- **Rutas.** `/admin/contenidos` (listado), `/nuevo`, `/[id]` (editor) y `/[id]/preview`.
+- **Listado.** Pestañas (todo, bodas reales, catering, borradores, publicados, archivados), búsqueda por título, slug y espacio, filtros por tipo, estado, demo, destacado y fecha, paginación en servidor. Acciones: editar, duplicar como borrador, previsualizar, publicar, despublicar y archivar. **No hay «eliminar»**: una ficha publicada no se borra físicamente desde la interfaz.
+- **Editor.** Todos los campos que muestra la ficha pública, en el mismo orden. Estados *Guardando / Guardado / Error / Cambios sin guardar*.
+- **Flujo de trabajo.** Toda ficha nace borrador. Publicar exige título, slug, traducción española, imagen principal y **texto alternativo en todas las imágenes**, y la interfaz dice exactamente qué falta. Publicar, despublicar y archivar son transaccionales con su evento de auditoría. Las sobrescrituras concurrentes se detectan por `updatedAt` y se rechazan en vez de pisar el trabajo ajeno. Publicar revalida las rutas públicas afectadas.
+
+  El texto alternativo obligatorio no es burocracia: sin él la ficha es inaccesible para quien usa lector de pantalla, y si no se exige al publicar, no se añade nunca.
+- **Media.** Bucket **privado** en Supabase Storage. La clave privilegiada no puede llegar al navegador (`import "server-only"` rompe el build si se intenta). Se valida tamaño (10 MB máximo), extensión, MIME y **la firma real de los bytes**, además de las dimensiones leídas de la cabecera: un `.exe` renombrado a `.png`, o un JPEG declarado como PNG, se rechazan. Los nombres de objeto los genera el servidor (UUID), nunca el usuario. Las URL son firmadas y temporales. El borrado **no elimina un objeto todavía referenciado** por otra ficha —caso real: duplicar como borrador comparte los objetos—. Los vídeos externos exigen `https`, host de una lista explícita, miniatura y pasan un filtro anti-SSRF.
+- **Auditoría.** Creación, actualización, publicación, despublicación, archivado, duplicado y operaciones de media, con metadatos limitados a identificadores y datos técnicos: nunca cuerpos de contenido ni URL firmadas.
+
+---
+
+## 10. CRM, pipeline, tareas e informes
+
+Detalle completo en `docs/crm.md`. Correo transaccional en `docs/email.md`.
+
+### Apartados y permisos
+
+Resumen, Contactos, Solicitudes, Pipeline, Tareas e Informes con `crm:access` (ADMIN, SALES); Contenidos con `cms:access` (ADMIN, CONTENT); Configuración con `settings:manage` (ADMIN). `/admin` tiene dos caras: con `crm:access` muestra las métricas y, sin él, un punto de partida con acceso a Contenidos en lugar de una pantalla vacía.
+
+### Resumen e informes
+
+Contactos captados, solicitudes nuevas, pendientes de primer contacto, tiempo medio hasta el primer contacto leído del historial real, visitas, propuestas, ganadas y perdidas, conversión sobre cerradas **con el denominador a la vista**, origen y campaña, contenido más consultado, embudo gate → ficha → solicitud, y últimos movimientos.
+
+**Una regla que conviene decir en voz alta: un ratio sin denominador devuelve «sin datos», no 0 %.** Un 0 % afirma que nadie convierte, que es distinto de no tener datos todavía. Cada ratio y cada media viajan con su denominador o su tamaño de muestra.
+
+### Contactos y solicitudes
+
+- **Contactos.** Paginación en servidor; búsqueda por nombre y por **correo y teléfono normalizados** —buscar `600 11 22 33` encuentra a quien está guardado como `+34600112233`—; filtros por origen, etiqueta, puntuación, interacción, consentimiento y fechas, todos reflejados en la URL. Ficha 360º con datos, consentimientos, solicitudes, contenido consultado, historial, notas y tareas.
+- **Solicitudes.** Listado paginado con filtros en URL y **orden por lista blanca cerrada**, más un segundo criterio estable por `id` para que ninguna fila salga en dos páginas. El detalle edita la gestión —prioridad, responsable, próxima acción, espacio, presupuesto— y **no reescribe el asunto ni el mensaje** que escribió la persona. Enlaces mailto, tel y WhatsApp con todo codificado y esquema fijo. Aviso de posibles coincidencias del mismo contacto que **no fusiona nada**.
+
+### Pipeline
+
+Tablero por estado, con alternativa de tabla en `?vista=tabla`. **Sin arrastrar y soltar, por decisión:** cada tarjeta ofrece un desplegable con solo las transiciones válidas, que funciona con teclado y con lector de pantalla sin trabajo extra. El servidor revalida la transición y escribe la actividad y la auditoría **en la misma transacción**. Perder una oportunidad exige motivo, comprobado en el esquema y otra vez en el dominio.
+
+### Tareas y notas
+
+Crear, asignar, editar, completar y cancelar, ligadas a un contacto. Vistas mías, vencidas, hoy, semana, cerradas y todas, con contador. Completar registra actividad; **cancelar no borra**: conserva la fila y su rastro. Notas internas en texto plano interpolado en JSX —no hay `dangerouslySetInnerHTML` en el CRM—, con límite de 4.000 caracteres, y editar queda auditado sin copiar el cuerpo.
+
+### Puntuación
+
+Configurable por ADMIN y auditada: gate +10, teléfono +10, fecha +10, invitados +10, tres fichas distintas +10 una sola vez, formulario +15, visita +25. **`recalculateLeadScore` recalcula desde el historial, nunca acumula**, así que el mismo hito no puede sumar dos veces y un cambio de pesos se aplica en el siguiente movimiento de cada contacto.
+
+### Exportación
+
+CSV solo para ADMIN (`crm:export`, un permiso **distinto** de consultar el CRM): respeta los filtros, UTF-8 con BOM y `;`, encabezados en español, **neutraliza los valores que empiezan por `=`, `+`, `-` o `@`** para que un texto escrito en el formulario público no se ejecute al abrir el archivo, lista blanca de columnas —nada de credenciales, tokens, hashes ni identificadores internos—, `no-store`, y un evento de auditoría por exportación sin el término de búsqueda.
+
+### Correo transaccional
+
+**Principio: la base de datos es la fuente de verdad y el correo es un efecto secundario.** Guardar una solicitud no depende de que el proveedor responda. El envío ocurre después del commit y después de responder al visitante; ninguna función de notificación lanza, y un fallo de correo no borra datos ni produce un error falso.
+
+- Interfaz `EmailProvider` con dos adaptadores: SendGrid (API v3 por `fetch`, con timeout de 10 s) y desarrollo (registra y no envía). La aplicación nunca habla con SendGrid directamente.
+- Se usa `after()` de Next.js, no `void promise`: mantiene viva la invocación hasta que el envío termina sin retrasar la respuesta. Un `void` parece equivalente pero deja el envío a medias cuando la plataforma congela la función, y sin rastro.
+- Cuatro estados: `SENT` (el proveedor aceptó; no promete bandeja), `SKIPPED_CONFIG` (falta configuración, no es error), `RETRY_PENDING` (fallo transitorio) y `FAILED` (4xx: reintentar no arreglaría nada). El adaptador de desarrollo devuelve `SKIPPED_CONFIG`, **no `SENT`**.
+- Registro sin datos personales innecesarios: plantilla, proveedor, estado, motivo corto y destinatarios **parcialmente ocultos**. Nunca el cuerpo, el asunto, la clave de API ni la dirección completa.
+- El aviso interno enlaza al detalle protegido del CRM **sin token**: un enlace con acceso incorporado sería permanente para cualquiera que reenviara el correo.
+- **Lo que no garantiza:** no hay entrega garantizada. `RETRY_PENDING` describe un fallo que merecería reintento y **nada lo reintenta** (§32).
+
+---
+
+## 11. Arquitectura
+
+### Decisión de base
+
+Un **único proyecto Next.js full-stack**, no un frontend y un backend separados. Menos superficie que asegurar, un solo despliegue, y tipos compartidos entre cliente y servidor sin generación de clientes ni contratos duplicados.
+
+### Capas
+
+| Capa | Dónde | Responsabilidad | Regla |
+|---|---|---|---|
+| **Interfaz** | `app/`, `components/` | Presentación e interacción | **Nunca** habla con Prisma |
+| **Validación** | `lib/validation/` | Esquemas Zod compartidos cliente/servidor | El servidor revalida siempre, no confía en el cliente |
+| **Dominio** | `lib/domain/` | Lógica de negocio y transacciones | Único lugar donde se decide qué es válido |
+| **Datos** | `lib/db.ts`, `prisma/` | Acceso a PostgreSQL | Un solo cliente Prisma, un solo ORM |
+
+Servicios transversales: `lib/auth/` (sesión y permisos), `lib/security/` (hash, tokens, rate limit, cabeceras, texto), `lib/storage/` (Supabase Storage), `lib/email/` (proveedor de correo), `lib/observability/` (registro estructurado).
+
+### Autorización: dónde vive de verdad
+
+Esto merece un apartado propio porque es la decisión de seguridad más importante del proyecto.
+
+`middleware.ts` **solo redirige** según exista o no la cookie de sesión. No consulta la base de datos —es Edge, no llega— y por tanto **no autoriza**. La autorización real se comprueba, contra la base de datos, en:
+
+- cada página protegida (`app/admin/(protected)/layout.tsx` y las guardas de `guards.ts`),
+- cada Server Action,
+- cada Route Handler privado.
+
+Un middleware que autoriza es un único punto que, si se equivoca, lo abre todo. Y el acceso sin permiso devuelve **404, no 403**: un 403 confirmaría que el apartado existe.
+
+---
+
+## 12. Diagrama de componentes
+
+```
+                            NAVEGADOR
+                                │
+                    ┌───────────┴───────────┐
+                    │   público             │  /admin
+                    ▼                       ▼
+        ┌───────────────────────────────────────────────────┐
+        │              NEXT.JS 16 · App Router              │
+        │                                                   │
+        │  middleware.ts ── solo redirige /admin según       │
+        │                   exista la cookie. NO autoriza.   │
+        ├───────────────────────────────────────────────────┤
+        │                                                   │
+        │  RUTAS PÚBLICAS            PANEL /admin           │
+        │  ├ home, legal             ├ resumen              │
+        │  ├ /bodas-reales  ┐        ├ contactos            │
+        │  └ /catering      │        ├ solicitudes          │
+        │                   │        ├ pipeline             │
+        │            ┌──────┘        ├ tareas               │
+        │            ▼               ├ informes             │
+        │      GATE VIP              ├ contenidos (CMS)     │
+        │  sesión en servidor        ├ configuración        │
+        │  cookie HttpOnly           └ usuarios             │
+        │  ¿válida? ─ no ─► formulario, sin consultar nada   │
+        │       │ sí                        │                │
+        │       ▼                           ▼                │
+        │                     AUTORIZACIÓN EN SERVIDOR       │
+        │                     Better Auth · 3 roles          │
+        │                     ADMIN · SALES · CONTENT        │
+        │                                                   │
+        │  API ROUTES                                       │
+        │  ├ POST /api/leads/requests   (pública)           │
+        │  ├ /api/auth/[...all]         (Better Auth)       │
+        │  ├ /api/admin/crm/export      (solo ADMIN)        │
+        │  ├ /api/admin/crm/lead-data   (solo ADMIN)        │
+        │  └ /api/health                (sin fugas)         │
+        └───────────────────────┬───────────────────────────┘
+                                │
+                    ┌───────────▼────────────┐
+                    │  lib/validation  (Zod) │  esquemas compartidos
+                    └───────────┬────────────┘
+                                │
+                    ┌───────────▼────────────┐
+                    │      lib/domain        │  transacciones,
+                    │  leads · requests ·    │  reglas de negocio,
+                    │  content · scoring ·   │  auditoría
+                    │  tasks · privacy       │
+                    └───────────┬────────────┘
+                                │
+                    ┌───────────▼────────────┐
+                    │   lib/db.ts (Prisma)   │  un único ORM
+                    └───────────┬────────────┘
+                                │
+            ┌───────────────────┴───────────────────┐
+            ▼                                       ▼
+    ┌───────────────┐                     ┌──────────────────┐
+    │  PostgreSQL   │                     │ Supabase Storage │
+    │  (Supabase)   │                     │ bucket PRIVADO   │
+    │  25 tablas    │                     │ URL firmadas     │
+    └───────────────┘                     └──────────────────┘
+
+            servicios transversales (server-only)
+    ┌──────────────┬──────────────┬──────────────┬─────────────┐
+    │ lib/security │ lib/email    │ lib/storage  │ lib/observ. │
+    │ hash · rate  │ EmailProvider│ validación   │ log sin PII │
+    │ limit · CSP  │ SendGrid/dev │ de bytes     │ requestId   │
+    └──────────────┴──────────────┴──────────────┴─────────────┘
+                          │
+                          ▼
+                   SendGrid (opcional)
+```
+
+**Cómo se lee este diagrama:** todo lo que baja hacia la base de datos pasa por validación y por dominio. No hay ninguna flecha que salte de la interfaz a Prisma, y eso no es una convención: es lo que permite que la autorización y las reglas de negocio estén en un solo sitio comprobable.
+
+---
+
+## 13. Modelo de datos
+
+**25 tablas.** Esquema completo, narrado y con diagrama ER en `docs/modelo-datos.md`; definición en `prisma/schema.prisma`.
+
+### Las tres decisiones que explican el resto
+
+**1. `Lead` separado de `LeadRequest`.** Una persona, varias solicitudes. Nunca se sobrescribe una anterior: quien pregunta por su boda y dos años después por una comunión es la misma persona con dos peticiones distintas, y las dos cuentan. Un modelo con una sola tabla obligaría a elegir entre perder la primera consulta o duplicar la persona.
+
+**2. Los consentimientos son eventos inmutables, no una casilla.** `ConsentEvent` con `purpose` (`PRIVACY` / `MARKETING`), `granted`, la versión de la política y la fecha. Revocar es un evento nuevo, nunca un `UPDATE`. Solo así se puede demostrar **qué** se consintió, **cuándo** y **sobre qué texto**. Una columna booleana solo sabe decir el estado de hoy, que es justo lo que no sirve ante una reclamación.
+
+**3. La sesión de acceso VIP vive en la base de datos.** `VipAccessSession` guarda el **HMAC** del token; la cookie del navegador lleva solo el token. Ni el correo ni el identificador del contacto salen del servidor, y revocar un acceso es una operación real, no esperar a que caduque una cookie.
+
+### Grupos de tablas
+
+| Grupo | Tablas | Para qué |
 |---|---|---|
-| Framework | Next.js 16 (App Router, Turbopack) | Ya venía como base de la plantilla; permite un único proyecto full-stack (frontend + futuras API routes) sin backend separado |
-| UI | React 19 + TypeScript estricto | Coherente con Next 16; `strict: true` ya activo en `tsconfig.json` |
-| Estilos | Tailwind CSS 4 + Radix UI / shadcn | Sistema de diseño ya construido sobre esta base; se conserva para no romper el lenguaje visual |
-| Formularios | React Hook Form + Zod | Validación cliente/servidor coherente con los formularios de leads y el email-gate VIP |
-| Gestor de paquetes | **npm** (`package-lock.json`) | Confirmado en `docs/auditoria-v2.md` como el gestor realmente usado (todos los `dev`/`build` se ejecutan con npm); se eliminó `pnpm-lock.yaml` en esta fase por ser residual |
-| Lint | ESLint 9 (flat config) + `eslint-config-next@16.0.10` | Versión exacta alineada con la de Next.js instalada; sustituye al script `lint` que antes fallaba por falta de instalación |
-| Tests unitarios/componentes | Vitest 4 + Testing Library + jsdom | Integración nativa con Vite/Turbopack, arranque más rápido que Jest para este tamaño de proyecto; sin necesidad de un runner de navegador real para pruebas de componentes |
-| Tests E2E | `PENDIENTE` (Playwright, cuando se incorpore) | No se ha añadido en esta fase: el alcance solo pedía Vitest + Testing Library |
-| CI | GitHub Actions (`npm ci` + lint + typecheck + test + build) | Sin secretos, reproducible desde cero |
-| Base de datos | PostgreSQL (Supabase) + **Prisma 6.19.3** | Decisión aprobada antes de esta fase. Se descartó deliberadamente Prisma 7 (última): exige un *driver adapter* y mueve la config a `prisma.config.ts`, complejidad no justificada todavía. Ver `docs/arquitectura-backend.md` §1 |
-| Seed / scripts de BD | `tsx` | Ejecuta `prisma/seed.ts` y `scripts/admin-bootstrap.ts` en TypeScript directamente, resolviendo el alias `@/*` sin pasos de compilación |
-| Autenticación | **Better Auth 1.6.26** | Adaptador oficial de Prisma sobre el esquema ya creado en la Fase 2, rate limiting persistente incorporado (sin Redis) y roles vía `additionalFields` sin tabla paralela. El documento de referencia sugería Auth.js; se prefirió Better Auth por estas tres piezas nativas — detalle en `docs/autenticacion.md` §1 |
+| **Autenticación** | `User`, `Session`, `Account`, `Verification`, `RateLimit` | Compatible con Better Auth, sin tabla de contraseñas paralela. El rol va como campo del usuario |
+| **CRM** | `Lead`, `LeadRequest`, `ConsentEvent`, `LeadActivity`, `LeadNote`, `FollowUpTask`, `Tag`, `LeadTag`, `ScoringRule` | El núcleo comercial |
+| **CMS** | `ContentEntry`, `ContentTranslation`, `ContentMedia`, `ContentProvider`, `ContentMenuSection`, `ContentMenuItem`, `ContentTimelineItem`, `ContentHighlight` | Una ficha y sus ocho tipos de contenido asociado, con traducciones separadas de la entrada |
+| **Acceso e interacción** | `VipAccessSession`, `ContentInteraction` | Quién ha accedido y qué ha consultado |
+| **Transversal** | `AuditEvent`, `NotificationLog`, `RateLimitCounter` | Auditoría, correo y limitación de la aplicación (distinta de la de Better Auth) |
 
-## 5. Estructura de carpetas
+### Núcleo, en relaciones
 
 ```
-app/                  rutas (App Router): home, legal, bodas-reales, catering, robots/sitemap
-app/bodas-reales/     listado + [slug]: envoltorios sobre VipLibrary/VipStory (dinámicos)
-app/catering/         idem para catering — no hay componentes duplicados por sección
-app/admin/login/      login público (/admin/login)
-app/admin/(protected)/ layout protegido + /admin (dashboard) + /admin/usuarios (ADMIN)
-app/admin/(protected)/contenidos/  CMS: listado, /nuevo, /[id] (editor), /[id]/preview + actions.ts
-app/api/auth/[...all] handler de Better Auth (sign-in, sign-out, get-session, ...)
-app/api/admin/users/  API ADMIN-only de ejemplo (401/403/200 probados)
-app/api/leads/requests/ alta pública de solicitudes comerciales (contrato en docs/openapi.yaml)
-components/           UI, secciones de home, vip/, icons/, ui/ (shadcn)
-components/vip/       vip-library.tsx y vip-story.tsx (servidor, compartidos por ambas secciones),
-                      vip-gate.tsx, track-vip-view.tsx, story-card.tsx, story-detail.tsx, list-header.tsx
-data/                 site-content (+ mirror en inglés) y vip-stories.ts — este último ya NO lo leen
-                      las rutas: se conserva solo como fuente del seed de demostración
-lib/                  leads.ts (envío al endpoint propio), attribution.ts (UTMs + referrer),
-                      i18n (frontend) + db.ts (cliente Prisma) + legal.ts (versión de política)
-lib/notifications/    lead-request-notification.ts (aviso interno tolerante a fallos)
-lib/auth.ts           configuración de Better Auth (servidor)
-lib/auth-client.ts    cliente de Better Auth (React, "use client")
-lib/auth/             session.ts (requireSession/requireRole/requirePermission), test-helpers.ts
-lib/vip/              session.ts (cookie + getVipLead), gate-action.ts, track-action.ts, metadata.ts
-lib/content/          to-story-detail.ts y to-story-card.ts (ContentEntry → props de presentación)
-lib/domain/           servicios de dominio: leads, lead-requests, consents, activities, notes,
-                      tasks, content, content-media, vip-sessions, interactions, scoring, audit,
-                      metadata, errors
-lib/security/         hash.ts (HMAC rotable), tokens.ts (token VIP), rate-limit.ts (persistente),
-                      text.ts (saneado no destructivo + escape de salida)
-lib/storage/          supabase.ts (cliente server-only), bucket.ts, validate-image.ts
-                      (firma real de bytes), external-url.ts (anti-SSRF), object-name.ts
-lib/validation/       content.ts (esquemas Zod del editor), vip-gate.ts,
-                      lead-request.ts (esquema compartido cliente/servidor de la solicitud)
-lib/slug.ts           sugerencia de slug (la validación real es en servidor)
-middleware.ts         redirección de /admin según cookie de sesión (no autoriza; ver §9)
-prisma/               schema.prisma, migrations/, seed.ts
-scripts/              admin-bootstrap.ts (primer ADMIN), ensure-storage-bucket.ts (bucket privado)
-project-reference/    fuente de verdad de negocio (extracción web, Instagram, arquitectura CRM, marca) — no eliminar
-docs/                 documentación técnica: auditorías, modelo de datos, arquitectura de backend,
-                      autenticación, cms, gate-vip, flujo-captacion, openapi.yaml (contrato HTTP)
-.github/workflows/    CI (ci.yml)
-eslint.config.mjs     configuración de ESLint (flat config)
-vitest.config.mts     configuración de Vitest
-vitest.setup.tsx      setup global de tests (jest-dom, mock de next/image, cleanup, carga de .env)
+                    ┌──────────────────┐
+                    │      Lead        │  emailNormalized UNIQUE
+                    │  score, source,  │  (la clave real: buscar por
+                    │  lifecycle       │   correo normalizado)
+                    └────────┬─────────┘
+                             │ 1:N
+     ┌───────────┬───────────┼───────────┬────────────┬──────────────┐
+     ▼           ▼           ▼           ▼            ▼              ▼
+┌──────────┐ ┌────────┐ ┌────────┐ ┌─────────┐ ┌───────────┐ ┌──────────────┐
+│LeadRequest│ │Consent │ │Activity│ │ Note    │ │FollowUpTask│ │VipAccess    │
+│          │ │Event   │ │        │ │         │ │            │ │Session      │
+│ status   │ │INMUTABLE│ │historial│ │internas │ │ con fecha  │ │ HMAC token  │
+│ submission│ │privacy/ │ │        │ │         │ │            │ │             │
+│ Id UNIQUE│ │marketing│ │        │ │         │ │            │ │             │
+└─────┬────┘ └────────┘ └────────┘ └─────────┘ └───────────┘ └──────────────┘
+      │                                                              │
+      │ sourceContentId                                              │
+      │ (verificado en servidor)                          ContentInteraction
+      ▼                                                              │
+┌──────────────────┐                                                 │
+│  ContentEntry    │◄────────────────────────────────────────────────┘
+│  slug + type     │
+│  UNIQUE          │  status: DRAFT / PUBLISHED / ARCHIVED
+└────────┬─────────┘  isDemo, isFeatured, sortOrder
+         │ 1:N
+    ┌────┴────┬──────────┬───────────┬─────────────┐
+    ▼         ▼          ▼           ▼             ▼
+Translation  Media   Provider   MenuSection   TimelineItem
+ (ES / EN)  (bucket   (con su    │             Highlight
+            privado)   media)    └─ MenuItem
 ```
 
-## 6. Instalación
+Dos detalles que valen más que un párrafo de explicación:
+
+- **`LeadRequest.submissionId` es único.** Es la garantía real contra el doble envío: no una comprobación en el cliente, sino un índice que la base de datos hace cumplir.
+- **`ContentEntry` es único por slug *y* tipo.** Así una boda y un catering pueden compartir slug sin colisionar, que es lo natural cuando son dos bibliotecas distintas.
+
+---
+
+## 14. Decisiones y justificación
+
+Las decisiones que cambiaron el resultado, con la alternativa que se descartó. Las de infraestructura están ampliadas en `docs/arquitectura-backend.md`.
+
+| Decisión | Alternativa descartada | Por qué |
+|---|---|---|
+| **Gate validado en servidor** antes de consultar contenido | Gate en cliente con `localStorage` (era el estado inicial del proyecto) | Un gate de cliente se salta con F12 y, peor, produce métricas de captación falsas. Si el contenido es la contrapartida, la protección tiene que ser real. **Era el riesgo crítico del proyecto y se resolvió en la Fase 5** |
+| **API propia de solicitudes** | Seguir con Web3Forms | Sin backend propio no hay registro, ni atribución, ni seguimiento: es decir, no hay proyecto. Y los datos de los contactos dejaban de estar en un tercero |
+| **Autorización en cada página, acción y endpoint** | Autorizar en el middleware | El middleware es Edge y no llega a la base de datos; solo puede mirar si existe una cookie. Un único punto de autorización que se equivoca lo abre todo |
+| **404 en vez de 403** al acceder sin permiso | 403 Forbidden | Un 403 confirma que el recurso existe. El 404 no dice nada |
+| **Consentimientos como eventos inmutables** | Columnas booleanas en `Lead` | Un booleano solo conoce el estado de hoy. Ante una reclamación hay que poder demostrar qué se consintió, cuándo y sobre qué versión del texto |
+| **`Lead` separado de `LeadRequest`** | Una sola tabla de «contactos» | Obligaría a elegir entre perder la consulta anterior o duplicar la persona |
+| **Better Auth** | Auth.js (era la sugerencia del documento de referencia) | Tres piezas nativas que hacían falta: adaptador oficial de Prisma sobre el esquema ya creado, rate limiting persistente sin Redis, y roles vía `additionalFields` sin tabla paralela |
+| **Prisma 6, no 7** | Prisma 7 (la última) | La 7 exige un *driver adapter* y mueve la configuración a `prisma.config.ts`: complejidad que no compra nada aquí. Revisable en el futuro |
+| **Bucket privado con URL firmadas** | Bucket público | Las fotografías de una boda son de sus protagonistas. Un bucket público es una URL adivinable para siempre |
+| **Validar imágenes por la firma real de los bytes** | Confiar en la extensión y el MIME declarado | Los dos los controla quien sube el archivo. Se leen las cabeceras de PNG, JPEG y WebP a mano, sin `sharp`: `sharp` ya arrastra vulnerabilidades conocidas en este proyecto y para leer una cabecera no hace falta decodificar el bitmap |
+| **Pipeline sin arrastrar y soltar** | Tablero con drag and drop | Los desplegables con solo transiciones válidas funcionan con teclado y lector de pantalla sin trabajo extra, y evitan estados imposibles. Si algún día se pide el gesto, tendría que **convivir** con esta alternativa, no sustituirla |
+| **Ratios sin denominador devuelven «sin datos»** | Mostrar 0 % | Un 0 % afirma que nadie convierte. No es lo mismo que no tener datos |
+| **La retención solo identifica candidatos** | Anonimizar automáticamente al cumplirse el plazo | Anonimizar es irreversible y no puede depender de una tarea programada mal configurada |
+| **Correo después del commit, con `after()`** | Enviar dentro de la transacción, o con `void promise` | Dentro de la transacción, un proveedor lento retrasa la respuesta al visitante y un fallo puede tumbar el guardado. Con `void`, la plataforma congela la función y el envío se queda a medias sin rastro |
+| **Tipografías locales** | `next/font/google` | El build llegó a fallar con doce errores de red por no alcanzar `fonts.googleapis.com`. Un build que puede fallar por motivos ajenos al código no es reproducible. Efecto colateral: dos excepciones menos en la CSP y ninguna petición del visitante a un tercero |
+| **CSP en Report-Only por defecto** | CSP bloqueando desde el primer día | Una CSP que rompe la web en el primer despliegue se acaba desactivando entera. Se activa con `CSP_ENFORCE=true` cuando haya informes limpios |
+| **Sin CAPTCHA** | reCAPTCHA o similar | Honeypot, tiempo mínimo y rate limit cubren el abuso automatizado ingenuo. Un CAPTCHA penaliza a todos los visitantes por lo que hacen unos pocos, y aún no hay abuso demostrado |
+| **Base de pruebas E2E aislada, con guardia en código** | Documentar «no ejecutar contra producción» | Las E2E vacían todas las tablas. Un aviso en un runbook no impide el accidente; una guardia que aborta antes de abrir la conexión, sí. Y tiene sus propias 13 pruebas |
+| **Sembrado partido en tres comandos** | Un único `seed.ts` | Hacía tres cosas distintas —configuración, primer ADMIN y datos de ejemplo—, lo que obligaba a elegir entre sembrar configuración o no sembrar nada |
+| **npm, un solo lockfile** | pnpm (había un `pnpm-lock.yaml` residual) | Dos lockfiles son un despliegue no reproducible esperando a ocurrir. Se eliminó el que no se usaba |
+
+---
+
+## 15. Stack y versiones
+
+| Pieza | Elección | Versión | Justificación |
+|---|---|---|---|
+| Framework | Next.js (App Router, Turbopack) | 16.0.10 | Base de la plantilla original; permite un único proyecto full-stack |
+| Interfaz | React + TypeScript estricto | 19.2.0 / 5.x | `strict: true`, sin `any` ni `ts-ignore` |
+| Estilos | Tailwind CSS + Radix UI / shadcn | 4.1.9 | Sistema de diseño ya construido sobre esta base; se conserva para no romper el lenguaje visual |
+| Formularios | React Hook Form + Zod | 7.60 / 3.25.76 | Validación coherente cliente/servidor con el mismo esquema |
+| Base de datos | PostgreSQL (Supabase) | 16 | Gestionado, con Storage en el mismo proveedor |
+| ORM | Prisma | 6.19.3 | Migraciones versionadas y tipos generados. La 7 exige driver adapters (§14) |
+| Autenticación | Better Auth | 1.6.26 | Adaptador de Prisma, rate limit persistente y roles nativos (§14) |
+| Almacenamiento | Supabase Storage | `@supabase/supabase-js` 2.112.3 | Bucket privado con URL firmadas |
+| Correo | SendGrid tras interfaz propia | API v3 | Adaptador sustituible; la aplicación no depende del proveedor |
+| Gestor de paquetes | **npm** | — | Un solo lockfile: `package-lock.json` |
+| Runtime | Node | ≥ 22 (`engines.node`) | Es lo que lee Vercel para elegir el runtime. Se usa `--env-file-if-exists`, que requiere 22 |
+| Lint | ESLint (flat config) + `eslint-config-next` | 9.39.5 / 16.0.10 | Versión alineada con Next; incluye las reglas del compilador de React |
+| Pruebas unitarias | Vitest + Testing Library + jsdom | 4.1.10 | Arranque rápido, integración nativa con Vite |
+| Pruebas E2E | Playwright | 1.62.1 | Chromium, contra el build de producción |
+| CI | GitHub Actions | — | `npm ci` → lint → typecheck → test → secret scan del historial → build. Sin secretos |
+| Tipografías | `next/font/local` | — | Tres familias variables, OFL 1.1, servidas desde el propio dominio |
+
+---
+
+## 16. Estructura del repositorio
+
+```
+app/                       rutas (App Router)
+├── page.tsx               home
+├── layout.tsx             layout raíz: tipografías locales, metadatos, PublicChrome
+├── globals.css            tokens de diseño y variables de tipografía
+├── robots.ts              robots.txt (+ test): Disallow de /admin y /api
+├── sitemap.ts             sitemap sin rutas VIP ni slugs
+├── aviso-legal/ politica-privacidad/ politica-cookies/
+├── bodas-reales/          listado + [slug]  ── envoltorios sobre VipLibrary/VipStory
+├── catering/              idem: no hay componentes duplicados por sección
+├── fonts/                 3 woff2 variables + 3 licencias OFL + README con su origen
+├── admin/login/           acceso público al panel
+├── admin/(protected)/     layout protegido y todo el panel
+│   ├── page.tsx           resumen (dos caras según el rol)
+│   ├── guards.ts          guardas de página: sin sesión → login, sin permiso → 404
+│   ├── crm-actions.ts     Server Actions del CRM (autorizan y validan en servidor)
+│   ├── contactos/         listado + ficha 360º
+│   ├── solicitudes/       listado paginado + detalle editable
+│   ├── pipeline/          tablero por estado + vista de tabla accesible
+│   ├── tareas/ informes/ configuracion/ usuarios/
+│   └── contenidos/        CMS: listado, /nuevo, /[id] editor, /[id]/preview
+└── api/
+    ├── auth/[...all]      handler de Better Auth
+    ├── leads/requests/    alta pública de solicitudes (contrato en docs/openapi.yaml)
+    ├── admin/users/       API solo ADMIN
+    ├── admin/crm/export/  descarga CSV (solo ADMIN)
+    ├── admin/crm/lead-data/  copia de datos de un contacto en JSON (solo ADMIN)
+    └── health/            healthcheck sin versiones, secretos ni excepciones
+
+components/
+├── sections/              secciones de la home (hero, espacios, contacto, ...)
+├── vip/                   vip-library, vip-story (servidor, compartidos por ambas
+│                          secciones), vip-gate, track-vip-view, story-card,
+│                          story-detail, list-header, access-boundary.test
+├── public-chrome.tsx      oculta la cabecera y el pie públicos dentro de /admin
+├── admin-access.tsx       botón discreto de acceso al panel
+├── structured-data.tsx    JSON-LD
+└── ui/                    shadcn/ui adaptado
+
+lib/
+├── db.ts                  singleton de PrismaClient
+├── auth.ts                configuración de Better Auth (servidor)
+├── auth-client.ts         cliente de Better Auth (React)
+├── auth/                  session.ts (requireSession/requireRole/requirePermission)
+├── domain/                servicios de dominio: leads, lead-requests, consents,
+│                          activities, notes, tasks, content, content-media,
+│                          vip-sessions, interactions, scoring, audit, privacy,
+│                          metadata, errors, demo + CRM (crm-leads, crm-requests,
+│                          crm-export, metrics)
+├── validation/            content, vip-gate, lead-request, crm  (esquemas Zod)
+├── security/              hash (HMAC rotable), tokens, rate-limit (persistente),
+│                          text (saneado de salida), headers (cabeceras y CSP),
+│                          secret-patterns (patrones del escáner de secretos)
+├── storage/               supabase (server-only), bucket, validate-image
+│                          (firma real de bytes), external-url (anti-SSRF), object-name
+├── email/                 provider (interfaz), sendgrid, development, config, templates
+├── notifications/         lead-request-notification, overdue-tasks, record, after-response
+├── content/               to-story-detail, to-story-card, demo-stories, seed-equivalence
+├── vip/                   session (cookie + getVipLead), gate-action, track-action, metadata
+├── observability/         log.ts (registro estructurado con requestId, sin PII ni stack)
+├── crm/labels.ts          etiquetas en español del panel
+├── testing/               e2e-database-guard (impide vaciar una base que no sea de pruebas)
+├── leads.ts               envío al endpoint propio
+├── attribution.ts         UTMs y referrer
+├── i18n.tsx  legal.ts  slug.ts  utils.ts
+
+data/
+├── site-content.ts        contenido de presentación (+ espejo en site-content.en.ts)
+└── vip-stories.ts         6 casos de ejemplo — las rutas ya NO lo leen: es la
+                           fuente del sembrado de demostración
+
+prisma/
+├── schema.prisma          25 tablas
+├── migrations/            9 migraciones (ver docs/migraciones.md)
+└── seed.ts                solo configuración operativa (pesos del scoring)
+
+scripts/
+├── admin-bootstrap.ts     primer usuario ADMIN
+├── ensure-storage-bucket.ts   crea el bucket privado
+├── notify-overdue-tasks.ts    resumen de tareas vencidas (manual)
+├── retention-report.ts    candidatos a anonimizar (NO anonimiza)
+├── demo-seed.ts / demo-clean.ts    demostración: sembrar y retirar
+├── secrets-scan-history.ts     escáner de secretos del historial de Git
+└── e2e-env.ts / e2e-migrate.ts / e2e-seed.ts / e2e-env-init.mjs
+
+e2e/                       6 especificaciones de Playwright (23 pruebas), helpers,
+                           fixtures, auth.setup.ts y global-setup.ts
+middleware.ts (+ test)     redirección de /admin según la cookie (no autoriza)
+docker-compose.e2e.yml     PostgreSQL desechable (puerto 55432, solo 127.0.0.1)
+playwright.config.ts       E2E contra el build de producción, un trabajador
+vitest.config.mts          Vitest (excluye e2e/, que es de Playwright)
+eslint.config.mjs  next.config.mjs  postcss.config.mjs  tsconfig*.json
+
+docs/                      documentación técnica y de entrega (índice en §Documentación)
+project-reference/         fuente de verdad de negocio: extracción del sitio original,
+                           Instagram, arquitectura CRM de referencia, marca — no eliminar
+.github/
+├── workflows/ci.yml       integración continua
+└── RELEASE_TEMPLATE.md    plantilla de release/tag de entrega
+CLAUDE.md                  reglas de trabajo vinculantes del proyecto
+CONTRIBUTING.md            versión corta de esas reglas
+NOTICE                     derechos de terceros: marca, fotografías, textos, tipografías
+```
+
+---
+
+## 17. Instalación
+
+Requisitos: **Node 22 o superior** (declarado en `engines.node`, que es lo que lee Vercel) y **npm**. Docker solo para las pruebas E2E.
+
+### Desde cero
 
 ```bash
-npm ci          # o npm install
-npm run dev
+npm ci                       # instala y genera el cliente de Prisma (postinstall)
+cp .env.example .env         # y rellenar (§18)
+
+npx prisma migrate deploy    # aplica las 9 migraciones en orden (§20)
+npm run db:seed              # configuración operativa: pesos del scoring
+npm run storage:bootstrap    # crea el bucket privado vip-content
+npm run admin:bootstrap      # primer usuario ADMIN (§21)
+
+npm run dev                  # http://localhost:3000
 ```
 
+### Calidad
+
 ```bash
-npm run lint        # ESLint
-npm run typecheck   # tsc --noEmit
-npm run test        # Vitest (una vez) — los tests que hablan con BD necesitan .env; sin él se saltan solos
-npm run test:watch  # Vitest en modo watch
+npm run lint         # ESLint 9, incluidas las reglas del compilador de React
+npm run typecheck    # tsc --noEmit, modo estricto
+npm test             # Vitest. Los tests con base de datos necesitan .env; sin él se saltan solos
 npm run build        # build de producción (Turbopack, valida tipos)
 ```
 
+### Pruebas E2E
+
 ```bash
-npm run db:generate  # prisma generate — regenera el cliente tras cambiar el schema
-npm run db:migrate    # prisma migrate dev — SOLO contra la base de desarrollo (nunca producción)
-npm run db:seed       # ejecuta prisma/seed.ts (usuarios ficticios + 6 casos de ejemplo isDemo=true)
-npm run db:studio     # prisma studio — explorador visual de la base de datos
-npm run admin:bootstrap     # crea el primer usuario ADMIN (idempotente; ver §7 y docs/autenticacion.md §4)
-npm run storage:bootstrap   # crea/reconcilia el bucket privado vip-content (idempotente; ver §10)
+npm run e2e:env       # crea .env.e2e con secretos aleatorios (no sobrescribe)
+npm run e2e:setup     # contenedor de PostgreSQL + migraciones + escenario
+npm run e2e           # los 13 escenarios críticos
+npm run e2e:ui        # modo interactivo, paso a paso
+npm run e2e:report    # informe HTML de la última ejecución
+npm run e2e:db:reset  # borra el contenedor y su volumen: base virgen
 ```
 
-## 7. Variables de entorno
+Detalle en `docs/pruebas-e2e.md`.
 
-Ver `.env.example` (sin valores reales). Configuradas en `.env` (no versionado):
+---
+
+## 18. Variables de entorno
+
+Plantilla sin valores en `.env.example`. El `.env` real **no se versiona** y hay una prueba que lo comprueba (§25).
 
 | Variable | Uso | Estado |
 |---|---|---|
-| `DATABASE_URL` | Prisma en runtime — pooler de Supabase, modo Transaction (puerto 6543, `pgbouncer=true`) | **En uso** desde Fase 2 |
-| `DIRECT_URL` | `prisma migrate`/`db push` — pooler de Supabase, modo Session (puerto 5432; la conexión directa no resuelve en este entorno, ver `docs/arquitectura-backend.md` §2) | **En uso** desde Fase 2 |
-| `SUPABASE_URL` | URL del proyecto (`porton-tfm-dev`); la usa el cliente de Storage y determina el host autorizado de `next/image` | **En uso** desde Fase 4 (host de imágenes, desde Fase 5) |
-| `SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_ANON_KEY` | Clave pública del proyecto (nueva/legacy) | Provisionadas; sin uso en código (el bucket es privado y todo pasa por servidor) |
-| `SUPABASE_SECRET_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Clave privilegiada, **solo servidor**: subida, borrado y firma de URLs del bucket privado. `SECRET_KEY` tiene precedencia | **En uso** desde Fase 4 (`lib/storage/supabase.ts`, protegido con `import "server-only"`). Trátese como secreto crítico |
-| `RATE_LIMIT_HASH_SECRET` (+ `_PREVIOUS` opcional) | HMAC irreversible para hashear identificadores de rate limit (nunca se guarda la IP) | **En uso real** desde Fase 5 (`lib/security/rate-limit.ts`, rate limit del gate VIP) |
-| `VIP_TOKEN_HASH_SECRET` (+ `_PREVIOUS` opcional) | HMAC irreversible del token de sesión VIP | **En uso** desde Fase 2; desde Fase 5 respalda la cookie de acceso real |
-| `ENABLE_DEMO_CONTENT` | Si no es `"true"`, oculta de los listados públicos el `ContentEntry` con `isDemo=true` (los 6 casos migrados de `data/vip-stories.ts`) | **En uso** desde Fase 2; en `.env` de desarrollo vale `true` |
-| `BETTER_AUTH_SECRET` | Firma las cookies/tokens de sesión de Better Auth (32 bytes aleatorios) | **En uso** desde Fase 3. Rotarlo invalida todas las sesiones activas |
-| `BETTER_AUTH_URL` | Origen real desde el que se sirve la app; determina si la cookie de sesión se marca `Secure` y cuál es el origen de confianza | **En uso** desde Fase 3. En desarrollo, `lib/auth.ts` añade además `localhost:3000/3001` como orígenes de confianza para que el login no falle si Next arranca en otro puerto (en producción esa lista está vacía) |
-| `ADMIN_BOOTSTRAP_NAME` / `_EMAIL` / `_PASSWORD` | Solo para `npm run admin:bootstrap`, una vez | **Uso puntual** — deben retirarse de `.env` inmediatamente después de crear el primer ADMIN (ver `docs/autenticacion.md` §4) |
-| `SENDGRID_API_KEY` / `LEAD_NOTIFICATION_TO` | Aviso interno por email de cada solicitud comercial nueva | **Opcionales, sin configurar.** Los formularios funcionan igual sin ellas: el aviso queda como `PENDING` en `NotificationLog`. El transporte real se integra con el CRM (Fase 7) |
+| `DATABASE_URL` | Prisma en runtime — pooler de Supabase en modo Transaction (puerto 6543, `pgbouncer=true`) | **En uso** desde Fase 2 |
+| `DIRECT_URL` | `prisma migrate` — pooler en modo Session (puerto 5432). La conexión directa no resuelve en este entorno (`docs/arquitectura-backend.md` §2) | **En uso** desde Fase 2 |
+| `SUPABASE_URL` | URL del proyecto. La usa el cliente de Storage y determina el host autorizado de `next/image` | **En uso** desde Fase 4 |
+| `SUPABASE_PUBLISHABLE_KEY` / `SUPABASE_ANON_KEY` | Clave pública (formato nuevo / legacy) | Provisionadas, **sin uso en código**: el bucket es privado y todo pasa por servidor |
+| `SUPABASE_SECRET_KEY` / `SUPABASE_SERVICE_ROLE_KEY` | Clave privilegiada, **solo servidor**: subida, borrado y firma de URL. `SECRET_KEY` tiene precedencia | **En uso** desde Fase 4. Secreto crítico |
+| `BETTER_AUTH_SECRET` | Firma las cookies y tokens de sesión (32 bytes aleatorios) | **En uso** desde Fase 3. Rotarlo invalida todas las sesiones activas |
+| `BETTER_AUTH_URL` | Origen real desde el que se sirve la app; determina si la cookie se marca `Secure` y cuál es el origen de confianza | **En uso** desde Fase 3 |
+| `RATE_LIMIT_HASH_SECRET` (+ `_PREVIOUS`) | HMAC irreversible de los identificadores de rate limit. **Nunca se guarda la IP** | **En uso** desde Fase 5 |
+| `VIP_TOKEN_HASH_SECRET` (+ `_PREVIOUS`) | HMAC irreversible del token de sesión VIP | **En uso** desde Fase 2 |
+| `NEXT_PUBLIC_SITE_URL` | Base de los enlaces al panel en los correos, sin barra final | **Opcional.** Sin ella, `http://localhost:3000`. **Única variable pública del proyecto** |
+| `ENABLE_DEMO_CONTENT` | Si no es `"true"`, oculta de los listados públicos las fichas con `isDemo=true` | **En uso** desde Fase 2 |
+| `CSP_ENFORCE` | `"true"` hace que la CSP bloquee en vez de solo informar | **Opcional**, apagado (§25) |
+| `DATA_RETENTION_MONTHS` | Plazo de retención en meses (1–240) para **identificar** candidatos a anonimizar | **Opcional**, 36 por defecto. Nada se anonimiza solo, y el plazo no está validado jurídicamente |
+| `SENDGRID_API_KEY` | Credencial de SendGrid. Solo servidor | **Opcional, sin configurar.** Sin ella cada intento queda como `SKIPPED_CONFIG` |
+| `LEADS_FROM_EMAIL` | Remitente verificado en el proveedor | **Opcional.** Necesaria junto con la clave |
+| `LEADS_NOTIFICATION_TO` | Destinatarios internos del aviso comercial (lista separada por comas) | **Opcional.** Sin ella no se envía el aviso interno |
+| `SEND_LEAD_ACKNOWLEDGEMENT` | `"true"` activa el acuse de recibo al visitante | **Opcional, apagado.** Solo el valor exacto `"true"` lo activa |
+| `ADMIN_BOOTSTRAP_NAME` / `_EMAIL` / `_PASSWORD` | Solo para `npm run admin:bootstrap`, una vez | **Uso puntual** — retirar del entorno inmediatamente después (§21) |
+| `DEMO_ADMIN_EMAIL` / `DEMO_ADMIN_PASSWORD` | Cuenta de evaluación que crea `npm run demo:seed`. Mínimo 12 caracteres | **Uso puntual** — retirar tras sembrar. Se entrega solo por canal privado (§22) |
 
-Todas las variables de Supabase y de hashing se mantienen sin prefijo `NEXT_PUBLIC_` porque su uso previsto es siempre server-side. Lo mismo aplica a `BETTER_AUTH_SECRET`; `BETTER_AUTH_URL` tampoco lo necesita porque el cliente de Better Auth (`lib/auth-client.ts`) usa el origen del navegador por defecto.
+Las variables del entorno de pruebas (`E2E_*`) viven en `.env.e2e`, que tampoco se versiona; se generan con `npm run e2e:env` y están documentadas en `.env.e2e.example`. No se solapan con ninguna de la tabla: `scripts/e2e-env.ts` las traduce a las que la aplicación lee, **después** de validar que la base de pruebas es desechable.
 
-**Retirada en Fase 6:** `NEXT_PUBLIC_WEB3FORMS_KEY` ya no existe. Era la única variable con prefijo `NEXT_PUBLIC_` del proyecto y desapareció al sustituir el envío del navegador a Web3Forms por `POST /api/leads/requests`.
+Ninguna variable de Supabase ni de hashing lleva prefijo `NEXT_PUBLIC_`, porque su uso previsto es siempre server-side. Hay una prueba que comprueba que la **única** `NEXT_PUBLIC_` del proyecto es `NEXT_PUBLIC_SITE_URL`.
 
-## 8. Datos y migraciones
+### Variables pendientes de aportar antes de desplegar
 
-**Implementado (Fase 2).** `prisma/schema.prisma` define 25 tablas (autenticación compatible con Better Auth, CRM, CMS, acceso VIP e interacción — detalle narrado en `docs/modelo-datos.md`, con diagrama ER). Migración inicial aplicada de verdad contra la base de desarrollo de Supabase: `prisma/migrations/20260811101614_init/`. `lib/db.ts` expone el singleton de `PrismaClient`.
+Ninguna es un valor que el proyecto pueda generar por sí mismo.
 
-`data/site-content.ts` y `data/vip-stories.ts` **siguen siendo la fuente real del frontend público** — no se han borrado ni se ha migrado ninguna página para leer de la base de datos todavía (instrucción explícita: no borrar `vip-stories.ts` hasta que la migración pública esté completa). Los 6 casos de ejemplo de `vip-stories.ts` existen *también* como `ContentEntry` (`isDemo=true`) vía `prisma/seed.ts`, como preparación para cuando el frontend público se conecte a la base de datos.
+**Obligatorias en Production** — sin ellas la aplicación no arranca o no autentica:
 
-## 9. Autenticación
+1. `DATABASE_URL` — pooler en modo Transaction (puerto 6543, `pgbouncer=true`)
+2. `DIRECT_URL` — pooler en modo Session (puerto 5432), para las migraciones
+3. `SUPABASE_URL`
+4. `SUPABASE_SECRET_KEY` (o `SUPABASE_SERVICE_ROLE_KEY`)
+5. `BETTER_AUTH_SECRET` — 32 bytes aleatorios, **distinto en cada entorno**
+6. `BETTER_AUTH_URL` — el origen real, con el dominio definitivo
+7. `NEXT_PUBLIC_SITE_URL` — la misma URL
+8. `RATE_LIMIT_HASH_SECRET` — 32 bytes aleatorios
+9. `VIP_TOKEN_HASH_SECRET` — 32 bytes aleatorios
 
-**Implementado (Fase 3).** Better Auth 1.6.26 sobre el esquema ya creado en la Fase 2 (`User`/`Session`/`Account`/`Verification`, sin tabla de contraseñas paralela). Detalle completo, decisiones y verificación manual/automática en `docs/autenticacion.md`; resumen:
+**De uso puntual, y que hay que borrar después de ejecutar su comando una vez:**
 
-- `/admin/login` pública; `/admin` y toda subruta exigen sesión, comprobada de verdad en servidor (`app/admin/(protected)/layout.tsx`), no solo por el `middleware.ts` (que solo redirige según si existe la cookie, sin tocar la base de datos).
-- Alta pública desactivada (`emailAndPassword.disableSignUp`); contraseña mínima 12 caracteres; hash por defecto de Better Auth (scrypt); mensajes de login genéricos (mismo error exista o no la cuenta).
-- Roles `ADMIN`/`SALES`/`CONTENT` vía `requireSession`/`requireRole`/`requirePermission` (`lib/auth/session.ts`), usados en Route Handlers (`app/api/admin/users/route.ts`) y Server Actions (`app/admin/(protected)/usuarios/actions.ts`).
-- Rate limit persistente en base de datos (tabla `rateLimit`), CSRF/validación de origen intacta (no desactivada), cookies `HttpOnly`/`SameSite=Lax`/`Secure` en producción — todo comportamiento por defecto de Better Auth, verificado con peticiones reales (`docs/autenticacion.md` §5–§6).
-- Primer usuario ADMIN vía `npm run admin:bootstrap` (idempotente, no usa el endpoint público de alta).
-- `components/admin-access.tsx` (botón discreto) navega a `/admin/login` o `/admin` según haya sesión (`authClient.useSession()`); ya no es un placeholder.
-- `/admin/usuarios` (ADMIN) es la única pantalla de administración construida en esta fase — listar usuarios y cambiar su rol. CRM y CMS (§10–§11) siguen sin UI de administración: no era alcance de esta fase.
+10. `ADMIN_BOOTSTRAP_NAME`, `ADMIN_BOOTSTRAP_EMAIL`, `ADMIN_BOOTSTRAP_PASSWORD`
+11. `DEMO_ADMIN_EMAIL`, `DEMO_ADMIN_PASSWORD` (solo si se siembra la demo)
 
-## 10. CMS
+**Opcionales, según lo que se quiera activar:** `ENABLE_DEMO_CONTENT` (mientras haya demo), `CSP_ENFORCE`, `DATA_RETENTION_MONTHS`, y el bloque de correo.
 
-**Implementado (Fase 4).** CMS privado para las fichas de bodas reales y catering. Detalle completo en `docs/cms.md`; resumen:
+Los tres secretos aleatorios se generan con:
 
-- **Rutas** (todas exigen `cms:access` = ADMIN o CONTENT, validado en la página *y* en cada Server Action): `/admin/contenidos` (listado), `/admin/contenidos/nuevo`, `/admin/contenidos/[id]` (editor), `/admin/contenidos/[id]/preview`.
-- **Listado:** pestañas (Todo/Bodas reales/Catering/Borradores/Publicados/Archivados), búsqueda por título/slug/espacio, filtros por tipo/estado/demo/destacado/fecha, paginación server-side y acciones de editar, duplicar como borrador, previsualizar, publicar, despublicar y archivar. **No hay "eliminar"**: una ficha publicada no se borra físicamente desde la UI.
-- **Editor:** todos los campos que muestra `StoryDetail`, en el mismo orden (tipo, slug, fecha/temporada/espacio, títulos ES obligatorio / EN opcional, introducción, media, decoración, photocall, minuta, cronología, momentos, proveedores, tiempo y solución, testimonio, presupuesto, CTA, destacado/orden, isDemo y SEO básico compatible con `noindex`). Estados *Guardando/Guardado/Error/Cambios sin guardar*.
-- **Workflow:** toda ficha nace `DRAFT`; publicar exige título, slug, traducción española, hero y `alt` de la hero (y `alt` en el resto de imágenes), y la UI dice exactamente qué falta; publish/unpublish/archive son transaccionales con su `AuditEvent`; archivar pide confirmación; las sobrescrituras concurrentes se detectan por `updatedAt` y se rechazan en vez de pisar el trabajo ajeno; publicar/despublicar revalida las rutas públicas afectadas.
-- **Media:** bucket **privado** `vip-content` en Supabase Storage (`npm run storage:bootstrap`). La clave privilegiada nunca sale del servidor (`import "server-only"`). Se valida tamaño (**máximo 10 MB por imagen**), extensión, MIME y **la firma real de bytes**, además de las dimensiones leídas de la cabecera; los nombres de objeto los genera el servidor (UUID), nunca el usuario; las URLs son firmadas y temporales; el borrado va por Storage API y **no borra un objeto todavía referenciado** por otra ficha (caso real: duplicar como borrador comparte los objetos); los vídeos/Reels externos exigen `https`, host de una lista explícita, miniatura, y pasan un filtro anti-SSRF.
-- **Auditoría:** `content.create/update/publish/unpublish/archive/duplicate` y `media.upload/delete`, con metadatos limitados a identificadores y datos técnicos — nunca cuerpos de contenido ni URLs firmadas.
-- **Ejemplos:** los 6 casos de `data/vip-stories.ts` viven también como `ContentEntry` con `isDemo=true` (seed idempotente), conservando la etiqueta "Ejemplo ilustrativo" y ocultos en producción salvo `ENABLE_DEMO_CONTENT=true`. Su **equivalencia con la fuente estática está probada** campo por campo (`lib/content/seed-equivalence.test.ts`), que es la condición para poder retirarla.
-- **Conectado a las rutas públicas en la Fase 5** con `listPublishedContent`/`getPublishedContentBySlug` y el mapeador `lib/content/to-story-detail.ts`, que es el mismo que usa la preview del panel. Desde la Fase 6, ese mapeador también propaga el id de la ficha al CTA para atribuir la solicitud comercial (§11).
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
-## 11. Captación y CRM
+### Retiradas y renombradas
 
-- **Gate VIP (Fase 5): captación real.** El acceso a las bibliotecas de bodas reales y catering pide el email una sola vez y lo persiste como `Lead` con sus `ConsentEvent` (privacidad obligatoria y marketing separado y opcional), `LeadActivity` y `ContentInteraction`. Todo en una transacción; si falla, no se concede acceso. Detalle completo en `docs/gate-vip.md`.
-- **Riesgo crítico resuelto.** El gate ya no es client-side: valida la sesión **antes** de consultar cualquier ficha, así que sin acceso no hay contenido en el HTML ni en el payload RSC. Verificado en el servidor real y con un test que espía la capa de datos para comprobar que no se llama (`components/vip/access-boundary.test.tsx`). Las rutas ya no son SSG y no se pregeneran slugs.
-- **Formularios públicos con API propia (Fase 6).** `POST /api/leads/requests` (`app/api/leads/requests/route.ts`) es el único camino de alta de una solicitud comercial. La interfaz nunca habla con Prisma: `components/sections/contact.tsx` valida con el esquema compartido y envía a través de `lib/leads.ts`. Detalle completo en `docs/flujo-captacion.md` y contrato HTTP en `docs/openapi.yaml`.
-- **Campos de la solicitud.** Contacto (nombre, apellidos, email, teléfono opcional) y solicitud (tipo de evento, fecha y número de invitados opcionales, espacio de interés, presupuesto orientativo opcional, asunto, mensaje). En eventos corporativos (`CORPORATE_EVENT`, `CONGRESS`) aparecen además empresa —**obligatoria**—, cargo y necesidades audiovisuales; con cualquier otro tipo de evento esos tres campos se descartan en servidor y no llegan al CRM. Criterio: se exige la empresa porque es el dato que permite cualificar la solicitud, no el cargo ni una descripción técnica.
-- **Vocabulario estable.** El tipo de evento se guarda como código (`WEDDING`, `CORPORATE_EVENT`, …), no como etiqueta traducida, para que "Boda" y "Wedding" agrupen igual en el CRM; las etiquetas visibles viven en `data/site-content.ts` y su espejo en inglés. Los espacios usan el mismo slug con el que la web los publica, y un test comprueba que las dos listas no se desvíen.
-- **Transacción única.** `createLeadRequest` crea o actualiza el `Lead`, **crea siempre una `LeadRequest` nueva** (nunca actualiza una anterior), registra el `ConsentEvent` de privacidad —y el de marketing solo si se concede— y anota la `LeadActivity` `FORM_SUBMITTED`. El recálculo de score y el aviso por email van después del commit, porque son derivados y no deben alargar ni condicionar la transacción.
-- **Atribución.** `Lead.firstSource` se escribe solo al crear el Lead (first touch) y `lastSource` en cada solicitud (last touch). Cada `LeadRequest` conserva su propia atribución completa: `sourcePage`, `sourceForm`, `sourceContentId`, `referrer` y las cinco UTMs.
-- **CTA de ficha.** "Quiero una boda así" / "Quiero un catering así" enlaza a `/?tipo=<CÓDIGO>&ficha=<id>#contacto`. El formulario preselecciona el tipo de evento, sugiere el asunto con el propio texto del botón y envía la ficha como `sourceContentId`. El servidor no se lo cree: verifica que corresponde a una `ContentEntry` publicada y, si no, descarta el origen pero **guarda la solicitud igual**.
-- **Consentimientos.** Privacidad obligatoria con enlace a la política; marketing separado, opcional y desmarcado de origen. La `policyVersion` la valida el servidor contra la vigente (409 si no coincide, para no registrar un consentimiento sobre un texto que ya cambió). Dejar la casilla de marketing sin marcar **no** registra un `granted=false`: no sería una petición de baja y revocaría un consentimiento dado antes por otra vía.
-- **Antispam.** Honeypot (responde 202 indistinguible de un éxito y no guarda nada), tiempo mínimo de formulario de 3 s (error recuperable), rate limit persistente de 5 envíos/15 min por IP y 3/60 min por email —con la clave siempre hasheada—, límite de cuerpo de 32 KiB, validación de mismo origen e idempotencia por `submissionId`. Sin CAPTCHA: descartado mientras no haya abuso demostrado.
-- **Doble envío.** El formulario genera una clave de idempotencia por intento: se renueva tras un envío correcto y se conserva tras un error, de modo que un reintento sobre una petición que sí llegó a guardarse no crea una solicitud duplicada. La garantía real es el índice único `LeadRequest.submissionId`.
-- **Estados de la interfaz.** *Enviando*, *éxito* y *error* con mensajes bilingües; la región de resultado es `aria-live` y recibe el foco al responder el servidor. Un error **no borra lo escrito**. El mensaje de éxito confirma el registro y que habrá contacto, sin prometer plazos que nadie ha aprobado.
-- **Aviso por email.** `lib/notifications/lead-request-notification.ts` se invoca tras el commit y sin `await`, y no puede hacer fallar un envío: sin `SENDGRID_API_KEY`/`LEAD_NOTIFICATION_TO` queda como `PENDING` en `NotificationLog`; si falla, como `FAILED`. El transporte real se integra con el CRM.
-- **Gate VIP (Fase 5).** Sigue siendo un flujo distinto: captura un email para dar acceso a contenido, no una petición de presupuesto. Comparte el `Lead` (mismo email normalizado) pero no genera `LeadRequest`.
-- **Implementado en la capa de dominio (Fase 2, `lib/domain/`):** modelo `Lead`/`LeadRequest` (un Lead puede tener varias LeadRequest; nunca se sobrescribe una anterior), consentimientos inmutables, actividades, notas, tareas de seguimiento, pipeline con máquina de estados validada (`changeLeadRequestStatus`), scoring configurable (`ScoringRule` + `recalculateLeadScore`), sesiones VIP con token hasheado, e interacciones de contenido. Todo probado contra la base de datos real de desarrollo (§13).
-- **`PENDIENTE`:** UI de `/admin` para trabajar el pipeline/CRM (bandeja de solicitudes, cambio de estado, notas, tareas) y transporte real de correo.
+- **Fase 6:** `NEXT_PUBLIC_WEB3FORMS_KEY` ya no existe. Desapareció al sustituir el envío del navegador a Web3Forms por `POST /api/leads/requests`.
+- **Fase 8:** `LEAD_NOTIFICATION_TO` pasó a `LEADS_NOTIFICATION_TO`, por coherencia con `LEADS_FROM_EMAIL`.
 
-## 12. Seguridad y privacidad
+---
 
-- Ningún secreto en archivos versionables: `.env` está excluido por `.gitignore` (`.env*`, con excepción de `.env.example`, sin valores reales). Verificado con `git check-ignore`.
-- Consentimiento de privacidad y de marketing son campos separados en toda la web (formulario comercial y gate VIP) y se persisten como `ConsentEvent` inmutable — una revocación es un evento nuevo, nunca un `UPDATE`.
-- **Nuevo en Fase 2:** hash HMAC-SHA256 con rotación de clave (`lib/security/hash.ts`) para identificadores de rate limit y para el token de sesión VIP — nunca se guarda la IP ni el token en claro. `sanitizeMetadata` (`lib/domain/metadata.ts`) descarta contraseñas/tokens/IP/user-agent y trunca strings antes de guardar `LeadActivity.metadata`/`AuditEvent.metadata`. `anonymizeLead` es transaccional y está probada. Detalle en `docs/arquitectura-backend.md` §4.
-- **Nuevo en Fase 5 (gate VIP):** la autorización vive en una cookie `HttpOnly` respaldada por `VipAccessSession` en base de datos, no en `localStorage`. La cookie contiene **solo el token**, nunca el email ni el id del lead; en base de datos solo su HMAC, verificado con comparación de tiempo constante. Sin sesión válida no se consulta ni se serializa ninguna ficha. El gate no se puede cerrar ni saltar (se eliminó el botón de "saltar verificación"). Rate limit persistente de 5 intentos/10 min por IP, con la IP siempre hasheada. Consentimientos de privacidad y marketing separados e inmutables, con la versión de la política registrada. El mensaje de error es idéntico exista o no el email. Detalle en `docs/gate-vip.md` §3–§5.
-- **Nuevo en Fase 3:** acceso administrativo real con Better Auth — sesiones `HttpOnly`/firmadas, rate limit persistente, CSRF/origen sin desactivar, alta pública rechazada, mensajes de login sin enumeración de usuarios, roles verificados en servidor en cada Route Handler/Server Action privada (nunca solo en el middleware). Detalle y verificación en `docs/autenticacion.md` §5–§6.
-- **Nuevo en Fase 4 (media y CMS):** el bucket `vip-content` es **privado** y la clave privilegiada de Supabase no puede llegar al navegador (`import "server-only"` hace fallar el build si se importa desde un componente cliente). Las imágenes se validan por su **firma real de bytes**, no por extensión ni por el MIME declarado (un `.exe` renombrado a `.png`, o un JPEG declarado como PNG, se rechazan). Los nombres de objeto los genera el servidor (UUID), nunca el usuario. Las URLs son firmadas y temporales (10 min) y no se registran en auditoría. Las URLs externas pasan un filtro **anti-SSRF** (loopback, redes privadas, `169.254.169.254`, `.internal`/`.local`) y **anti-XSS** (solo `https:`). El CTA de una ficha solo admite rutas internas. Detalle en `docs/cms.md` §5.
-- **Nuevo en Fase 6 (formularios públicos):** el endpoint de solicitudes valida en servidor con el mismo esquema que el formulario, no se fía de ningún campo del cliente (la versión de la política y la ficha de origen se comprueban contra el servidor y la base de datos) y responde con **códigos de error, no con textos**, sin filtrar nunca los valores recibidos: en un error de validación solo viaja la lista de nombres de campo. Un fallo de escritura devuelve un `persistence-failed` genérico y el motivo real queda solo en el log del servidor. El texto libre **no se transforma al guardarlo** (el saneado es de salida: JSX escapa en la interfaz y `escapeHtml` en el correo); lo único que se elimina antes de persistir son caracteres de control, porque PostgreSQL rechaza el byte NUL. Las claves de rate limit —IP y email— se guardan hasheadas con HMAC, nunca en claro. Detalle en `docs/flujo-captacion.md` §5–§9.
-- Vulnerabilidades conocidas en dependencias (`npm audit`, heredadas de `next@16.0.10` → `postcss`/`sharp`): 3 de severidad alta, con corrección disponible únicamente subiendo a `next@16.3.0` (fuera del rango declarado en `package.json`). No se ha aplicado; queda como decisión pendiente para el cliente/equipo.
-- Detalle completo de riesgos en `docs/auditoria-v2.md` y `docs/arquitectura-backend.md`.
+## 19. Supabase
 
-## 13. Pruebas
+Supabase aporta dos servicios: **PostgreSQL** y **Storage**. Nada más: no se usa Supabase Auth (la autenticación es Better Auth sobre el mismo esquema), ni sus políticas RLS, ni su cliente en el navegador. Detalle en `docs/arquitectura-backend.md`.
 
-| Tipo | Herramienta | Estado |
+### PostgreSQL: dos conexiones, y por qué
+
+Es el punto donde más veces se ha equivocado la configuración, así que conviene tenerlo claro:
+
+| Variable | Conexión | Puerto | Para qué |
+|---|---|---|---|
+| `DATABASE_URL` | Pooler en modo **Transaction** | 6543 + `pgbouncer=true` | El runtime de la aplicación. En serverless cada invocación abre y cierra conexiones; sin pooler se agotan |
+| `DIRECT_URL` | Pooler en modo **Session** | 5432 | `prisma migrate`. Las migraciones necesitan sentencias que el modo Transaction no admite (por ejemplo, cambios de tipos enumerados) |
+
+Confundirlas da errores que no se parecen a su causa: migraciones que fallan con mensajes sobre sentencias preparadas, o una aplicación que agota conexiones bajo carga. La conexión directa (`db.<proyecto>.supabase.co`) **no resuelve en este entorno** —probablemente IPv6 únicamente—, así que se usa el pooler en modo Session como alternativa para migraciones.
+
+### Storage: un bucket privado
+
+Bucket `vip-content`, **privado**. Se crea o reconcilia con `npm run storage:bootstrap` (idempotente).
+
+- La clave privilegiada vive tras `import "server-only"`: si alguien la importa desde un componente cliente, **el build falla**. No es una convención, es una barrera de compilación.
+- Las URL de lectura son **firmadas y temporales**. No se registran en auditoría, porque una URL firmada en un registro es un acceso al archivo para quien lea el registro.
+- `next/image` solo tiene autorizado el host de Supabase y solo la ruta `/storage/v1/object/sign/**`. Un `/**` permitiría usar el optimizador de imágenes como proxy de cualquier archivo del proyecto.
+- Los nombres de objeto los genera el servidor (UUID), nunca el usuario.
+
+### Si el proyecto gratuito se pausa
+
+Supabase pausa los proyectos del plan gratuito tras un periodo de inactividad, y entonces la aplicación deja de funcionar entera. El procedimiento de recuperación está en `docs/despliegue-vercel.md`. Merece una mención aquí porque es el fallo más probable de este proyecto en producción y el que más despista: no hay ningún error en el código.
+
+---
+
+## 20. Prisma y migraciones
+
+`prisma/schema.prisma` define las 25 tablas. `lib/db.ts` expone el singleton de `PrismaClient`. Detalle de las migraciones —qué hace cada una, su orden y qué hacer cuando falla— en **`docs/migraciones.md`**.
+
+### Las nueve migraciones
+
+| # | Migración | Qué hace |
 |---|---|---|
-| Tipos | `tsc --noEmit` (script `typecheck`) | Verde, ejecutado en cada build |
-| Lint | ESLint 9 + `eslint-config-next` (script `lint`) | Verde (0 errores, 0 warnings) |
-| Unitarios / componentes (frontend) | Vitest + Testing Library + `user-event` (script `test`) | `StoryCard` (título, subtítulo, enlace y la etiqueta obligatoria "Ejemplo ilustrativo"), el enlace del CTA de ficha y el formulario comercial completo — ver la fila de la Fase 6 |
-| Dominio/BD (`lib/domain/*.test.ts`) | Vitest contra la base de datos real de desarrollo (sin Docker/Postgres local disponible en este entorno, ver `docs/arquitectura-backend.md` §5) | 7 archivos, 20 pruebas: normalización, concurrencia al crear Lead, múltiples LeadRequest sin sobrescritura, transiciones de pipeline (válida/inválida/LOST sin motivo), consentimientos inmutables, scoring (activo/inactivo), publicación de contenido (+ conserva `publishedAt` al republicar), slug duplicado, mismo slug en dos tipos, sesión VIP (hash, revocación, token inválido), anonimización |
-| Autenticación/autorización (Fase 3) | Vitest contra Better Auth real + la base de desarrollo (mismo patrón `itDb`) | 5 archivos, 23 pruebas: `requireSession`/`requireRole`/`requirePermission`, 401/403/200 en `GET /api/admin/users`, la Server Action `updateUserRoleAction` rechaza sin sesión/con rol incorrecto, alta pública rechazada, mensaje de error genérico, logout revoca la sesión en servidor, redirecciones del middleware. Detalle en `docs/autenticacion.md` §7 |
-| CMS (Fase 4) | Vitest: puros para validación/SSRF/slug; contra la base real y **contra el bucket real** para dominio y media | 7 archivos, 163 pruebas: validación de imagen por firma de bytes (JPEG-como-PNG, `.exe`, SVG, PDF, tamaño, dimensiones), anti-SSRF (13 destinos internos), slug, esquemas Zod, permisos por rol en las Server Actions (SALES rechazado en crear/publicar/archivar/duplicar/subir), publicación incompleta, orden y paginación, rutas revalidadas, subida y borrado reales en Storage, objeto compartido no borrado, auditoría sin datos sensibles, y equivalencia de los 6 ejemplos con la fuente estática. Detalle en `docs/cms.md` |
-| Gate VIP y publicación dinámica (**nuevo en Fase 5**) | Vitest contra la base real, más tests del límite de acceso que espían la capa de datos | 9 archivos, 103 pruebas: gate muestra sin sesión y no consulta contenido ni firma URLs, slug directo protegido, cookie manipulada/caducada/revocada (y el hash no sirve como token), privacidad obligatoria, marketing opcional, honeypot, `returnPath` externo rechazado, no sobrescribir datos mejores de un Lead, mismo resultado exista o no el email, rate limit persistente (con IP hasheada, ventana e incremento atómico), fallo de base de datos no desbloquea, borradores y archivados invisibles, orden por destacado, interacción por categoría con deduplicación, noindex y sitemap sin slugs VIP. Detalle en `docs/gate-vip.md` §11 |
-| Formularios públicos y solicitudes comerciales (**nuevo en Fase 6**) | Vitest: puros para el esquema compartido, el saneado de texto y el enlace del CTA; Testing Library + `user-event` para el formulario; contra la base real para el endpoint | 7 archivos, 91 pruebas: solicitud válida completa (Lead + LeadRequest + consentimiento + actividad), mismo email con dos solicitudes conserva las dos, first touch conservado y last touch actualizado, privacidad rechazada sin guardar nada, marketing en false sin evento de marketing y **sin revocar** uno anterior, versión de política caducada (409), fecha pasada / día inexistente / fecha lejana, invitados fuera de rango, payload de 64 KiB (413), JSON inválido, content-type y origen ajeno, honeypot (202 sin guardar), tiempo mínimo, rate limit por IP, doble clic concurrente y reintento con la misma clave (una sola solicitud), UTMs completas y `sourceContentId` verificado (ficha inexistente y borrador descartados), fallo de persistencia (503 genérico, sin filtrar el error interno ni avisar por email), aviso con y sin proveedor configurado, y que los errores no revelen los valores enviados. En el formulario: mensajes de validación traducidos, campos de empresa que aparecen solo en un evento corporativo y empresa exigida, honeypot fuera del alcance de teclado y de lectores de pantalla, región `aria-live` que recibe el foco al responder, datos conservados tras un error y limpiados tras un éxito, reutilización de la clave de idempotencia tras un fallo, y atribución `vip-story-cta` + `sourceContentId` cuando se llega desde el CTA de una ficha. Detalle en `docs/flujo-captacion.md` |
-| End-to-end | `PENDIENTE` (Playwright, cuando se incorpore) | No añadido todavía. Las verificaciones de las Fases 3, 4 y 6 se hicieron con peticiones HTTP reales (`curl`) contra el servidor de desarrollo, no en un navegador — ver §16 |
-| CI | GitHub Actions (`.github/workflows/ci.yml`) | `npm ci` → lint → typecheck → test → build, sin secretos. Los tests de dominio/BD se saltan solos en CI (`itDb`, condicionado a `DATABASE_URL`) y se ejecutan de verdad en local |
+| 1 | `20260811101614_init` | Esquema completo inicial |
+| 2 | `20260811120036_add_rate_limit_table` | Tabla de rate limit de Better Auth |
+| 3 | `20260811125648_cms_content_fields` | Campos del CMS |
+| 4 | `20260811223102_content_media_in_gallery` | Media en galería |
+| 5 | `20260812073315_app_rate_limit_counter` | Contador de rate limit propio de la aplicación |
+| 6 | `20260812120000_lead_request_submission_id` | `submissionId` único (idempotencia del formulario) |
+| 7 | `20260812210000_notification_status_values` | Añade valores al enumerado de estados de notificación |
+| 8 | `20260812210100_notification_log_fields` | Usa esos valores nuevos |
+| 9 | `20260813205449_add_metrics_indexes` | Tres índices que faltaban, encontrados en la auditoría final: `ContentInteraction([type, createdAt])` y `LeadActivity([createdAt])` y `([leadRequestId])`. Solo `CREATE INDEX`: nada destructivo |
 
-## 14. Despliegue
+Las migraciones 7 y 8 van separadas **por obligación, no por gusto**: PostgreSQL no permite usar un valor de un tipo enumerado en la misma transacción en la que se ha añadido.
 
-`PENDIENTE`. No se ha desplegado el proyecto en ningún entorno. La configuración de imágenes de Next (`next/image` con optimización activada, ver §16) es compatible con Vercel o con un servidor Node propio; la decisión de plataforma queda pendiente.
+### Reglas de operación
 
-## 15. Uso de IA
+- **En producción, siempre `npx prisma migrate deploy`.** Nunca `migrate dev`: es interactivo y puede decidir recrear el esquema desde cero.
+- **Vercel no aplica migraciones.** Se aplican a mano. Una migración lanzada por cada despliegue, en paralelo desde varias instancias, es una forma excelente de corromper una base de datos.
+- **Ninguna migración del historial borra una tabla o una columna.** No hay ningún `DROP TABLE`, `DROP COLUMN` ni `DROP TYPE`.
+- **No hay rollback automático.** Prisma no genera migraciones inversas: la vía normal es corregir hacia delante con una migración nueva. Antes de cualquier cambio destructivo, copia o exportación previa.
+- Verificado: las nueve se aplican en orden sobre una base virgen sin errores (`npm run e2e:db:reset && npm run e2e:db:migrate`).
 
-Este proyecto se desarrolla con Claude Code como asistente de desarrollo full-stack, siguiendo un flujo de prompts secuenciales documentado en `project-reference/docs/02-prompts-claude-code.md` y las reglas de trabajo fijadas en `CLAUDE.md` (fuente de verdad basada en código real, sin datos de negocio inventados, sin commits/despliegues sin petición explícita, documentación obligatoria por fase). Cada fase se audita y valida con comandos reales (lint/typecheck/test/build) antes de considerarse cerrada; los resultados se registran en el historial de este README (§18) y en `docs/`.
+### Comandos
 
-## 16. Limitaciones conocidas
+```bash
+npx prisma migrate deploy   # PRODUCCIÓN y cualquier entorno automatizado
+npm run db:migrate          # prisma migrate dev — interactivo, SOLO desarrollo
+npm run db:generate         # regenera el cliente tras cambiar el schema
+npm run db:studio           # explorador visual
+npx prisma validate         # valida el esquema
+```
 
-- Los **tramos de presupuesto** del formulario (`hasta-10000`, `10000-20000`, `20000-35000`, `mas-35000`, `por-definir`) son una propuesta de trabajo, no tarifas de la finca: pendientes de confirmación del cliente antes de producción (marcado con `TODO(negocio)` en `lib/validation/lead-request.ts`).
-- El apartado 5 de la **política de privacidad** describe el tratamiento técnico real tras retirar Web3Forms, pero está marcado como **pendiente de revisión jurídica**: la redacción legal definitiva (identificación del encargado del tratamiento, contrato de encargo y transferencias internacionales si las hubiera) la tiene que validar un profesional.
-- El **tiempo mínimo de formulario** se calcula con un valor que envía el cliente (`formElapsedMs`), así que es falsificable. Es un filtro de automatismos ingenuos que se suma al honeypot y al rate limit, no una defensa criptográfica; documentado como tal en `lib/validation/lead-request.ts`.
-- El **honeypot** responde con un éxito aparente y descarta el envío. Si un gestor de contraseñas o una extensión rellenara el campo oculto, esa persona perdería su mensaje sin saberlo. Es el compromiso habitual de la técnica, asumido a conciencia.
-- El **aviso interno por email no tiene transporte todavía**: sin `SENDGRID_API_KEY`/`LEAD_NOTIFICATION_TO` el aviso queda como `PENDING` en `NotificationLog`, y con esas variables puestas falla y queda como `FAILED`. En ninguno de los dos casos afecta a la solicitud guardada. Se integra con el CRM (Fase 7).
-- Las bibliotecas VIP son `force-dynamic`: cada visita consulta la base de datos y actualiza `lastUsedAt` de la sesión. Es lo que permite que publicar se vea al instante, pero significa que estas rutas no se sirven desde caché estática. Con el volumen previsto (una finca, no un medio de comunicación) es la decisión correcta; si el tráfico creciera mucho habría que introducir caché por sesión.
-- Las URLs firmadas de Supabase duran una hora, así que `next/image` reoptimiza cada imagen una vez por hora como máximo. Aceptable, pero no es gratis; documentado en `docs/gate-vip.md` §6.
-- La UI de administración del **CRM** no existe todavía: `/admin/usuarios` y `/admin/contenidos` son las pantallas reales; el pipeline de leads sigue sin interfaz.
-- Las verificaciones de las Fases 3, 4 y 6 se hicieron con peticiones HTTP reales (`curl`) y tests automatizados contra servicios reales (Better Auth, base de datos y bucket de Storage), pero **no en un navegador** (sin herramienta de automatización de navegador disponible en este entorno): no se ha comprobado visualmente el arrastre de orden de la media, los estados de carga del editor ni el formulario de login. Del formulario comercial sí se prueban en jsdom el movimiento de foco al resultado y los atributos de la región `aria-live`, pero **no se ha escuchado con un lector de pantalla real**, que es lo único que confirma cómo se anuncia. Ver `docs/autenticacion.md` §6.
-- El editor no permite **añadir** vídeos/Reels externos desde la UI: el servicio y su validación están implementados y probados, pero el formulario solo sube imágenes. La media externa existente sí se lista, ordena y borra. Ver `docs/cms.md` §10.
-- Las imágenes se guardan tal cual (con el límite de 10 MB): no hay recorte, redimensionado ni generación de miniaturas para vídeos externos.
-- `middleware.ts` genera un aviso de obsolescencia en el build de Next 16 (`"middleware" file convention is deprecated, use "proxy" instead`) — sigue siendo totalmente funcional (confirmado en build y en las pruebas). No se ha renombrado a `proxy.ts` en esta fase por no tener confirmada la convención exacta de exportación de esa nueva API sobre un componente de seguridad; revisar en una fase futura de actualización de Next.
-- Los 3 usuarios de `prisma/seed.ts` (Fase 2) siguen sin credenciales de acceso: son datos de demostración del CRM, no cuentas para iniciar sesión. El primer ADMIN operativo se crea por separado con `npm run admin:bootstrap` (§9).
-- Las pruebas de dominio y de autenticación que usan base de datos corren contra la base de desarrollo real de Supabase, no contra una base aislada (no hay Docker/Postgres local disponible en este entorno). Limitación documentada, no oculta — ver `docs/arquitectura-backend.md` §5.
-- Se usa Prisma 6 en vez de la versión 7 (última) por una razón concreta de arquitectura (adapters obligatorios), no por desconocimiento — ver `docs/arquitectura-backend.md` §1. Revisar en una fase futura.
-- El host de conexión directa de Supabase no resuelve en este entorno (probable IPv6-only); se usa el *pooler* en modo Session como alternativa para migraciones — ver `docs/arquitectura-backend.md` §2.
-- Traducción al inglés limitada a navegación, home, contacto y legal-links; las fichas VIP y el texto completo de las páginas legales no están traducidos.
-- Contenido pendiente de verificación con el cliente antes de producción (marcado explícitamente en el código):
-  - `public/images/porton/02-salon-celebraciones.jpg` lleva marca de agua de fotógrafo externo sin derechos de uso confirmados.
-  - Teléfono/código postal del aviso legal original inconsistente con el resto de la web original.
-  - Ficha de Bodas.net pendiente de confirmación.
-  - CIF/NIF y datos registrales en el aviso legal (`[PENDIENTE: ...]`).
-- 3 vulnerabilidades de severidad alta en dependencias transitivas de `next@16.0.10` (`postcss`, `sharp`), corregibles solo subiendo a `next@16.3.0`; no aplicado en esta fase (ver §12).
-- Sin pruebas end-to-end todavía (Playwright no incorporado).
-- Sin despliegue en ningún entorno.
+---
 
-## 17. Roadmap
+## 21. Bootstrap de administración
 
-1. ~~`prisma/schema.prisma` + `lib/db.ts` (cliente Prisma) + primera migración contra Supabase.~~ **Hecho (Fase 2).**
-2. ~~Better Auth (`lib/auth.ts`, `app/api/auth/[...all]/route.ts`, `middleware.ts`) para `/admin`, registro público desactivado.~~ **Hecho (Fase 3).**
-3. ~~UI del CMS de contenido en `/admin/contenidos` + media en Supabase Storage (bucket privado).~~ **Hecho (Fase 4).**
-4. ~~Conectar `/bodas-reales` y `/catering` a `listPublishedContent`/`getPublishedContentBySlug`.~~ **Hecho (Fase 5).**
-5. ~~Sustituir el `EmailGate` client-side por acceso validado en servidor con cookie `HttpOnly`.~~ **Hecho (Fase 5).**
-6. ~~Route Handler del formulario de contacto general que llame a `createLeadRequest`, con rate limit persistente y honeypot, sustituyendo la llamada directa a Web3Forms.~~ **Hecho (Fase 6).**
-7. UI de `/admin` para el CRM: dashboard, pipeline Kanban/tabla y ficha 360º del lead. Los servicios de dominio, los roles y el alta desde la web ya existen (Fases 2, 3 y 6); solo falta la interfaz. Incluye el transporte real del aviso por email.
-8. Completar la media del CMS: añadir vídeos/Reels externos desde el editor y valorar redimensionado/miniaturas (ver §16).
-9. Tests end-to-end con Playwright, incluyendo el flujo completo del gate en un navegador real (pendiente desde la Fase 3, ver §16).
-10. Verificación del email del gate por correo, si se decide exigirla: la arquitectura ya está preparada (`docs/gate-vip.md` §3).
-11. Pasada de SEO/rendimiento/accesibilidad con métricas reales (Lighthouse) y despliegue.
+**El registro público está desactivado** (`emailAndPassword.disableSignUp`). No hay pantalla de alta, y el endpoint de registro de Better Auth rechaza las peticiones: hay una prueba que lo comprueba. Por tanto el primer usuario tiene que crearse fuera de la aplicación.
 
-## 18. Historial de fases
+```bash
+# 1. Poner las tres variables en el entorno
+ADMIN_BOOTSTRAP_NAME=...
+ADMIN_BOOTSTRAP_EMAIL=...
+ADMIN_BOOTSTRAP_PASSWORD=...      # mínimo 12 caracteres
+
+# 2. Ejecutar una vez
+npm run admin:bootstrap
+
+# 3. BORRAR las tres variables del entorno
+```
+
+- Es **idempotente**: si el usuario ya existe, no lo duplica.
+- **No usa el endpoint público de alta**, que está desactivado: crea el usuario a través del adaptador interno de Better Auth, con el mismo hash de contraseña (scrypt) que usaría un alta normal.
+- El paso 3 no es una recomendación. Una contraseña de administración en las variables de entorno de Vercel es una contraseña compartida con todo el que tenga acceso al panel de Vercel, para siempre.
+
+**El alta de usuarios todavía no tiene pantalla.** `/admin/usuarios` lista al equipo y permite cambiar el perfil de cada persona, pero no crear cuentas: hoy la única vía es volver a ejecutar `npm run admin:bootstrap`, que crea un **ADMIN**, y ajustar después el perfil a CONTENT o SALES desde esa pantalla. Está en §Limitaciones conocidas, y es la razón por la que el procedimiento del manual insiste en el orden: crear y **después** degradar, no dejarlo en ADMIN. Detalle en `docs/autenticacion.md` §4.
+
+Dos reglas que el sistema hace cumplir en servidor, no por convención:
+
+- **Nadie puede cambiarse su propio perfil**, ni siquiera un ADMIN. El camino más probable al bloqueo era el más inocente —"a ver qué ve un CONTENT"—, y después ya no queda permiso para deshacerlo.
+- **No se puede quitar el último perfil de administración.** Sin ADMIN se pierden la gestión de usuarios, la configuración del scoring, la exportación y las tres operaciones de privacidad del RGPD, y no hay forma de recuperarlo desde la interfaz. La comprobación y el `UPDATE` van en la misma transacción, para que dos degradaciones simultáneas no dejen cero.
+- Cada cambio de perfil queda en `AuditEvent` con el perfil anterior y el nuevo, sin copiar datos personales.
+
+### Autenticación, en resumen
+
+- `/admin/login` es pública; `/admin` y toda subruta exigen sesión, comprobada **en servidor**.
+- Contraseña mínima de 12 caracteres; hash scrypt (el de Better Auth por defecto).
+- **Mensajes de login genéricos**: el mismo error exista o no la cuenta. Sin enumeración de usuarios.
+- Rate limit persistente en base de datos. CSRF y validación de origen **sin desactivar**.
+- Cookies `HttpOnly`, `SameSite=Lax` y `Secure` en producción.
+- Tres roles con permisos por área: `users:manage` y `settings:manage` (ADMIN), `crm:access` (ADMIN, SALES), `cms:access` (ADMIN, CONTENT), `crm:export` (ADMIN).
+- Cerrar sesión **revoca la sesión en el servidor**: la cookie anterior deja de servir. Comprobado en E2E.
+
+---
+
+## 22. Sembrado y demostración
+
+Tres comandos separados, porque son tres cosas distintas. Hasta la Fase 10 un único `seed.ts` hacía las tres, y eso obligaba a elegir entre sembrar configuración o no sembrar nada.
+
+| Comando | Qué siembra | Cuándo |
+|---|---|---|
+| `npm run db:seed` | Los 8 pesos del scoring. **Configuración operativa**, no datos de ejemplo: sin ella el CRM puntúa a todo el mundo con cero | Siempre, tras migrar |
+| `npm run admin:bootstrap` | El primer usuario ADMIN | Una vez por instalación |
+| `npm run demo:seed` | 6 fichas de ejemplo, equipo ficticio, 8 contactos con solicitudes por todo el pipeline, tareas, notas y la cuenta de evaluación | Solo si hace falta demostración |
+
+`db:seed` es idempotente y actualiza solo la etiqueta de cada regla, **no sus puntos**: así el ajuste que haya hecho un ADMIN desde Configuración no se deshace al volver a sembrar.
+
+### La demostración
+
+Procedimiento completo, guion y retirada en **`docs/runbook-demo.md`**.
+
+```bash
+npm run demo:seed                        # idempotente: sembrar dos veces no duplica nada
+npm run demo:clean                       # retira los datos de demostración
+npm run demo:clean -- --cuenta           # además desactiva la cuenta de evaluación
+npm run demo:clean -- --seco --cuenta    # dice qué borraría, sin borrar nada
+```
+
+Decisiones que hacen que la demo sea segura de enseñar y de retirar:
+
+- **Todas las fichas de demostración llevan `isDemo`**, y quedan ocultas en producción salvo `ENABLE_DEMO_CONTENT=true`. Su equivalencia con la fuente original está probada campo por campo.
+- **Los estados del pipeline se alcanzan moviendo cada solicitud por las transiciones reales** del dominio, no escribiendo el estado final. Así el historial y la auditoría de la demo son los que produciría el uso normal: abrir una solicitud ganada enseña los seis movimientos que la llevaron ahí.
+- **Todos los correos terminan en `.test`**, un dominio reservado por la RFC 2606 que no resuelve. Ninguna dirección de la demo puede recibir un correo por error, ni siquiera si alguien activara SendGrid por accidente. Y es la marca que permite a `demo:clean` borrar exactamente lo suyo.
+- **El equipo ficticio no tiene contraseña.** Existe para firmar tareas y notas. Crear tres cuentas con contraseña conocida sería regalar tres puertas de entrada.
+- **La cuenta de evaluación** se declara por variable de entorno y el script **no imprime nunca su contraseña**. Se entrega solo por canal privado (`docs/formulario-entrega-tfm.md`).
+- **Al retirar, la cuenta se desactiva en vez de borrarse**: se revocan sus sesiones y se le quitan las credenciales, pero el usuario sigue existiendo porque la auditoría de la demo le apunta como autor. Un registro del que no se sabe quién hizo qué no sirve para nada.
+- `demo:clean` borra los objetos del bucket **antes** de borrar las filas, porque después ya no habría lista de qué borrar, y **aborta si Storage no está disponible** en lugar de dejar objetos huérfanos silenciosamente.
+
+---
+
+## 23. Scripts
+
+| Script | Qué hace |
+|---|---|
+| `npm run dev` | Servidor de desarrollo |
+| `npm run build` | Build de producción (valida tipos) |
+| `npm start` | Sirve el build |
+| `npm run lint` | ESLint 9 |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm test` / `test:watch` | Vitest |
+| `npm run db:generate` | Regenera el cliente de Prisma |
+| `npm run db:migrate` | `prisma migrate dev` — **solo desarrollo** |
+| `npm run db:seed` | Configuración operativa (pesos del scoring). Idempotente |
+| `npm run db:studio` | Explorador visual de la base |
+| `npm run admin:bootstrap` | Crea el primer ADMIN. Idempotente (§21) |
+| `npm run storage:bootstrap` | Crea o reconcilia el bucket privado. Idempotente |
+| `npm run notify:overdue` | Envía el resumen interno de tareas vencidas. **Manual**: no hay programador |
+| `npm run privacy:retention` | Informa de qué contactos superan el plazo de retención. **No anonimiza** |
+| `npm run demo:seed` / `demo:clean` | Sembrar y retirar la demostración (§22) |
+| `npm run secrets:history` | Escáner de secretos sobre **todo el historial de Git** (§25) |
+| `npm run e2e` | Las 23 pruebas end-to-end |
+| `npm run e2e:env` | Crea `.env.e2e` con secretos aleatorios. No sobrescribe |
+| `npm run e2e:setup` | Contenedor de PostgreSQL + migraciones + escenario |
+| `npm run e2e:ui` / `e2e:report` | Modo interactivo / informe HTML |
+| `npm run e2e:db:up` / `down` / `reset` | Contenedor de pruebas: levantar, parar, borrar con su volumen |
+| `npm run e2e:db:migrate` / `e2e:seed` | Migrar y sembrar la base de pruebas |
+
+---
+
+## 24. Pruebas y resultados reales
+
+| Tipo | Herramienta | Alcance |
+|---|---|---|
+| Tipos | `tsc --noEmit` | Modo estricto, sin `any` ni `ts-ignore`. Verde |
+| Lint | ESLint 9 + `eslint-config-next` | Incluidas las reglas del compilador de React. **0 errores, 0 advertencias** |
+| Validación | Vitest (puros) | 6 archivos: esquemas compartidos cliente/servidor, límites, normalización |
+| Dominio y base de datos | Vitest contra PostgreSQL real | 14 archivos: contactos, solicitudes, contenido, scoring, tareas, notas, privacidad. Concurrencia, transacciones e inmutabilidad de consentimientos |
+| Autenticación y autorización | Vitest contra Better Auth real | `requireSession`/`requireRole`/`requirePermission`, 401/403/200, alta pública rechazada, error genérico de login, logout que revoca, redirecciones del middleware |
+| CMS | Vitest, incluido **contra el bucket real** | Validación de imagen por firma de bytes (JPEG-como-PNG, `.exe`, SVG, PDF, tamaño, dimensiones), anti-SSRF (13 destinos internos), permisos por rol en cada Server Action, publicación incompleta, objeto compartido no borrado, auditoría sin datos sensibles |
+| Gate y publicación dinámica | Vitest, con espías sobre la capa de datos | El gate **no consulta contenido ni firma URL** sin sesión, slug directo protegido, cookie manipulada/caducada/revocada, el hash no sirve como token, rate limit persistente con IP hasheada, fallo de base de datos que no desbloquea |
+| Captación | Vitest + Testing Library | Solicitud completa, dos solicitudes del mismo correo conservadas, first/last touch, privacidad rechazada sin guardar nada, política caducada (409), honeypot, tiempo mínimo, rate limit, doble clic concurrente, UTMs, ficha de origen verificada, fallo de persistencia sin filtrar el error |
+| CRM | Vitest | Filtros y paginación, búsqueda normalizada, transiciones válidas e inválidas, `LOST` sin motivo rechazado dos veces, tareas, notas, scoring idempotente, métricas con denominador, exportación (filtros, CSV injection neutralizada, sin identificadores internos) |
+| Correo | Vitest | Selección de proveedor, enmascarado que nunca devuelve la dirección completa, clasificación 202/429/5xx/4xx/timeout, ni clave ni cuerpo en los motivos de fallo, enlace al CRM sin token, accesibilidad de las cuatro plantillas, fallo **después** de guardar sin tocar la solicitud |
+| Seguridad | Vitest | **Ataque:** endpoints sin sesión (401) y con rol insuficiente (403), rol declarado por cabecera/cuerpo/cookie, cookie inventada, cookie VIP falsa, hash usado como token, sesión revocada, payload de 200 KB, HTML guardado como texto, respuesta de error sin stack ni rastro de Prisma, contacto anonimizado que no reaparece en ninguna exportación. **Secretos:** el árbol que git subiría, 11 patrones |
+| Privacidad | Vitest | Retención con valores absurdos, exclusión de negociaciones vivas, exportación sin el hash del token, revocaciones auditadas sin destruir historial, anonimización campo por campo |
+| SEO y metadatos | Vitest | `robots.txt` (Disallow de `/admin` y `/api`; **sin** bloquear las bibliotecas, donde la exclusión es por `noindex`), sitemap sin rutas VIP ni slugs, `noindex` en bibliotecas y fichas, títulos que no filtran el nombre real de la ficha, imagen de Open Graph que no es una URL firmada |
+| Observabilidad | Vitest | Que ningún registro filtre datos personales ni un stack |
+| Guardia de la base E2E | Vitest | 13 pruebas: rechaza la base de la aplicación comparando host, puerto y nombre —un `?pgbouncer=true` de diferencia no la despista—, hosts gestionados sin permiso explícito, hosts remotos cuyo nombre no delata que son de pruebas, y que ningún mensaje de error filtra la contraseña |
+| **End-to-end** | Playwright 1.62 + Chromium, contra el **build de producción** y una base PostgreSQL **aislada** en Docker | 6 archivos, **23 pruebas** (≈40 s): los 13 escenarios críticos más nueve comprobaciones derivadas. Cada prueba actúa por la interfaz: ninguna inyecta cookies ni escribe en la base para llegar antes a un estado |
+| CI | GitHub Actions | `npm ci` → lint → typecheck → test → **escáner del historial** → build. Sin secretos. Las E2E aún no están en CI (§32) |
+
+### Resultados reales
+
+Ejecutados el **13 de agosto de 2026**. Salidas reales, no previstas.
+
+| Comando | Resultado |
+|---|---|
+| `npm ci` | Correcto, un único lockfile |
+| `npm run lint` | **0 errores, 0 advertencias** |
+| `npm run typecheck` | Sin errores |
+| `npm test` | **698 pruebas en 58 archivos**, verdes (un intermitente residual, §Limitaciones conocidas) |
+| `npm run e2e` | **23 pruebas, todas verdes** (≈40 s) |
+| `npm run build` | Correcto, **sin ninguna petición de red** |
+| `npx prisma validate` / `generate` | Esquema válido, cliente generado |
+| `npm run secrets:history` | 5 commits, 288 versiones de archivo, **0 hallazgos** |
+| Simulación del entorno de CI (sin `.env`) | 329 pruebas pasan, 325 se saltan solas, exit 0 |
+| `npm audit` | 3 vulnerabilidades altas, heredadas de `next@16.0.10` (§32) |
+
+### Lo que las pruebas encontraron
+
+La evidencia más honesta de que una suite sirve es la lista de lo que encontró. **Cinco defectos de producto y dos de aislamiento**, todos corregidos y con su prueba de regresión. Están detallados en `docs/evidencias-tfm.md` §5; el más significativo:
+
+> El botón «Quiero una boda así» precargaba el asunto pero **no** el tipo de evento, y el primer envío se rechazaba. Causa: el componente `Select` de la librería de interfaz, dentro de un `<form>`, dispara un evento `change` sintético en su `<select>` nativo oculto cada vez que cambia de valor; con el desplegable cerrado ese select solo tiene la opción vacía, así que escribía una cadena vacía sobre el valor precargado. **La prueba de la Fase 6 pasaba** porque volvía a elegir el tipo a mano.
+
+No se ha medido porcentaje de cobertura, a propósito: un porcentaje alto no dice nada sobre si las pruebas comprueban lo que importa. La lista de defectos encontrados, sí.
+
+---
+
+## 25. Seguridad
+
+Modelo de amenazas completo, con activos, actores, superficie, correspondencia OWASP y riesgos aceptados: **`docs/modelo-amenazas.md`**.
+
+### Autorización
+
+- **En servidor, en cada lectura y mutación privada.** No solo en el middleware, que es Edge y no llega a la base de datos. Hay pruebas que invocan cada mutación con la sesión equivocada y comprueban que **la base de datos no cambia**.
+- **404 en vez de 403** al acceder sin permiso: un 403 confirmaría que el recurso existe.
+- Exportar es un permiso propio (`crm:export`): consultar el CRM no implica poder sacarlo en un archivo.
+- **El contenido VIP no se consulta, renderiza ni serializa antes de validar la sesión de acceso en servidor.** Es la garantía central del producto, y está probada espiando la capa de datos.
+
+### Datos que no se guardan
+
+- **Nunca una IP en claro**, ni un token en claro. HMAC-SHA256 con rotación de clave (`_PREVIOUS`), comparación de tiempo constante.
+- Better Auth guardaba la IP y el user-agent completos de cada sesión y el proyecto no los usa: un hook los vacía antes de persistir. **No** se usó `advanced.ipAddress.disableIpTracking`, que era el interruptor obvio: además de no guardar la IP, deja al limitador sin clave y **desactiva el rate limit del login**. Cambiar protección contra fuerza bruta por minimización habría sido un mal negocio.
+- `sanitizeMetadata` descarta contraseñas, tokens, IP y user-agent, y trunca cadenas antes de guardar cualquier metadato de actividad o auditoría.
+
+### Entrada y salida
+
+- Validación con el mismo esquema Zod en cliente y servidor; el servidor **revalida siempre**.
+- **El texto libre no se transforma al guardarlo.** El saneado es de salida: JSX escapa en la interfaz y `escapeHtml` en el correo. Lo único que se elimina antes de persistir son caracteres de control, porque PostgreSQL rechaza el byte NUL. Transformar la entrada destruye lo que la persona escribió y no protege más.
+- Los errores responden con **códigos, no con textos**, y nunca con los valores recibidos. Un fallo de escritura devuelve un error genérico y el motivo real queda solo en el log.
+- CSV con **lista blanca de columnas** —una columna nueva del esquema no aparece por descuido— y **neutralización de fórmulas** (`=`, `+`, `-`, `@`).
+- Imágenes validadas por la **firma real de los bytes**. URL externas tras un filtro **anti-SSRF** (loopback, redes privadas, `169.254.169.254`, `.internal`/`.local`) y **anti-XSS** (solo `https:`).
+- Rate limit persistente en base de datos, con incremento atómico y la clave siempre hasheada. Corregido un **falso 429**: `updateMany` con 0 filas afectadas significaba dos cosas distintas —límite agotado o fila desaparecida— y se trataban igual.
+
+### Cabeceras
+
+Siete cabeceras desde `lib/security/headers.ts`, con pruebas —una CSP escrita en la configuración es un sitio donde nadie mira hasta que algo se rompe en producción—: CSP con `default-src 'self'` y sin comodines, derivando el host de Supabase de la variable; `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-*`, y **sin cabecera de versión**.
+
+La CSP se sirve en **Report-Only** salvo `CSP_ENFORCE=true`. Es una decisión, no un olvido: una CSP que rompe la web en el primer despliegue se acaba desactivando entera. Lo que falta para activarla está en §32.
+
+### Secretos
+
+Dos escáneres, porque son dos estados distintos:
+
+- **El árbol** (`lib/security/secrets-scan.test.ts`, dentro de `npm test`): pregunta a git qué está versionado o sin ignorar —exactamente el conjunto que puede acabar publicado— y busca 11 patrones. Un `.env` lleno de claves reales no es un problema mientras esté ignorado; el problema es lo que sale del repositorio. **Ya evitó una fuga real:** en la Fase 6 el README llegó a contener la contraseña de administración en claro.
+- **El historial** (`npm run secrets:history`): todas las versiones de todos los archivos de todos los commits, y los mensajes de commit. Hace falta porque limpiar el árbol no limpia el historial: un secreto borrado en un commit posterior sigue estando en el anterior, y en GitHub sigue siendo consultable por su URL para siempre.
+
+Los dos comparten patrones y excepciones (`lib/security/secret-patterns.ts`), y cada excepción lleva su motivo escrito —hay una prueba que comprueba que lo lleva—. Estado actual: **árbol e historial limpios**. Procedimiento si algún día aparece algo: `docs/publicacion-github.md` §5, cuyo primer paso no es Git, es rotar la credencial.
+
+### Healthcheck
+
+`GET /api/health` devuelve `{ status: "ok" }` y nada más. Ni versiones —un healthcheck que anuncia «Next 16.0.10» es un catálogo gratis de vulnerabilidades—, ni configuración, ni excepciones. Hace una consulta mínima para distinguir «el proceso vive» de «el proceso llega a su base de datos».
+
+### Vulnerabilidades conocidas
+
+3 de severidad alta en dependencias transitivas de `next@16.0.10` (`postcss`, `sharp`), corregibles solo subiendo a `next@16.3.0`, fuera del rango declarado. No aplicado: queda como decisión para el equipo (§32).
+
+---
+
+## 26. Privacidad
+
+### Principios aplicados
+
+- **Consentimientos separados.** Privacidad y marketing son decisiones distintas en toda la web —formulario y gate—, y el de marketing va desmarcado de origen.
+- **Consentimientos inmutables.** Cada uno es un evento con su finalidad, su valor, la versión de la política y la fecha. Revocar es un evento nuevo, nunca un `UPDATE`. Se lee siempre el **último** evento, así que una revocación futura funciona sin tocar ninguna consulta.
+- **Minimización.** No se guarda lo que no se usa: ni IP, ni user-agent, ni el cuerpo de los correos, ni los términos de búsqueda en la auditoría. Los destinatarios de notificaciones se guardan **parcialmente ocultos**.
+- **Sin promesa de más de lo que se hace.** El acuse de recibo al visitante es transaccional y no necesita consentimiento de marketing, pero **sin él solo confirma la recepción**: ni novedades ni contenido promocional. Colar promoción en un acuse convierte una base legal transaccional en un envío comercial no consentido.
+
+### Derechos operativos (solo ADMIN, todo auditado)
+
+| Derecho | Cómo | Detalle |
+|---|---|---|
+| **Acceso / portabilidad** | Copia completa de los datos de una persona en JSON | `/api/admin/crm/lead-data`. Sin el hash del token de sesión: no forma parte de sus datos y publicarlo sería un riesgo |
+| **Supresión** | Anonimización transaccional | Vacía también el **texto libre** de sus solicitudes y **borra las notas** del equipo, conservando lo agregable. Revoca sus sesiones VIP y limpia los destinatarios de los avisos |
+| **Oposición** | Revocación de marketing como evento nuevo `granted=false` | No destruye el historial |
+| **Retirada del acceso** | Revocación de sesiones VIP | Efecto inmediato: la cookie deja de servir |
+
+La anonimización se corrigió en la Fase 9 tras encontrar que solo tocaba las columnas del contacto y dejaba a la persona identificable en el texto libre de sus solicitudes y en las notas del equipo. **Anonimizar a medias es no anonimizar.**
+
+### Retención
+
+`DATA_RETENTION_MONTHS` (1–240, 36 por defecto). `npm run privacy:retention` **solo informa** de qué contactos superan el plazo, excluyendo negociaciones vivas. **Nada se anonimiza solo:** es irreversible y no puede depender de una tarea programada mal configurada.
+
+### Registro
+
+Estructurado, correlacionable por `requestId`, y **descarta por nombre de clave** correo, teléfono, nombre, mensajes, notas, tokens, IP y user-agent. **Nunca guarda el stack.** Códigos de error operativos estables, para poder buscar sin necesitar el texto.
+
+### Pendientes legales
+
+Esto es lo que el proyecto **no** hace, y es deliberado:
+
+- **El plazo de retención concreto no está validado jurídicamente.** El mecanismo existe y es configurable; la cifra la tiene que fijar un profesional. Por eso la política de privacidad **no indica ningún plazo** en lugar de inventarlo.
+- **La base jurídica de cada tratamiento necesita revisión profesional.** El apartado 5 de la política describe el tratamiento técnico real tras retirar Web3Forms, pero la redacción definitiva —identificación del encargado del tratamiento, contrato de encargo y transferencias internacionales si las hubiera— la tiene que validar alguien cualificado.
+- **Los tramos de presupuesto del formulario no son tarifas de la finca**, sino una propuesta de trabajo pendiente de confirmación del cliente.
+
+**Consecuencia operativa, dicha claramente:** con datos ficticios y la demostración puesta, el proyecto se puede desplegar hoy. **Antes de recoger datos de personas reales**, esos textos los tiene que firmar alguien cualificado.
+
+---
+
+## 27. Accesibilidad
+
+Lo que está hecho, y lo que falta. Las dos listas importan.
+
+### Implementado
+
+- **Enlace de salto al contenido**, primer elemento tabulable de cada página pública, oculto hasta recibir el foco. Sin él había que recorrer la cabecera entera —logo, seis enlaces, CTA, idioma y acceso al panel— en cada página. Añadido en la auditoría final; todos los `<main>` públicos llevan el ancla.
+- **`prefers-reduced-motion` respetado.** Animaciones y transiciones bajan a 1 ms y el desplazamiento suave de las anclas pasa a instantáneo. Se reduce a 1 ms en lugar de a `none` para no romper los componentes que esperan un evento `animationend`. Añadido en la auditoría final: antes no había nada, en un sitio con animaciones de entrada y revelación progresiva de imágenes.
+- **Semántica y idioma.** `lang="es"` en el documento, encabezados jerárquicos, listas y tablas reales.
+- **Cada landmark de navegación tiene nombre accesible y son distintos entre sí**, en el panel y en el sitio público. Hay tres a la vez en cualquier página —cabecera o menú móvil, más los dos del pie—, y sin nombre un lector de pantalla los lista como entradas idénticas. En el pie el nombre sale del encabezado visible con `aria-labelledby`, así que se traduce solo. Corregido en la auditoría final: estaba resuelto solo en `/admin` y el README lo declaraba general.
+- **El menú móvil cerrado está `inert`:** fuera del recorrido de teclado y del árbol de accesibilidad. `opacity-0` y `pointer-events-none` no retiran nada de ninguno de los dos, así que por debajo de `xl` el foco entraba en ocho controles invisibles. Corregido en la auditoría final, con prueba.
+- **Primitivas accesibles.** La interfaz se construye sobre Radix UI: foco, roles ARIA y navegación por teclado en diálogos, desplegables, pestañas y acordeones vienen resueltos y probados por la librería, en lugar de reimplementados.
+- **Foco visible** en controles interactivos (`focus-visible`), sin eliminar el anillo de foco por estética.
+- **El formulario comercial** tiene su región de resultado con `aria-live` y **recibe el foco** cuando el servidor responde, para que quien usa lector de pantalla se entere de que ha pasado algo. Un error no borra lo escrito. Probado en jsdom: movimiento de foco y atributos de la región.
+- **El honeypot está fuera del alcance del teclado y de los lectores de pantalla**, para que nadie lo rellene por accidente y pierda su mensaje.
+- **Texto alternativo obligatorio para publicar** en el CMS: sin él no se puede publicar una ficha, y la interfaz dice exactamente qué imagen le falta. Es la única forma de que se añada.
+- **El pipeline funciona con teclado.** No hay arrastrar y soltar: cada tarjeta ofrece un desplegable con las transiciones válidas, y existe una vista de tabla alternativa en `?vista=tabla`. Es la razón principal de esa decisión (§14).
+- **Las cuatro plantillas de correo** son accesibles: `lang="es"`, un `h1` real, `th scope="row"` en tablas de datos, `role="presentation"` en las de maquetación, sin imágenes, y **siempre con alternativa en texto plano** antes del HTML.
+- **Contraste** derivado de los tokens de color de la marca, con texto sobre fondos sólidos. Los placeholders del formulario público se corrigieron en la auditoría final: iban al 50 % de opacidad sobre el token, lo que los dejaba en torno a 2:1 —por debajo del 4,5:1 exigido—, y llevan información que no está en la etiqueta (el formato del teléfono, el orden de magnitud de los invitados).
+
+### Lo que falta
+
+- **No se ha escuchado con un lector de pantalla real.** Se prueban los atributos, los nombres de los landmarks y el movimiento del foco en jsdom, pero eso no es lo mismo que oír cómo se anuncia. Sin NVDA o VoiceOver de verdad, no se puede afirmar que la experiencia sea buena, solo que la estructura es correcta.
+- **Sin auditoría formal WCAG.** No se ha ejecutado ni axe ni Lighthouse contra el sitio desplegado (§29), así que no hay un nivel de conformidad que declarar. Declararlo sin medirlo sería peor que no declararlo.
+- **El menú móvil no gestiona el foco al abrirse ni se cierra con Escape.** Ya no atrapa el foco cuando está cerrado, que era el problema grave, pero al abrirlo el foco se queda en el botón en lugar de entrar en el panel. Es una mejora pendiente, no un bloqueo.
+
+---
+
+## 28. SEO
+
+### Implementado
+
+- **Metadatos por ruta.** Título, descripción, canonical y Open Graph en cada página, con `generateMetadata` donde el contenido es dinámico.
+- **`robots.txt`** (`app/robots.ts`, con pruebas): permite el sitio, **prohíbe `/admin` y `/api`**, y declara el sitemap con URL absoluta.
+- **`sitemap.xml`** (`app/sitemap.ts`): solo la home. **No incluye las bibliotecas VIP ni ningún slug de ficha**, y eso es deliberado por dos razones: un buscador solo vería el formulario del gate, y publicar los slugs revelaría qué fichas existen sin que nadie haya dejado su correo.
+
+  **Tampoco las tres páginas legales, y esto se corrigió en la auditoría final:** estaban en el sitemap *y* emitían `robots: { index: false }`. Un sitemap es una petición explícita de indexación y el `noindex` es la orden contraria, así que Search Console habría marcado como error de cobertura tres de las cuatro URL enviadas desde el primer rastreo. Se alineó el sitemap con el `noindex` —y no al contrario— porque es la opción que no cambia qué se indexa. Hay una prueba que lee el metadata real de cada página y falla si alguien vuelve a poner las dos señales en contra.
+- **`noindex` en las bibliotecas y sus fichas**, mientras el contenido esté cerrado.
+- **Dos mecanismos distintos para dos problemas distintos**, que es la parte que se hace mal a menudo:
+  - `/admin` y `/api` se bloquean en `robots.txt`. Su contenido no debe aparecer nunca y no se pierde nada impidiendo el rastreo.
+  - Las bibliotecas **no** se bloquean ahí: son rutas que algún día serán públicas, y para excluir contenido de los resultados la forma correcta es el `noindex` de cada página. Bloquearlas en `robots.txt` daría exactamente el resultado que se quiere evitar —URL indexadas sin que el buscador pueda leer la etiqueta que pide no indexarlas—.
+- **Títulos que no filtran.** El título de una ficha protegida es genérico («Boda real»), no el real: construirlo desde la base de datos obligaría a leer la ficha **antes** de validar el acceso. Hay una prueba que lo comprueba.
+- **La imagen de Open Graph es un asset público**, nunca una URL firmada del bucket: una URL firmada en una etiqueta `og:image` es un acceso al archivo para cualquiera que lea el HTML.
+- **Datos estructurados** JSON-LD (`components/structured-data.tsx`).
+- **Todo `/admin` se sirve con `no-store` y `noindex`.**
+- **Sin cabecera de versión del framework.**
+
+### Pendiente
+
+Métricas reales de posicionamiento y Core Web Vitals: necesitan el sitio en producción con dominio propio (§29, §32).
+
+---
+
+## 29. Rendimiento
+
+### Decisiones tomadas
+
+- **Tipografías locales, cero peticiones a terceros.** Tres familias **variables**, subconjunto latin, un archivo por familia en lugar de cinco pesos. Servidas desde el propio dominio con `next/font/local`. Tres efectos: el build no depende de la red, el navegador del visitante no le pide nada a Google —así que su IP no viaja—, y hay peticiones menos en la ruta crítica.
+- **Imágenes optimizadas** por `next/image`, con `remotePatterns` **mínimos**: solo el host de Supabase y solo la ruta de objetos firmados.
+- **Estático donde se puede.** De las 32 rutas del build, **7 se prerenderizan** —home, las tres páginas legales, `robots.txt`, `sitemap.xml` y la de error— y 25 se sirven en servidor bajo demanda: las 15 del panel y las 6 de API, porque dependen de la sesión, y las 4 de las bibliotecas VIP, por la razón que se explica más abajo.
+- **Consultas sin N+1.** Las relaciones se traen con `include` en un número fijo de consultas, no una por fila. Las colecciones de las fichas 360º están acotadas (últimos 50 movimientos, últimas interacciones), y el camino para el histórico completo es el listado paginado o la exportación, que tiene tope de 5.000 filas.
+- **Paginación en servidor** en todos los listados del panel, con orden por lista blanca cerrada y un segundo criterio estable para que ninguna fila salga en dos páginas.
+- **El correo no está en la ruta crítica.** Se envía después del commit y después de responder al visitante.
+
+### Coste asumido, dicho claramente
+
+- **Las bibliotecas VIP son `force-dynamic`.** Cada visita consulta la base de datos y actualiza la marca de uso de la sesión. Es lo que permite que publicar se vea al instante, pero significa que estas rutas no se sirven desde caché estática. Con el volumen previsto —una finca, no un medio de comunicación— es la decisión correcta; si el tráfico creciera mucho, habría que introducir caché por sesión.
+- **Las URL firmadas duran una hora**, así que `next/image` reoptimiza cada imagen como máximo una vez por hora. Aceptable, pero no gratis.
+- **Las imágenes se guardan tal cual** (con el límite de 10 MB por archivo): no hay recorte, redimensionado ni generación de miniaturas.
+
+### Lo que no está medido
+
+**No hay métricas de Lighthouse ni de Core Web Vitals**, porque requieren el sitio en producción. La preparación está hecha —imágenes optimizadas, tipografías locales, sin peticiones a terceros, páginas estáticas donde se puede—, pero **preparación no es medición**, y este documento no va a presentar una como la otra. Es el primer paso después de desplegar (§33).
+
+---
+
+## 30. Despliegue en Vercel
+
+**Desplegado** en https://elportondelacondesa.solucionesbonicas.com, un subdominio del sitio de servicios del autor. No es el dominio del negocio: `elportondelacondesa.com` sigue sirviendo el WordPress original, y esta aplicación convive con él en lugar de sustituirlo. Esa convivencia tiene una consecuencia de indexación que está sin resolver y se explica en §32.
+
+La base de datos es el proyecto de Supabase descrito en §19, con las nueve migraciones aplicadas (`prisma migrate status` → *Database schema is up to date*).
+
+Procedimiento completo en **`docs/despliegue-vercel.md`**, verificado contra la configuración real del repositorio: requisitos, enlace del proyecto, las variables de cada entorno (Development / Preview / Production) **sin valores**, la pareja de conexiones de Supabase, el bucket privado, el build, las migraciones, el bootstrap del ADMIN, el dominio, trece smoke tests, el rollback, la recuperación si el proyecto gratuito de Supabase se pausa, y cómo retirar `ENABLE_DEMO_CONTENT`.
+
+### Qué hace el despliegue reproducible
+
+- **Un único lockfile** (`package-lock.json`): `npm ci` instala exactamente lo declarado.
+- **`npm ci` es autosuficiente.** Un `postinstall` genera el cliente de Prisma. Sin él, una instalación limpia dejaba un cliente incompleto y `npm run typecheck` fallaba con "Module '@prisma/client' has no exported member 'ContentType'" — es decir, **CI habría estado rojo en el primer runner limpio**, y cualquiera que clonase el repositorio se habría encontrado lo mismo. No se detectó antes porque en local el cliente ya estaba generado de una ejecución anterior: el fallo solo aparece cuando `node_modules` se crea de cero, que es lo que nadie hace en local y CI hace siempre. Encontrado en la auditoría final (§37), con prueba en `lib/testing/reproducible-install.test.ts`.
+- **El build no sale a Internet.** Las tipografías se sirven desde el repositorio; con `next/font/google` el build llegó a fallar con doce errores de red.
+- **`engines.node` declarado** (≥ 22), que es lo que Vercel lee para elegir el runtime.
+- **Sin `ignoreBuildErrors` ni exclusiones**: el build valida tipos de verdad.
+- **`remotePatterns` mínimos.**
+- **Vercel no aplica migraciones.** Se aplican a mano con `prisma migrate deploy` (§20).
+
+### Qué falta
+
+Comprobar en Vercel que `BETTER_AUTH_URL` y `NEXT_PUBLIC_SITE_URL` valen exactamente `https://elportondelacondesa.solucionesbonicas.com`. Es el paso que se olvida al asignar un dominio: si `BETTER_AUTH_URL` no coincide con el origen desde el que se sirve la aplicación, Better Auth responde `403 INVALID_ORIGIN` y **el login del panel falla con el mensaje genérico de credenciales incorrectas** — el mismo síntoma que ya se diagnosticó en la Fase 3 (§37).
+
+Para la demostración: **`docs/runbook-demo.md`**. Para el equipo: **`docs/manual-admin.md`**. Estado de cada requisito con su evidencia: **`docs/checklist-aceptacion.md`** y **`docs/evidencias-tfm.md`**.
+
+---
+
+## 31. Metodología y uso de IA
+
+### Cómo se ha trabajado
+
+Doce fases secuenciales. Cada una con su enunciado escrito, su implementación, su validación con **comandos reales** y su entrada en el historial de este documento (§37).
+
+```
+enunciado de fase → inspección del código existente → implementación
+        ▲                                                    │
+        │                                                    ▼
+     revisión ◄──── lint · typecheck · pruebas · build ──────┘
+```
+
+El contrato de trabajo está en `CLAUDE.md` y es vinculante: fuente de verdad en el código y no en la documentación, prohibido inventar datos de negocio, prohibido ocultar errores con `any` o `ignoreBuildErrors`, prohibido mezclar dos ORM o dos sistemas de autenticación, prohibido hacer commit, push o despliegue sin petición explícita, y documentación obligatoria por fase.
+
+Dos reglas de ese contrato han condicionado el resultado más que ninguna decisión técnica:
+
+- **No se marca como terminado lo que no se ha probado.** De ahí que este documento tenga tantos `PENDIENTE` y una sección de limitaciones tan larga.
+- **Detente al final de cada fase para revisión.** Ninguna fase se encadena con la siguiente sin que una persona lea lo que salió.
+
+### Uso de IA
+
+El desarrollo se ha hecho con **Claude Code** como asistente de desarrollo full-stack, siguiendo el flujo de prompts documentado en `project-reference/docs/02-prompts-claude-code.md`.
+
+Reparto honesto: el asistente ha escrito la mayor parte del código. Lo que no se ha delegado es el criterio —qué construir, qué rechazar y qué dar por bueno—, la verificación, y las decisiones de §14, incluidas las de rechazar cosas: el arrastrar y soltar, el CAPTCHA, Prisma 7, la CSP bloqueando desde el primer día.
+
+Y el dato que mejor describe el método: **las pruebas encontraron defectos reales que ni el asistente ni la revisión humana habían visto leyendo el código.** Uno de ellos impedía enviar el formulario desde el botón de una ficha, y la prueba que existía para ese flujo lo tapaba. Están enumerados en `docs/evidencias-tfm.md` §5. Un proyecto asistido por IA sin esa lista es un proyecto que no se ha comprobado.
+
+---
+
+## 32. Limitaciones conocidas
+
+Ordenadas por lo que importa. Cada una con su motivo.
+
+### Legales y de negocio
+
+- **La base jurídica y el plazo de retención necesitan revisión profesional.** El mecanismo existe y es configurable; la cifra y la redacción las tiene que fijar alguien cualificado. La política de privacidad **no indica ningún plazo** en lugar de inventarlo (§26).
+- **Los tramos de presupuesto** del formulario son una propuesta de trabajo, no tarifas de la finca. Marcado con `TODO(negocio)` en el código.
+- **Contenido pendiente de verificar con el cliente**, marcado explícitamente en el código: la fotografía `public/images/porton/02-salon-celebraciones.jpg` lleva marca de agua de un fotógrafo externo **sin derechos de uso confirmados**; el teléfono y el código postal del aviso legal original son inconsistentes con el resto de la web; la ficha de Bodas.net está pendiente de confirmación; y el CIF y los datos registrales del aviso legal siguen como `[PENDIENTE]`.
+
+### Seguridad
+
+- **La CSP se sirve en Report-Only.** Recoge violaciones, no bloquea. Falta pasarla a bloqueo y montar un receptor de informes. Además usa `'unsafe-inline'` en `script-src` y `style-src` porque Next emite scripts en línea para hidratar y Tailwind inyecta estilos; la solución correcta es una CSP con nonce por petición, que exige tocar cada punto de render.
+- **Sin segundo factor.** Un ADMIN comprometido lo pierde todo: no hay 2FA ni aprobación de dos personas para exportar o anonimizar. Con un solo operador es proporcionado; con equipo, es el siguiente paso.
+- **El gate VIP no verifica el correo.** Cualquiera puede escribir la dirección de otra persona y acceder. La plantilla de verificación está preparada y probada; faltan la ruta que consuma el enlace, el cambio en el gate y la caducidad del token.
+- **Sin alertas ni agregador de logs.** Los registros son estructurados y correlacionables, pero nadie los vigila: un ataque sostenido se vería *después*.
+- **El tiempo mínimo de formulario es falsificable**: se calcula con un valor que envía el cliente. Es un filtro de automatismos ingenuos que se suma al honeypot y al rate limit, no una defensa criptográfica. Documentado como tal en el código.
+- **El honeypot puede perder un mensaje legítimo** si un gestor de contraseñas o una extensión rellena el campo oculto. Es el compromiso habitual de la técnica, asumido a conciencia.
+- **3 vulnerabilidades altas** en dependencias transitivas de `next@16.0.10` (`postcss`, `sharp`), corregibles solo subiendo a `next@16.3.0`.
+- Los diez riesgos aceptados, con su justificación, en `docs/modelo-amenazas.md` §7.
+
+### Correo
+
+- **No hay entrega garantizada.** `RETRY_PENDING` describe un fallo que merecería reintento y **nada lo reintenta**. Es deliberado: montar media cola daría sensación de fiabilidad sin la fiabilidad.
+- **`SENT` no significa «llegó a la bandeja»**, solo que el proveedor aceptó el mensaje. Saber qué pasó después exigiría webhooks, que no están integrados.
+- **Ningún correo se ha enviado de verdad todavía:** no hay cuenta de SendGrid configurada, así que la clasificación de respuestas está probada con `fetch` simulado, no contra la API real.
+- **El resumen de tareas vencidas es manual.** No hay programador en el proyecto, así que no se afirma ninguna periodicidad. Tampoco se ha expuesto como endpoint HTTP: una ruta que envía correos sin exigir sesión es una vía de abuso.
+
+### Accesibilidad
+
+- **Sin escucha con lector de pantalla real y sin auditoría formal WCAG.** Se prueban atributos, nombres de landmarks y movimiento del foco en jsdom, que no es lo mismo que oír cómo se anuncia. El enlace de salto y `prefers-reduced-motion` sí están, desde la auditoría final. Detalle y motivo en §27.
+- **El menú móvil no gestiona el foco al abrirse ni se cierra con Escape.**
+
+### Indexación: la aplicación se sirve en un dominio y declara otro
+
+Sin resolver, y conviene entenderlo antes de tocarlo. La aplicación vive en `elportondelacondesa.solucionesbonicas.com`, pero la base de las URL canónicas, del `sitemap.xml` y del JSON-LD sale de `brand.website` (`data/site-content.ts`), que vale `https://elportondelacondesa.com` — el WordPress del negocio, que sigue en pie. El resultado, comprobado sobre el despliegue: el sitemap publicado en este subdominio enumera URL de otro dominio.
+
+Eso tiene dos efectos. Search Console rechaza un sitemap cuyas URL están fuera del dominio que lo sirve, así que hoy ese sitemap no sirve para nada. Y si algún buscador llegase a indexar el subdominio, competiría con el sitio real del cliente con contenido muy parecido.
+
+No se ha cambiado por iniciativa propia porque las dos salidas razonables llevan a sitios distintos y la elección es del titular, no técnica:
+
+1. **Mientras esto sea una demostración académica**, lo correcto es que el subdominio no se indexe en absoluto: `noindex` global y sin sitemap. Es lo que protege el posicionamiento del negocio.
+2. **Cuando la aplicación sustituya al WordPress**, la base debe pasar a ser el origen real desde el que se sirve —`NEXT_PUBLIC_SITE_URL`, con `brand.website` como valor por defecto—, y entonces sí publicar el sitemap.
+
+Lo que **no** hay que hacer es dejarlo como está: es la única combinación que no sirve para ninguno de los dos objetivos.
+
+### Escala: dos límites conocidos, con su umbral
+
+Los dos se encontraron en la auditoría final. Ninguno se ha reescrito, y el motivo es el mismo: la corrección exige rehacer una consulta, y en la última fase eso tiene más riesgo que un límite que está tres órdenes de magnitud por encima del volumen real. Lo que sí se ha hecho es **corregir los comentarios que afirmaban lo contrario**, para que nadie dé por acotado lo que no lo está.
+
+- **El tablero del pipeline tiene tope global, no por columna.** Trae 225 solicitudes ordenadas por prioridad y las reparte por estado en la interfaz. Con **más de 225 solicitudes activas**, si las primeras 225 caen todas en un mismo estado, las demás columnas se pintan con `(0)` y "Vacío" aunque tengan solicitudes vivas — un comercial vería un embudo sin negociaciones en curso. El parámetro se llama `limitPerColumn` y el docstring decía "con tope por columna": las dos cosas eran falsas y están corregidas. El listado paginado de Solicitudes es la vista completa y fiable. Arreglarlo son nueve consultas en un `Promise.all` más un `groupBy` de conteos.
+- **`averageHoursToFirstContact` calcula la media en memoria.** Trae todas las solicitudes del periodo y todas sus actividades de cambio de estado, sin `take`. Con del orden de **65.000 solicitudes** el `IN (...)` supera el límite de parámetros de PostgreSQL y **el Resumen entero devuelve 500**, no solo esa tarjeta, porque va dentro del mismo `Promise.all`. Mucho antes de eso ya sería la consulta más lenta del panel. El docstring del módulo afirmaba "nunca se carga la base en memoria"; ahora enumera las dos excepciones reales. Arreglarlo es un `$queryRaw` con `FILTER` y `AVG(EXTRACT(EPOCH ...))`.
+
+### Funcionalidad
+
+- **El alta de usuarios no tiene pantalla.** `/admin/usuarios` lista al equipo y cambia perfiles, pero no crea cuentas: hay que volver a ejecutar `npm run admin:bootstrap`, que crea un **ADMIN**, y degradar después. El README, el manual y la propia pantalla de Configuración prometían un alta desde el panel que no existía, lo que empujaba a dar privilegios de administración a todo el equipo; los tres textos están corregidos. Implementarla es una Server Action con creación de `User` + `Account` de credenciales y su auditoría.
+- **La tarea de seguimiento no guarda a qué solicitud pertenece.** El enlace queda en la actividad que registra su creación, no como columna, así que la vista de Tareas no puede filtrar por solicitud. Arreglarlo es una columna, una migración y un cambio en la vista.
+- **No se pueden añadir vídeos externos desde el editor.** El servicio y su validación están implementados y probados, pero el formulario solo sube imágenes. La media externa existente sí se lista, ordena y borra.
+- **Las etiquetas se pueden filtrar y se muestran, pero no hay pantalla para crearlas ni asignarlas.** El modelo existe desde la Fase 2.
+- **La fusión de contactos no está implementada.** El aviso de posibles coincidencias no fusiona nada: decidir qué consentimiento e historial sobreviven necesita criterio humano y un diseño propio.
+- **Cambiar un peso de scoring no recalcula toda la base al instante.** Cada contacto se pone al día en su siguiente movimiento, y cada ficha tiene un botón para recalcular al momento. Recorrer miles de filas dentro de una petición web sería peor que esa desactualización.
+- **El filtro de consentimiento de marketing busca si existe un evento concedido.** Hoy equivale al estado vigente porque solo se registra el consentimiento cuando se concede; si algún día se registran revocaciones habrá que mirar el último evento por fecha.
+- **El panel es monolingüe en español**, a propósito. Traducción del sitio público limitada a navegación, home, contacto y enlaces legales.
+- **Los usuarios del equipo de demostración no tienen credenciales**: existen para firmar tareas y notas, no para iniciar sesión.
+
+### Pruebas y operación
+
+- **Queda un fallo intermitente residual en la suite completa, y conviene decirlo con precisión.** Vitest ejecuta los archivos de prueba **en paralelo** contra una única base de datos de desarrollo, así que un archivo puede borrar filas que otro está leyendo. La auditoría final identificó y corrigió el mecanismo concreto que lo provocaba —la exportación de solicitudes reventaba con 500 si un contacto desaparecía entre las dos consultas de una relación obligatoria— y después la suite dio **cuatro pasadas consecutivas en verde**. Pero en una de las seis pasadas de validación apareció un fallo que **no se pudo capturar ni reproducir**, y por tanto no se puede afirmar que fuera el mismo. No se declara la suite "siempre verde": se declara que es del mismo tipo (paralelismo contra base compartida), que el único mecanismo identificado está corregido con su prueba, y que la solución de fondo es la migración pendiente que sigue en la línea siguiente. Un `npm test` que falla una vez de cada seis en integración continua sería un problema; en local, con este diagnóstico escrito, es una limitación conocida.
+- **Las pruebas de Vitest que usan base de datos corren contra la base de desarrollo real**, no contra una aislada. Las E2E **sí** usan una propia y desechable desde la Fase 10, pero migrar las 698 de Vitest al mismo contenedor está pendiente y merece su propia revisión.
+- **Las E2E no están en integración continua.** Necesitan un PostgreSQL de servicio y las credenciales de Storage como secretos del repositorio. La guardia ya contempla ese caso (`E2E_ALLOW_NONLOCAL`), así que es configuración, no desarrollo.
+- **El escenario E2E de subida de imagen usa el bucket real de Supabase.** Storage no tiene equivalente local: su API no es S3, así que ni MinIO sirve. El sembrado borra los objetos de la ejecución anterior; si alguien borra el volumen sin sembrar, quedan unos pocos PNG huérfanos de 40 KB.
+- **Sin métricas de Lighthouse ni de Core Web Vitals medidas sobre el despliegue.** Ya hay dónde medirlas (§30); no se han ejecutado, así que no se declara ninguna cifra (§29).
+- **Sin verificación en navegador de algunos detalles de la interfaz** anteriores a la Fase 10: el arrastre de orden de la media y los estados de carga del editor se comprobaron con peticiones reales y pruebas automatizadas, pero no visualmente.
+- `middleware.ts` genera un **aviso de obsolescencia** en el build de Next 16 (`"middleware" file convention is deprecated, use "proxy" instead`). Sigue siendo funcional; no se ha renombrado por no tener confirmada la convención exacta de exportación de esa nueva API sobre un componente de seguridad.
+- Se usa **Prisma 6 en vez de 7** por una razón de arquitectura (§14), no por desconocimiento.
+- El host de **conexión directa de Supabase no resuelve** en este entorno; se usa el pooler en modo Session para migraciones (§19).
+
+---
+
+## 33. Roadmap
+
+### Hecho
+
+1. ~~Schema de Prisma, cliente y primera migración.~~ **Fase 2**
+2. ~~Better Auth para `/admin`, con registro público desactivado.~~ **Fase 3**
+3. ~~CMS de contenido y media en bucket privado.~~ **Fase 4**
+4. ~~Conectar las rutas públicas al CMS.~~ **Fase 5**
+5. ~~Sustituir el gate de cliente por acceso validado en servidor.~~ **Fase 5**
+6. ~~API propia del formulario, sustituyendo Web3Forms.~~ **Fase 6**
+7. ~~CRM completo: dashboard, pipeline, tareas, informes.~~ **Fase 7**
+8. ~~Correo transaccional desacoplado.~~ **Fase 8**
+9. ~~Endurecimiento de seguridad, privacidad, SEO y operación.~~ **Fase 9**
+10. ~~Pruebas E2E con base aislada y preparación del despliegue.~~ **Fase 10**
+11. ~~Documentación de entrega y preparación de la publicación.~~ **Fase 11**
+12. ~~Auditoría correctiva final: revisión como pull request ajena, con corrección y prueba de cada defecto.~~ **Fase 12**
+
+### Siguiente, por orden
+
+1. **Desplegar** siguiendo `docs/despliegue-vercel.md`. Todo lo demás depende de esto.
+2. **Revisión jurídica** de la base legal y el plazo de retención. Antes de recoger datos de personas reales.
+3. **Métricas reales** de Lighthouse y Core Web Vitals sobre el sitio desplegado.
+4. **Decidir la licencia** del código (§34).
+5. **Accesibilidad:** enlace de salto al contenido, `prefers-reduced-motion` y una escucha con lector de pantalla real.
+6. **CSP en bloqueo** con nonce por petición y receptor de informes.
+7. **E2E en integración continua** (contenedor de servicio + secretos de Storage) y migración de las pruebas de Vitest al contenedor aislado.
+8. **Verificación del correo en el gate**, si se decide exigirla: la arquitectura ya está preparada.
+9. **2FA para ADMIN** y alertas sobre los logs.
+10. **Entrega garantizada de correo:** programador para reintentar los `RETRY_PENDING`, idempotencia por mensaje y webhooks del proveedor.
+11. **Completar la media del CMS:** vídeos externos desde el editor, y valorar redimensionado y miniaturas.
+12. **Gestión de etiquetas** y **fusión de contactos**.
+
+---
+
+## 34. Licencia
+
+**`PENDIENTE` — decisión del titular del código.**
+
+No hay archivo `LICENSE` en el repositorio, y es a propósito: la licencia la elige el titular, no quien escribe el código por encargo. Mientras no exista ese archivo, en la mayoría de jurisdicciones el código está bajo **todos los derechos reservados** por defecto: un repositorio público sin licencia se puede leer y evaluar, pero nadie puede reutilizarlo legalmente. Para una entrega académica eso puede ser exactamente lo deseado.
+
+Las opciones, con lo que implica cada una, y las tres cosas que conviene tener presentes al decidir —incluida la posibilidad de que el código no sea del autor para licenciarlo, si hay contrato con el cliente— están desarrolladas en **`docs/publicacion-github.md`** §6.
+
+**Lo que sí está decidido, y no depende de esa elección:** ninguna licencia de software que se aplique al código cubre el contenido del negocio. Ver §35.
+
+---
+
+## 35. Derechos de marca y assets
+
+Detalle completo, archivo por archivo, en **`NOTICE`**.
+
+Este repositorio contiene dos cosas con dueños distintos: **software** y **contenido de un negocio real**. Nadie puede tomarlo y republicar la marca, las fotografías o los textos de El Portón de la Condesa, ni con licencia abierta ni sin ella.
+
+| Qué | Titular | Situación |
+|---|---|---|
+| Marca «El Portón de la Condesa», logotipos e iconos | El Portón de la Condesa | Todos los derechos reservados. Fuera de cualquier licencia de software |
+| Fotografías de la finca, espacios y gastronomía | El Portón de la Condesa | Ídem |
+| Textos comerciales, descripciones y textos legales | El Portón de la Condesa | Ídem |
+| Datos de contacto del negocio | El Portón de la Condesa | Publicados por él mismo en su web |
+| `public/images/porton/02-salon-celebraciones.jpg` | Fotógrafo externo | **Derechos de uso sin confirmar.** Marca de agua visible. Sustituir o conseguir cesión por escrito antes de cualquier publicación comercial |
+| `public/brand/solucionesbonicas-logo.png` | Solucionesbonicas | Crédito de desarrollo en el pie. Marca de su titular |
+| Las 6 fichas de ejemplo | — | **Ficticias**: nombres, proveedores, menús, precios y testimonios inventados. Ninguna persona real identificada. Etiquetadas «Ejemplo ilustrativo» en la interfaz |
+| Tipografías (Cormorant Garamond, DM Sans, JetBrains Mono) | Sus autores | **SIL Open Font License 1.1**, que permite expresamente esta redistribución. Los tres textos de licencia acompañan a sus archivos en `app/fonts/` |
+| Dependencias de software | Sus autores | Conservan sus licencias; se instalan con `npm ci` y no se redistribuyen. Los componentes de `components/ui/` provienen de shadcn/ui (MIT), pensado para copiarse y adaptarse |
+
+Uso permitido de los elementos del negocio: leer, evaluar y ejecutar el proyecto para estudiar el software. Cualquier otro uso necesita autorización expresa del titular.
+
+---
+
+## 36. Enlaces de entrega
+
+Estado y permisos de cada entregable en **`docs/checklist-entrega-tfm.md`**, que es la fuente de verdad y lleva las fechas de comprobación en incógnito.
+
+Los marcadores son literales: `[PENDIENTE: URL]` significa que el entregable no existe todavía, **no** que la URL sea esa.
+
+| Entregable | URL | Permiso |
+|---|---|---|
+| **Aplicación pública** | https://elportondelacondesa.solucionesbonicas.com | Pública y usable |
+| **Repositorio GitHub** | https://github.com/javiermartinezcuartero-ui/PortonDeLaCondesaByDrexco | Debe pasar a público (§34, `docs/publicacion-github.md`) |
+| **README** | https://github.com/javiermartinezcuartero-ui/PortonDeLaCondesaByDrexco/blob/main/README.md | Público con el repositorio |
+| **Google Slides** | `[PENDIENTE: URL]` | Cualquier persona con el enlace puede ver |
+| **Vídeo (Google Drive)** | `[PENDIENTE: URL]` | Visualización mediante enlace |
+| **Dashboard** | https://elportondelacondesa.solucionesbonicas.com/admin | **Protegido**: exige sesión. Verificado: `/admin` responde 307 a `/admin/login` |
+| **Cuenta de evaluación** | Se entra por el panel | Credenciales **solo por canal privado**. Se desactiva tras la evaluación |
+
+**Ninguna credencial aparece en este documento, en el repositorio, en las Slides ni en el vídeo.** La cuenta de evaluación se entrega por el formulario de entrega o el canal privado acordado, y se retira con `npm run demo:clean -- --cuenta`.
+
+Material de la entrega:
+
+| Documento | Para qué |
+|---|---|
+| `docs/checklist-entrega-tfm.md` | Estado, URL, permisos y comprobaciones en incógnito de cada entregable |
+| `docs/guion-presentacion-tfm.md` | 14 diapositivas con mensaje, evidencia, tiempo y notas del orador |
+| `docs/guion-video-obs.md` | Grabación: escena, qué no debe salir en pantalla, recorrido y comprobaciones antes de subir |
+| `docs/formulario-entrega-tfm.md` | Plantilla del formulario, canal privado de credenciales y justificante |
+| `docs/publicacion-github.md` | Preparación de la publicación, escaneo de secretos, remediación y licencia |
+| `.github/RELEASE_TEMPLATE.md` | Plantilla de release y convenio de tag de entrega |
+
+---
+
+## Documentación
+
+| Documento | Contenido |
+|---|---|
+| **`README.md`** | Este documento: la referencia técnica completa |
+| `docs/evidencias-tfm.md` | Qué se puede comprobar, con qué comando y qué salida da |
+| `docs/checklist-aceptacion.md` | Requisitos con su estado real y las limitaciones conocidas |
+| `docs/modelo-datos.md` | Esquema narrado y diagrama ER completo |
+| `docs/arquitectura-backend.md` | Decisiones de infraestructura y conexiones |
+| `docs/modelo-amenazas.md` | Activos, actores, amenazas, OWASP y riesgos aceptados |
+| `docs/autenticacion.md` | Better Auth, sesiones y roles |
+| `docs/gate-vip.md` | Diseño del acceso a las bibliotecas |
+| `docs/flujo-captacion.md` | Recorrido del visitante hasta el CRM |
+| `docs/cms.md` | Ciclo de vida del contenido y de la media |
+| `docs/crm.md` | Pipeline, scoring y exportación |
+| `docs/email.md` | Correo transaccional desacoplado |
+| `docs/openapi.yaml` | Contrato de la API pública |
+| `docs/migraciones.md` | Las 9 migraciones, su orden y qué hacer si una falla |
+| `docs/pruebas-e2e.md` | Cobertura, aislamiento de la base y decisiones de la suite |
+| `docs/despliegue-vercel.md` | Despliegue paso a paso, smoke tests, rollback y recuperación |
+| `docs/runbook-demo.md` | Preparar, enseñar y retirar la demostración |
+| `docs/manual-admin.md` | Manual de uso del panel, sin tecnicismos |
+| `docs/publicacion-github.md` | Preparación de la publicación y escaneo de secretos |
+| `docs/checklist-entrega-tfm.md` · `guion-presentacion-tfm.md` · `guion-video-obs.md` · `formulario-entrega-tfm.md` | Entrega académica |
+| `docs/auditoria-v2.md` | Auditoría inicial del proyecto heredado |
+| `app/fonts/README.md` | Origen y licencias de las tipografías |
+| `CLAUDE.md` · `CONTRIBUTING.md` · `NOTICE` | Reglas de trabajo y derechos de terceros |
+
+---
+
+## 37. Historial de fases
 
 ### Fase 0 — Auditoría local y contrato de trabajo (2026-08-11)
 
@@ -564,3 +1703,365 @@ La verificación end-to-end se hizo con peticiones HTTP reales contra el servido
 **Pendiente / no incluido:** pruebas end-to-end en un navegador real (Playwright sigue sin incorporarse; no hay automatización de navegador en este entorno). El movimiento de foco y los atributos de la región `aria-live` sí se prueban en jsdom, pero no se han escuchado con un lector de pantalla real. Quedan también el transporte real del aviso por email, la confirmación de negocio de los tramos de presupuesto y la redacción jurídica definitiva del apartado 5 de la política de privacidad.
 
 **Veredicto: APTO PARA CONSTRUIR EL CRM.** La captación general ya alimenta el modelo con datos reales y trazables: cada envío deja una `LeadRequest` propia sin sobrescribir el historial, con su base legal registrada y su atribución completa —incluida la ficha de origen cuando viene de un CTA—, y la persona no se duplica. La validación es de servidor con vocabulario cerrado, los errores no filtran los valores enviados ni el detalle interno de un fallo, el antispam reutiliza el rate limit persistente y el patrón de honeypot ya construidos para el gate en vez de crear un mecanismo paralelo, y el doble envío está resuelto en la base de datos y no solo en el botón. El CRM puede construirse encima sin tener que rehacer el alta.
+
+### Fase 7 — CRM, pipeline, tareas y analítica (2026-08-12)
+
+Panel comercial completo dentro de `/admin`, reutilizando la autenticación, los servicios de dominio y el sistema visual ya existentes. Detalle en `docs/crm.md`.
+
+**Navegación por permiso.** Se añadieron dos permisos a `lib/auth/session.ts`: `crm:export` y `settings:manage`, los dos solo ADMIN. El layout del panel filtra los enlaces con `roleHasPermission`, añadido precisamente para poder hacerlo **sin** duplicar la lista de roles en la interfaz. `/admin` tiene dos caras: con `crm:access` muestra métricas y sin él (CONTENT) un punto de partida con acceso a Contenidos.
+
+**Acceso directo sin permiso: 404, no 500 ni 403.** `requirePermission` lanza, y una excepción sin capturar en un Server Component acaba en una página de error 500 —protege, pero informa mal—. Las guardas de `app/admin/(protected)/guards.ts` traducen el fallo: sin sesión, redirección al login; con sesión y sin permiso, 404, porque un 403 confirmaría que el apartado existe. Se aplicó también a las cuatro páginas del CMS, que hasta ahora devolvían un 500 a un usuario SALES.
+
+**Métricas honestas** (`lib/domain/metrics.ts`). Un ratio sin denominador devuelve `null` y la interfaz dice "sin datos": un 0 % afirma que nadie convierte, y eso es distinto de no tener datos todavía. Cada ratio viaja con su denominador y cada media con su tamaño de muestra. La conversión se calcula **sobre cerradas** (`WON / (WON + LOST)`), no sobre el total, para que abrir solicitudes nuevas no empeore la métrica. El tiempo hasta el primer contacto se lee del historial real de `LeadActivity` filtrando el JSON de metadata, no de un campo denormalizado que pudiera quedar desfasado. El embudo cuenta en cada escalón solo a quien viene del anterior.
+
+**Orden y filtros seguros.** Los filtros viven en la URL para poder compartir una vista, lo que significa que llegan de fuera: cada uno pasa por un parseador con lista blanca (`lib/validation/crm.ts`) y lo que no se reconoce se ignora. La ordenación del listado de solicitudes se resuelve contra `REQUEST_SORTS`, un objeto cerrado, y nunca se pasa la cadena de la URL a Prisma; hay un test que comprueba que `__proto__`, `constructor` y `lead.email` se rechazan. Todo orden lleva `id` como segundo criterio: sin él, dos filas con el mismo valor podrían cambiar de página entre consultas y verse dos veces.
+
+**Pipeline sin arrastrar y soltar, a propósito.** Un tablero con drag and drop accesible de verdad exige alternativa de teclado, anuncios en vivo y manejo del foco tras el reordenado; y aun así el gesto no comunica la restricción que importa, que es qué transiciones permite la máquina de estados. Cada tarjeta lleva un desplegable con **solo los estados válidos**, más una vista de tabla en `?vista=tabla`. El servidor revalida la transición: hay una prueba que intenta ir de `NEW` a `WON` con sesión ADMIN y comprueba que se rechaza. Cada movimiento escribe `LeadActivity` y `AuditEvent` **en la misma transacción**.
+
+**`LOST` exige motivo**, comprobado dos veces (esquema Zod y dominio). El motivo se guarda en la solicitud; en la auditoría solo va su longitud, para no duplicar texto libre.
+
+**Cancelar no borra.** Una tarea cancelada conserva su fila, su autor y su fecha, y no se le inventa una fecha de finalización. Completar sí registra actividad en el historial del contacto: es trabajo comercial hecho y tiene que verse en el timeline.
+
+**Notas sin HTML.** Se guardan como texto plano y se interpolan en JSX, que escapa solo. No hay `dangerouslySetInnerHTML` en ninguna parte del CRM. Editar queda auditado sin copiar el cuerpo de la nota.
+
+**Scoring configurable y ya idempotente.** Los pesos se editan solo desde ADMIN y cada cambio deja `AuditEvent`. Se corrigió el peso de `FORM_SUBMITTED` en el seed, que estaba en 10 y el enunciado fija en 15. `recalculateLeadScore` no necesitó cambios: recalcula desde el historial en vez de acumular, así que el mismo hito no puede sumar dos veces —probado con dos solicitudes del mismo contacto y con tres fichas distintas frente a dos—.
+
+**Exportación CSV con permiso propio.** `crm:export` es solo ADMIN: consultar el CRM (que incluye SALES) no implica poder sacarlo en un archivo que sobrevive a cualquier control de acceso posterior. Lista blanca de columnas explícita —así una columna nueva del esquema no aparece por descuido—, neutralización de fórmulas con el apóstrofo en la primera posición de la celda (también cuando hay espacios delante, porque algunas versiones de Excel los ignoran), UTF-8 con BOM y `;` para Excel en español, `no-store`, y un `AuditEvent` por exportación que **no** guarda el término de búsqueda porque puede ser el email de una persona.
+
+**Un test intermitente detectado y corregido.** La primera pasada completa falló en un test de métricas que comparaba el total de solicitudes `NEW` de la tabla antes y después de crear una: Vitest ejecuta los archivos en paralelo y otro test podía crear o borrar una fila entre las dos lecturas. Se reescribió para colocar sus filas en una ventana histórica propia y contar solo ese rango, que es determinista. Se comprobó con tres pasadas completas seguidas. Otros dos tests de filtros tenían el mismo tipo de fragilidad —dependían de que sus filas cayeran en la primera página de una base compartida— y se hicieron deterministas con un marcador único en el asunto.
+
+**Etiquetas compartidas.** Se movieron las etiquetas de los tramos de presupuesto de `components/sections/contact.tsx` a `data/site-content.ts` y su espejo en inglés, para que el CRM y la web pública no puedan llamar a la misma cosa de dos maneras. `lib/crm/labels.ts` traduce los códigos reutilizando esa capa.
+
+**Archivos creados:** `lib/domain/metrics.ts`, `lib/domain/crm-leads.ts`, `lib/domain/crm-requests.ts`, `lib/domain/crm-export.ts`, `lib/crm/labels.ts`, `lib/validation/crm.ts`, `app/admin/(protected)/guards.ts`, `crm-ui.tsx`, `crm-forms.tsx`, `crm-actions.ts`, las páginas de `contactos/`, `solicitudes/`, `pipeline/`, `tareas/`, `informes/` y `configuracion/`, `contactos/contact-links.tsx`, `app/api/admin/crm/export/route.ts`, `docs/crm.md` y 4 archivos de pruebas.
+
+**Archivos modificados:** `lib/auth/session.ts`, `lib/domain/lead-requests.ts`, `lib/domain/tasks.ts`, `lib/domain/notes.ts`, `lib/domain/scoring.ts`, `prisma/seed.ts`, `app/admin/(protected)/layout.tsx`, `app/admin/(protected)/page.tsx`, las cuatro páginas de `contenidos/`, `components/sections/contact.tsx`, `data/site-content.ts`, `data/site-content.en.ts` y `README.md`.
+
+**Validación (comandos y resultados reales):**
+
+| Comando | Resultado |
+|---|---|
+| `npm run lint` | exit 0 — 0 errores, 0 warnings |
+| `npm run typecheck` | exit 0 |
+| `npm test` | 42 archivos, **493 pruebas**, todas verdes (91 nuevas en esta fase); confirmado con tres pasadas completas tras corregir un test intermitente |
+| `npm run build` | correcto; las 8 rutas del CRM como dinámicas y la home todavía estática |
+| Verificación E2E por HTTP contra `npm run dev` | **39/39 comprobaciones** con tres sesiones reales |
+
+La verificación end-to-end creó un usuario de cada rol con credenciales reales, inició sesión por HTTP y comprobó: ADMIN llega a los nueve apartados; SALES llega a los seis del CRM y recibe 404 en Configuración y en Contenidos; CONTENT recibe 404 en los cinco apartados del CRM y 200 en Contenidos y en su Resumen reducido; sin sesión, `/admin/contactos` redirige al login; el menú de cada rol no ofrece lo que no puede usar y SALES no ve el botón de exportar; la descarga CSV devuelve 403 con SALES y 200 con ADMIN, con `attachment`, `no-store` y encabezados en español; y las páginas del panel se sirven con `no-store` y `noindex`.
+
+**Pendiente / no incluido:** pruebas en navegador real (Playwright sigue sin incorporarse), gestión de etiquetas desde la interfaz, fusión de contactos y el transporte real del correo. Detalle en §16.
+
+**Veredicto: APTO PARA AÑADIR NOTIFICACIONES.** El CRM ya tiene los tres cimientos que una capa de notificaciones necesita: **eventos fiables** —cada movimiento de pipeline, cada tarea y cada nota dejan `LeadActivity` y `AuditEvent` dentro de la misma transacción que el cambio, así que no puede haber avisos de cosas que no ocurrieron ni cambios sin rastro—, **destinatarios y permisos claros** —responsable por solicitud, asignado por tarea y roles verificados en servidor en cada mutación—, y **un contrato de "no romper lo guardado" ya probado** con `notifyNewLeadRequest`, que se invoca tras el commit, sin `await`, y registra en `NotificationLog` sin poder tumbar la operación. Las métricas de tareas vencidas y de solicitudes sin primer contacto son exactamente las consultas que dispararían los avisos, y ya existen. Queda fuera, y conviene resolverlo al añadir notificaciones: el transporte de correo real y la preferencia de aviso por usuario.
+
+### Fase 8 — Email transaccional desacoplado (2026-08-12)
+
+Correo transaccional detrás de una interfaz, con SendGrid como adaptador y un adaptador de desarrollo que no envía. Detalle en `docs/email.md`.
+
+**El principio manda sobre todo lo demás.** La base de datos es la fuente de verdad y el correo es un efecto secundario: guardar un lead no depende de que SendGrid responda. De ahí salen todas las decisiones del módulo —el envío va después del commit y después de responder, ninguna función de notificación lanza, y un fallo de correo no borra datos ni produce un error falso para quien envió el formulario—.
+
+**Interfaz `EmailProvider` y dos adaptadores.** `SendGridEmailProvider` habla con la API v3 por `fetch` con timeout de 10 s; se descartó el SDK oficial porque arrastra dependencias que no hacen falta para un único POST y en el runtime de Vercel cada dependencia pesa. `DevelopmentEmailProvider` registra y no envía. La aplicación nunca habla con SendGrid directamente, que es lo que permite quedarse sin proveedor sin tocar el dominio.
+
+**El contrato dice que `send` no lanza.** Devuelve estado, incluido el fallo. Un proveedor que lanzara obligaría a cada llamante a envolverlo en `try/catch`, y el día que alguien lo olvidara un correo caído se llevaría por delante una operación ya guardada. Las capas de notificación ponen su propio `try/catch` igualmente, por si un adaptador futuro incumple el contrato: hay una prueba que lo comprueba con un adaptador que lanza.
+
+**`after()` de Next.js, no `void promise`.** Es el punto técnico de la fase. Lanzar la promesa sin esperarla parece equivalente y no lo es: en cuanto la función devuelve la respuesta, Vercel puede congelarla, y el envío queda a medias sin dejar rastro — exactamente el fallo silencioso que este proyecto evita en todas partes. `after()` mantiene viva la invocación hasta que el trabajo termina sin retrasar la respuesta. Como solo funciona dentro del ámbito de una petición de Next, `runAfterResponse` cae a ejecutar el trabajo directamente cuando no lo hay (scripts, tests), donde no hay respuesta que no bloquear.
+
+**Cuatro estados que dicen la verdad.** `SENT` (el proveedor aceptó; **no** promete bandeja), `SKIPPED_CONFIG` (falta configuración, y no es un error), `RETRY_PENDING` (timeout, 429 o 5xx: el mensaje era válido y el problema es del momento) y `FAILED` (otros 4xx: reintentar no arreglaría nada). El adaptador de desarrollo devuelve `SKIPPED_CONFIG`, **no `SENT`**: afirmar que salió un correo que no salió sería peor que no tener correo. Se añadieron los dos estados nuevos al enum en una migración propia, porque PostgreSQL no permite usar un valor de enum recién creado dentro de la misma transacción en que se añadió y la corrección de datos lo necesitaba.
+
+**Registro sin PII de más.** `NotificationLog` guarda plantilla, proveedor, estado, motivo corto y destinatarios **parcialmente ocultos** (`an***a@example.test`, conservando el dominio para poder diagnosticar). Nunca el cuerpo, el asunto —puede llevar el texto que escribió una persona—, la clave de API ni la dirección completa. `leadId` pasó a opcional: el resumen de tareas vencidas habla de varios contactos y no pertenece a ninguno. En desarrollo sin credenciales tampoco se imprime el correo completo por consola: un log se copia en incidencias y acaba en sitios que nadie previó.
+
+**Consentimiento en el acuse.** El acuse es transaccional y no necesita consentimiento de marketing, pero **sin él solo confirma la recepción**: ni novedades ni contenido promocional. Colar promoción en un acuse es la forma exacta de convertir una base legal transaccional en un envío comercial no consentido. El consentimiento se lee del **último** evento `MARKETING`, no de si existe alguno concedido, así que una revocación futura funciona sin tocar la consulta; hay una prueba con revocación posterior.
+
+**Enlaces sin token.** El aviso interno enlaza al detalle protegido del CRM y quien lo abra inicia sesión. Un enlace con acceso incorporado es permanente para cualquiera que reenvíe el correo, y no hace falta para que el equipo llegue a su propio panel. El acuse al visitante no lleva enlaces al panel: no tiene nada que hacer ahí.
+
+**Cuatro plantillas** simples, responsive (una columna, `max-width: 600px`, sin media queries) y accesibles: `lang="es"`, `h1` real, `th scope="row"` en las tablas de datos, `role="presentation"` en las de maquetación, sin imágenes y siempre con alternativa en texto plano. Los estilos van en línea porque los clientes de correo ignoran las hojas externas.
+
+**Los cuatro casos, y qué está activo de verdad.** Aviso interno de solicitud nueva: **activo**. Acuse al visitante: **activo si `SEND_LEAD_ACKNOWLEDGEMENT=true`** (solo ese valor exacto; `"1"` o `"si"` lo dejan apagado, porque escribir a alguien se decide a propósito). Resumen de tareas vencidas: **implementado y manual** con `npm run notify:overdue` — el proyecto no tiene programador y esta fase no añade cola, así que afirmar una periodicidad sería fingir fiabilidad; tampoco se expuso como endpoint HTTP, porque una ruta que envía correos sin exigir sesión es una vía de abuso. Verificación del email VIP: **plantilla preparada y probada, no activa**, con las tres piezas que faltarían documentadas.
+
+**Lo que esta fase no garantiza, dicho claramente.** No hay entrega garantizada: un `RETRY_PENDING` describe un fallo que merecería reintento y **nada lo reintenta**. Es deliberado —montar media cola daría sensación de fiabilidad sin la fiabilidad— y la evolución necesaria (programador con backoff, idempotencia por mensaje, automatizar el resumen, webhooks de SendGrid) está en `docs/email.md` §7 en lugar de disimulada en el código.
+
+**Un tropiezo real y su arreglo.** El script de tareas vencidas fallaba al arrancar: `import "server-only"` lanza salvo que se resuelva con la condición `react-server`, que solo aplica el bundler de Next, y un script de Node se la come de frente. Se resolvió con `tsconfig.scripts.json`, que mapea el paquete a su módulo vacío **solo para `tsx`**, igual que ya hacía `vitest.config.mts` para los tests. La protección del build queda intacta: importar un módulo `server-only` desde un componente cliente sigue rompiendo la compilación.
+
+**Variables:** `SENDGRID_API_KEY`, `LEADS_FROM_EMAIL`, `LEADS_NOTIFICATION_TO`, `SEND_LEAD_ACKNOWLEDGEMENT` y `NEXT_PUBLIC_SITE_URL`. Todas opcionales: sin ellas el proyecto funciona igual y cada intento queda como `SKIPPED_CONFIG`. `LEAD_NOTIFICATION_TO` de la Fase 6 pasó a `LEADS_NOTIFICATION_TO` por coherencia. Hacen falta clave **y** remitente para considerar que hay transporte: con solo la clave, SendGrid rechazaría el envío por falta de remitente verificado.
+
+**Archivos creados:** `lib/email/provider.ts`, `config.ts`, `development.ts`, `sendgrid.ts`, `templates.ts`, `index.ts`; `lib/notifications/record.ts`, `after-response.ts`, `overdue-tasks.ts`; `scripts/notify-overdue-tasks.ts`; `tsconfig.scripts.json`; `docs/email.md`; y 5 archivos de pruebas (`lib/email/config.test.ts`, `sendgrid.test.ts`, `templates.test.ts`, `lib/notifications/lead-request-notification.test.ts` reescrito, `overdue-tasks.test.ts`).
+
+**Archivos modificados:** `prisma/schema.prisma` + 2 migraciones, `lib/notifications/lead-request-notification.ts` (reescrito), `app/api/leads/requests/route.ts`, `app/api/leads/requests/route.test.ts`, `.env.example`, `package.json` y `README.md`.
+
+**Validación (comandos y resultados reales):**
+
+| Comando | Resultado |
+|---|---|
+| `npx prisma migrate deploy` | 9 migraciones, las dos de esta fase aplicadas |
+| `npm run lint` | exit 0 — 0 errores, 0 warnings |
+| `npm run typecheck` | exit 0 |
+| `npm test` | 46 archivos, **557 pruebas**, todas verdes (64 nuevas netas); dos pasadas completas seguidas |
+| `npm run build` | correcto |
+| `npm run notify:overdue` | funciona y reporta con honestidad: sin destinatarios y sin tareas vencidas |
+| Comprobación de `after()` en el servidor real | **8/8 comprobaciones** |
+
+La comprobación de `after()` no se podía hacer con pruebas unitarias: se envió una solicitud real al servidor de desarrollo y se verificó que la respuesta llega en menos de 5 s sin esperar al correo, que la solicitud queda guardada, que el aviso **se ejecuta después** de responder (aparece el registro instantes más tarde), que sin credenciales el estado es `SKIPPED_CONFIG` con proveedor `development`, y que el registro no contiene ni el cuerpo del mensaje ni la dirección completa.
+
+**Pendiente / no incluido:** entrega garantizada (§7 de `docs/email.md`), automatizar el resumen de tareas vencidas, activar la verificación VIP, webhooks del proveedor, y **envío real contra la API de SendGrid**: no hay cuenta configurada, así que la clasificación de respuestas está probada con `fetch` simulado, no contra el servicio.
+
+**Veredicto: APTO PARA ENDURECIMIENTO.** El correo está desacoplado de verdad: la persistencia no depende de él, el proveedor se sustituye cambiando una línea, y lo que no se envía queda registrado con un estado que distingue "no había configuración" de "falló y merece reintento" de "falló y reintentar no serviría". Nada del módulo puede tumbar una operación ya confirmada —probado con fallo transitorio, fallo permanente y un adaptador que lanza—, ningún registro guarda cuerpos, claves ni direcciones completas, y ningún enlace de correo lleva acceso incorporado. Lo que la fase **no** resuelve está documentado como límite y no disimulado como característica, que es la condición para poder endurecer sobre esto: hay tres frentes concretos que atacar —entrega garantizada, ejecución programada del resumen, y protección de un futuro endpoint de disparo— y ninguno está a medias fingiendo estar hecho.
+
+### Fase 9 — Seguridad, privacidad, SEO y operación (2026-08-12)
+
+Fase específica de endurecimiento. No es un informe: se auditó el proyecto, se corrigieron los problemas confirmados y cada corrección tiene su prueba. Detalle y riesgos aceptados en `docs/modelo-amenazas.md`.
+
+**Cabeceras y CSP** (`lib/security/headers.ts`). Antes no había ninguna. Ahora: CSP con `default-src 'self'` y sin comodines, derivando el host de Supabase de la variable en vez de escribirlo a mano; `frame-ancestors 'none'` y `X-Frame-Options` contra clickjacking; `nosniff`; `Referrer-Policy: strict-origin-when-cross-origin` para que una URL de ficha VIP no viaje en el Referer; `Permissions-Policy` cerrando cámara, micrófono, geolocalización y pagos; `Cross-Origin-*`; y `poweredByHeader: false`. La lista vive en `lib/` y no en `next.config.mjs` **para poder probarla**: una CSP escrita en la configuración es un sitio donde nadie mira hasta que algo se rompe.
+
+**La CSP va en Report-Only** salvo `CSP_ENFORCE=true`. Es una decisión, no una omisión: `next/image`, las fuentes de Google y el iframe del mapa introducen orígenes que conviene observar antes de bloquear, y una CSP que rompe la web en el primer despliegue se acaba desactivando entera. Verificado en el servidor real: la cabecera se sirve con el host real del proyecto.
+
+**Minimización de la sesión administrativa, y el interruptor que NO se usó.** Better Auth guardaba la IP y el user-agent completos de cada sesión, y el proyecto no tiene ninguna función que los use. El interruptor obvio era `advanced.ipAddress.disableIpTracking`, pero leyendo su código se ve que además de no guardar la IP deja al limitador sin clave por la que agrupar y **desactiva el rate limit del login** (`resolveRateLimitConfig` devuelve `null`). Cambiar protección contra fuerza bruta por minimización habría sido un mal negocio. La vía correcta es un `databaseHooks.session.create.before` que vacía ambos campos: la IP se sigue resolviendo en memoria para el límite, pero no llega a la tabla.
+
+**Anonimización completa y transaccional** (`lib/domain/privacy.ts`). La versión anterior solo tocaba las columnas del `Lead`, y eso dejaba a la persona perfectamente identificable donde nadie mira: el mensaje libre de sus solicitudes ("soy Ana y mi teléfono es…"), las notas del equipo y los destinatarios de los avisos. Anonimizar a medias es no anonimizar. Ahora vacía el texto libre **conservando lo agregable** (tipo de evento, invitados, espacio, estado, atribución), borra las notas, revoca las sesiones VIP y limpia los destinatarios, manteniendo consentimientos y auditoría como prueba de que el tratamiento fue legítimo. Se eliminó la función duplicada de `lib/domain/leads.ts`: dos funciones con el mismo nombre y distinto alcance eran la vía directa a llamar a la incompleta sin darse cuenta.
+
+**Derechos RGPD operativos, solo ADMIN.** Copia completa de los datos de una persona en JSON (`/api/admin/crm/lead-data`, sin el hash de sus tokens: eso es un secreto del sistema, no un dato suyo), revocación de marketing como evento nuevo `granted=false` que **no destruye el consentimiento anterior**, y revocación de accesos VIP. Todo con `AuditEvent`. La anonimización pide confirmación escrita en la interfaz, no un "¿seguro?": es irreversible.
+
+**Retención configurable que no borra sola.** `DATA_RETENTION_MONTHS` (36 por defecto, valores absurdos ignorados) identifica candidatos y excluye a quien tenga una negociación viva. `npm run privacy:retention` **informa y no anonimiza**: una operación irreversible sobre datos de personas no puede depender de un cron mal configurado.
+
+**Registro estructurado con `requestId`** (`lib/observability/log.ts`). Descarta valores **por nombre de clave** —email, teléfono, nombre, mensajes, notas, tokens, IP, user-agent— marcándolos `[omitido]` en vez de dejar un hueco silencioso, no serializa objetos ni arrays (que es donde se cuelan los cuerpos enteros) y **nunca registra el stack**: en producción revela rutas del sistema y versiones. Códigos de error operativos estables (`E_PERSISTENCE`, `E_FORBIDDEN`…). El endpoint de solicitudes devuelve el `requestId` en un 503 para poder cruzar una queja concreta con su traza sin contar nada de quien la envió.
+
+**Healthcheck** (`/api/health`) que devuelve `{ status: "ok" }` y nada más: ni versiones —un healthcheck que anuncia "Next 16.0.10" es un catálogo gratis de vulnerabilidades—, ni configuración, ni excepciones. Hace una consulta mínima para distinguir "el proceso vive" de "el proceso llega a su base de datos", que es la diferencia que le importa a un monitor.
+
+**Un falso 429 encontrado y corregido.** `consumeRateLimit` interpretaba "`updateMany` afectó 0 filas" como "límite agotado", cuando también puede significar "la fila desapareció" (la purga, o una ventana reiniciada en paralelo). Eso produce un rechazo a alguien que no ha hecho nada. Ahora se distinguen los dos casos releyendo la fila, con prueba propia. Lo destapó un fallo intermitente de la suite, no una revisión teórica.
+
+**Textos legales al día con la infraestructura real.** La política de cookies describía el acceso VIP como `localStorage`, cosa que dejó de ser cierta en la Fase 5: ahora detalla la cookie `porton_vip_access` con su duración y sus atributos, y la clasifica explícitamente como **estrictamente necesaria y funcional**, que es lo que la exime de consentimiento previo. La política de privacidad enumera los tres encargados reales (Supabase, Vercel y SendGrid, este último "solo si el envío está activado", que hoy no lo está). **No se inventa ningún plazo de retención ni base jurídica nueva**: donde falta validación profesional hay un aviso explícito, incluido el hecho de que el plazo concreto no está fijado. El banner existente se mantiene y se adapta; no se añadió otro.
+
+**Pruebas de ataque** (`lib/security/attack-surface.test.ts`, 22 pruebas). Cada bloque intenta algo que no debería poder hacerse, siempre por la vía directa: acceso a endpoints sin sesión y con rol insuficiente, rol declarado por cabecera/cuerpo/cookie, cookie de sesión inventada, SALES intentando anonimizar, CONTENT moviendo estados, cookie VIP falsa, el hash usado como token, sesión caducada y revocada, revocación que invalida una cookie ya emitida, payload de 200 KB, HTML y script guardados como texto, rate limit por IP, origen ajeno, respuesta de error sin stack ni rastro de Prisma, contacto anonimizado que no reaparece en ninguna exportación, `no-store` en las descargas y healthcheck sin fugas.
+
+**Escáner de secretos** (`lib/security/secrets-scan.test.ts`). Recorre los archivos que **git subiría** —no el disco— con 11 patrones (claves de Supabase en los dos formatos, JWT, SendGrid, cadenas de conexión con contraseña, hex de 64, claves privadas, tokens de GitHub y AWS), comprueba que `.env` está ignorado, que `.env.example` no lleva ningún valor y que la única variable `NEXT_PUBLIC_` es la URL del sitio. Incluye una comprobación de que el escáner no está vacío por error, porque un `git ls-files` fallido lo haría pasar con 0 archivos y daría falsa tranquilidad. Los falsos positivos van en una lista con su motivo escrito, no silenciados.
+
+**`docs/modelo-amenazas.md`**: activos ordenados por lo que costaría perderlos, ocho actores con su motivación, los tres cruces de frontera que importan, nueve familias de amenazas con la mitigación **y el archivo de prueba que la comprueba**, cobertura del OWASP Top 10 con lo parcial marcado como parcial, y diez riesgos aceptados con su motivo.
+
+**Auditoría de dependencias sin subir majors**, como pedía el enunciado: `npm audit` mantiene las 3 vulnerabilidades altas heredadas de `next@16.0.10` (`postcss`, `sharp`). El arreglo disponible es `next@16.3.0`, fuera del rango declarado. **No se ha aplicado**: es un cambio de versión de framework que toca render y build, y merece su propia fase con la suite completa como red, no un `--force` al final de una fase de seguridad.
+
+**Archivos creados:** `lib/security/headers.ts`, `lib/observability/log.ts`, `lib/domain/privacy.ts`, `app/api/health/route.ts`, `app/api/admin/crm/lead-data/route.ts`, `app/admin/(protected)/privacy-actions.ts`, `app/admin/(protected)/contactos/[id]/privacy-panel.tsx`, `scripts/retention-report.ts`, `docs/modelo-amenazas.md`, y 5 archivos de pruebas.
+
+**Archivos modificados:** `next.config.mjs`, `lib/auth.ts`, `lib/security/rate-limit.ts`, `lib/domain/leads.ts`, `lib/domain/crm-leads.ts`, `lib/validation/lead-request.ts`, `app/api/leads/requests/route.ts`, `app/admin/(protected)/contactos/[id]/page.tsx`, `app/politica-cookies/page.tsx`, `app/politica-privacidad/page.tsx`, `.env.example`, `package.json`, y 3 archivos de pruebas ajustados.
+
+**Validación (comandos y resultados reales):**
+
+| Comando | Resultado |
+|---|---|
+| `npm run lint` | exit 0 — 0 errores, 0 warnings |
+| `npm run typecheck` | exit 0 |
+| `npm test` | 51 archivos, **629 pruebas**, todas verdes (72 nuevas); dos pasadas completas seguidas |
+| `npm run build` | correcto |
+| `npm audit` | 3 altas heredadas de `next@16.0.10`; **no** se aplica el `--force` que subiría a 16.3.0 |
+| `npm run privacy:retention` | funciona: informa del plazo y de los candidatos, sin anonimizar |
+| Cabeceras en el servidor real | CSP Report-Only con el host real de Supabase, más las 6 cabeceras defensivas; `/api/health` devuelve solo `{"status":"ok"}`; `/admin` responde `no-store` y redirige al login |
+
+**Tres fallos de mis propias pruebas, corregidos:** una expectativa desactualizada (la respuesta de error ahora incluye `requestId`), tokens fijos en una columna `@unique` que chocaban entre ejecuciones, y un filtro que dependía de caer en la primera página de una base compartida. El cuarto fallo no era del test sino del código, y es el falso 429 descrito arriba.
+
+**Pendiente / no incluido:** los diez riesgos aceptados de `docs/modelo-amenazas.md` §7. Los cinco que más pesan: CSP con nonce y en modo bloqueo, alertas sobre los logs (hoy nadie los vigila), verificación del email en el gate VIP, 2FA para ADMIN, y la subida de `next@16.3.0`.
+
+**Veredicto: APTO.** La fase corrige problemas confirmados y no entrega un informe: cada cambio tiene su prueba, y las pruebas atacan en vez de describir. Lo que se ha cerrado de verdad: no hay dato personal almacenado sin finalidad —la IP y el user-agent de sesión dejaron de guardarse sin perder el rate limit—, la anonimización ya no deja a la persona identificable en el texto libre, los derechos de acceso y revocación son operaciones reales y auditadas en vez de una promesa del texto legal, ningún log puede filtrar PII ni un stack, y el escáner de secretos convierte en fallo de test lo que en la Fase 6 fue una fuga real en el README. Lo que **no** está cerrado está enumerado con su motivo en el modelo de amenazas, incluido lo incómodo: la CSP todavía no bloquea, nadie vigila los logs, y el gate sigue aceptando el email de otra persona. Eso es lo que permite seguir endureciendo sobre esto: hay una lista concreta de lo que falta, y ninguna pieza finge estar terminada.
+
+### Fase 10 — Pruebas E2E, despliegue y demo reproducible (2026-08-13)
+
+Fase de preparación, no de despliegue: el enunciado pedía dejarlo todo listo **sin** desplegar ni subir nada. Lo que la fase entrega de verdad son cinco defectos reales corregidos, una suite E2E que los encontró, y el procedimiento escrito para poner esto en producción.
+
+**Pruebas E2E: 22 pruebas, los 13 escenarios críticos** (`e2e/`, `docs/pruebas-e2e.md`). Playwright 1.62 sobre el **build de producción**, no `next dev`: si la fase prepara un despliegue, las pruebas deben recorrer el código que se va a desplegar —y `next dev` además activa los orígenes de confianza de desarrollo de Better Auth, que ocultarían un problema de configuración de producción. Cada prueba actúa por la interfaz: ninguna inyecta cookies ni escribe en la base para llegar antes a un estado. Los nueve escenarios extra salieron de preguntar "¿y si…?" sobre los trece pedidos: que el marketing se pueda dejar sin marcar y el envío funcione, que una contraseña incorrecta no revele si el email existe, que perder una oportunidad exija motivo, que un borrador no se sirva por su ruta pública, y —la otra mitad, que es fácil olvidar— que lo que CONTENT **sí** puede hacer siga funcionando: una autorización que lo cierra todo también está mal.
+
+**Base de datos aislada, con guardia y con pruebas** (`docker-compose.e2e.yml`, `lib/testing/e2e-database-guard.ts`). Las E2E vacían todas las tablas en cada ejecución, así que apuntarlas por error a la base de la aplicación la borraría. La comprobación no es un aviso en el runbook: es código que aborta antes de abrir la primera conexión si la base coincide con la de la aplicación —comparando host, puerto y nombre, para que un `?pgbouncer=true` de diferencia no la despiste—, si el host parece gestionado, o si es remota y su nombre no delata que es de pruebas (la base por defecto de Supabase se llama `postgres`, así que un copiar y pegar sigue abortando). **13 pruebas propias**, incluida una que comprueba que ningún mensaje de error filtra la contraseña. Una salvaguarda sin pruebas no es una salvaguarda: es una intención. El contenedor va en el **puerto 55432** y publicado solo en `127.0.0.1`: el 5432 puede estar ocupado por otro PostgreSQL de la máquina, y usar un puerto propio evita justo el accidente que todo esto existe para impedir.
+
+**Cinco defectos reales encontrados por las E2E**, todos con su prueba de regresión:
+
+1. **El CTA "Quiero una boda así" no precargaba el tipo de evento.** El asunto sí, el desplegable no, y el primer envío se rechazaba con "Selecciona el tipo de evento". La causa tardó en salir: Radix Select, cuando vive dentro de un `<form>`, renderiza además un `<select>` nativo oculto para que las librerías de formularios lo vean, y su `BubbleSelect` **dispara un evento `change` sintético cada vez que cambia su valor**. Con el desplegable cerrado ese select nativo solo tiene la opción vacía del marcador de posición —los `SelectItem` viven en `SelectContent`, que no está montado—, así que el evento llegaba con la cadena vacía y la escribía de vuelta en el formulario, deshaciendo la precarga. La corrección es descartar la cadena vacía en el `onValueChange`, que es seguro porque **ninguna opción real la usa**. Lo demoledor: la prueba de la Fase 6 pasaba, porque rellenaba todos los campos obligatorios incluido ese desplegable y tapaba el fallo.
+2. **La cabecera pública tapaba el panel.** El layout raíz —el único que puede declarar `<html>`— pintaba la cabecera `fixed` con `z-50` también en `/admin`, dejando el botón "Cerrar sesión" **materialmente inalcanzable** con el ratón en escritorio. Debajo aparecían además el pie con enlaces comerciales y el botón de WhatsApp, dentro de un CRM. Se resolvió con `components/public-chrome.tsx` y `usePathname()` en vez de partir el proyecto en dos layouts raíz: eso obligaría a mover todas las rutas a grupos y duplicar tipografías y metadatos, con mucho más riesgo para el sitio público a cambio de lo mismo.
+3. **Una cookie de sesión revocada rompía el panel con `ERR_TOO_MANY_REDIRECTS`.** El panel redirigía al login por no haber sesión y el middleware devolvía al panel por haber cookie. Pasaba con cualquier sesión caducada, revocada, con `BETTER_AUTH_SECRET` rotado o con la base restaurada: es decir, en los momentos en los que más falta hace poder entrar. El middleware no puede validar la sesión (es Edge, no llega a la base), así que la redirección de quien **sí** tiene sesión se movió a la propia página del login, que sí puede consultarla.
+4. **Una imagen subida no aparecía en el editor hasta recargar la página entera.** El editor guarda la ficha —media incluida— en estado de cliente inicializado una sola vez, así que el `router.refresh()` posterior a la subida actualizaba los avisos calculados en servidor ("falta el alt de 1 archivo") pero **no** la lista del panel, que seguía diciendo "todavía no hay archivos". Con el aviso pidiendo un alt y el panel sin archivo al que ponérselo, no se podía publicar. La acción ahora devuelve el archivo ya en la forma que usa el editor, con su URL firmada, en vez de un identificador suelto.
+5. **`/admin/usuarios` respondía 200** con un mensaje de "Acceso no autorizado" en vez de 404 como el resto del panel. Autorizaba bien —nunca llegaba a consultar los usuarios—, pero era la única página con una comprobación de rol escrita a mano, y por tanto la única que podía desincronizarse de `PERMISSIONS` sin que nadie se enterase.
+
+**Y un sexto, en las propias pruebas:** dos archivos se borraban los contadores de rate limit entre sí con un `deleteMany` por prefijo demasiado ancho. Producía un fallo intermitente que dependía del orden de ejecución y que no tenía nada que ver con lo que ninguna de las dos pruebas quería comprobar. Ahora cada archivo borra solo sus claves.
+
+**Tipografías propias: se acabó la dependencia de red del build** (`app/fonts/`). El build llegó a fallar con doce errores `Error while requesting resource` por no poder alcanzar `fonts.googleapis.com`, y volvió a funcionar al reintentar sin cambiar nada. Un build que puede fallar por motivos ajenos al código no es reproducible, y la reproducibilidad era el objetivo de la fase. Se descargó un archivo **variable** por familia, subconjunto latin, que cubre todos los pesos del sitio (300–700) con un archivo en vez de cinco, y se incluyen los tres `OFL.txt` originales sin modificar: las tres familias son SIL Open Font License 1.1, que permite redistribuirlas acompañadas de su licencia y su copyright. Efectos secundarios, todos a favor: la CSP deja de necesitar los dos dominios de Google, el navegador del visitante no le pide nada a un tercero para pintar el texto —así que su IP no viaja—, y hay una petición menos en la ruta crítica. **Y una trampa que la captura de pantalla destapó:** `globals.css` pedía las familias por su nombre comercial, que solo existía porque `next/font/google` las registraba con ese nombre exacto. Con fuentes locales el nombre cambia, así que el sitio se quedó pintado en Georgia **sin avisar de nada**. Se corrige apuntando a las variables CSS que `next/font` publica.
+
+**Sembrado partido en tres, porque hacía tres cosas distintas.** Hasta ahora `prisma/seed.ts` creaba configuración, usuarios y contenido de ejemplo a la vez, lo que obligaba a elegir entre sembrar configuración o no sembrar nada. Ahora: `npm run db:seed` deja solo los pesos del scoring (**configuración operativa**: sin ella el CRM puntúa a todo el mundo con cero, así que no es un dato de ejemplo); `npm run admin:bootstrap` crea el primer ADMIN; y `npm run demo:seed` siembra la demostración.
+
+**Demo idempotente y retirable** (`scripts/demo-seed.ts`, `scripts/demo-clean.ts`, `docs/runbook-demo.md`). 6 fichas `isDemo`, un equipo de tres roles **sin contraseña** —existen para firmar tareas y notas; crear tres cuentas con contraseña conocida sería regalar tres puertas de entrada—, 8 contactos con solicitudes repartidas por **todo** el pipeline, tareas con una vencida, notas y consentimientos. Los estados se alcanzan **moviendo cada solicitud por las transiciones reales** del dominio, no escribiendo el estado final: así el historial y la auditoría de la demo son los que produciría el uso normal, y abrir una solicitud ganada enseña los seis movimientos que la llevaron ahí. Todos los emails terminan en `.test`, un TLD reservado por la RFC 2606 que no resuelve: ninguna dirección de la demo puede recibir un correo por error, ni siquiera si alguien activase SendGrid por accidente. Ese dominio es también la marca que permite a `demo:clean` borrar exactamente lo suyo. La cuenta de evaluación se declara por variable de entorno, el script **no imprime nunca su contraseña**, y al terminar se **desactiva** en vez de borrarse: la auditoría de la demo le apunta como autor, y un registro del que no se sabe quién hizo qué no sirve para nada. Comprobado: sembrar dos veces no duplica nada, y la limpieza en seco dice qué borraría antes de tocar la base.
+
+**Siete documentos nuevos.** `docs/pruebas-e2e.md` (cobertura, aislamiento y las decisiones de la suite), `docs/migraciones.md` (las ocho en orden, las dos con corrección de datos, por qué la 7 y la 8 van separadas —PostgreSQL no permite usar un valor de enum en la misma transacción en que se añadió— y qué hacer cuando una falla, incluido que **no hay rollback automático** y la vía normal es corregir hacia delante), `docs/despliegue-vercel.md` (con la pareja de conexiones de Supabase explicada: confundir el pooler en modo Transaction con el de Session es el error de configuración más frecuente del proyecto), `docs/runbook-demo.md`, `docs/manual-admin.md` (para el equipo de la finca, sin tecnicismos), `docs/checklist-aceptacion.md` (con la regla de que nada figura como cumplido sin evidencia) y `docs/evidencias-tfm.md`.
+
+**Archivos creados:** `playwright.config.ts`, `docker-compose.e2e.yml`, `.env.e2e.example`, `lib/testing/e2e-database-guard.ts` (+ test), `lib/domain/demo.ts`, `lib/content/demo-stories.ts`, `components/public-chrome.tsx`, `app/admin/(protected)/contenidos/[id]/editor-media.ts`, `components/sections/contact-prefill.test.tsx`, seis scripts en `scripts/` (`e2e-env.ts`, `e2e-migrate.ts`, `e2e-seed.ts`, `e2e-env-init.mjs`, `demo-seed.ts`, `demo-clean.ts`), nueve archivos en `e2e/`, `app/fonts/` (3 woff2 + 3 licencias + README) y 7 documentos.
+
+**Archivos modificados:** `app/layout.tsx`, `app/globals.css`, `app/admin/login/page.tsx`, `app/admin/(protected)/usuarios/page.tsx`, `app/admin/(protected)/guards.ts`, `app/admin/(protected)/contenidos/actions.ts`, la página y los dos componentes del editor de contenido, `components/sections/contact.tsx`, `middleware.ts` (+ test), `lib/security/headers.ts` (+ test), `lib/security/secrets-scan.test.ts`, `lib/security/attack-surface.test.ts`, `app/api/leads/requests/route.test.ts`, `prisma/seed.ts`, `vitest.config.mts`, `package.json`, `.gitignore` y `.env.example`.
+
+**Validación (comandos y resultados reales):**
+
+| Comando | Resultado |
+|---|---|
+| `npm ci` | correcto, un único lockfile |
+| `npm run lint` | exit 0 — 0 errores, 0 warnings |
+| `npm run typecheck` | exit 0 |
+| `npm test` | 53 archivos, **646 pruebas**, todas verdes |
+| `npm run e2e` | 6 archivos, **23 pruebas**, todas verdes (≈40 s) |
+| `npm run build` | correcto, **sin ninguna petición de red** |
+| `npx prisma validate` / `generate` | esquema válido, cliente generado |
+| Migraciones sobre base virgen | las 8 en orden, sin errores |
+| `npm run demo:seed` dos veces | idempotente: 6 fichas + 8 solicitudes la primera vez, 0 la segunda |
+| `npm run demo:clean` | borra solo lo de la demo; en seco informa sin tocar nada |
+| Escáner de secretos | sin hallazgos (3 falsos positivos añadidos a la lista **con su motivo escrito**) |
+| Guardia de base E2E | rechaza la base de la aplicación: verificado apuntándola a la real a propósito |
+
+**Pendiente / no incluido:** el **despliegue** (el enunciado pedía no hacerlo), las métricas de Lighthouse (necesitan producción), las E2E en integración continua (necesitan un contenedor de servicio y las credenciales de Storage como secretos), y la migración de las 646 pruebas de Vitest al contenedor aislado, que merece su propia revisión. La subida de imagen del escenario 8 usa el bucket real de Supabase porque Storage no tiene equivalente local; el sembrado borra los objetos de la ejecución anterior. Sigue en pie lo de la Fase 9: los diez riesgos aceptados de `docs/modelo-amenazas.md` §7, y la subida de `next@16.3.0` con sus 3 vulnerabilidades altas.
+
+**Veredicto: APTO PARA DESPLEGAR**, con una condición que no es técnica. Lo que sostiene el veredicto: los trece escenarios críticos se recorren en un navegador real contra el build de producción, cinco defectos que ninguna prueba anterior veía están corregidos con su regresión, el build ya no depende de la red, las migraciones se aplican en orden sobre una base virgen y tienen procedimiento escrito para cuando fallen, la demo se siembra y se retira con un comando, y las variables pendientes están enumeradas una por una en el README §Variables de entorno sin que ninguna sea un valor que el proyecto pueda inventarse. Lo que **no** sostiene el veredicto y hay que decir en voz alta: la **revisión jurídica** de la base legal y del plazo de retención sigue pendiente, y eso debería resolverse **antes de recoger datos de personas reales**, no antes de desplegar. Con datos ficticios y la demo puesta, el proyecto se puede desplegar hoy; con datos de clientes, ese texto lo tiene que firmar alguien cualificado. Y la CSP sigue en Report-Only: observa, no bloquea. Está enumerado, no escondido, que es la única forma de que la siguiente fase pueda ir a por ello.
+
+### Fase 11 — README definitivo, preparación de GitHub público y entrega TFM (2026-08-13)
+
+Fase de documentación y preparación, no de desarrollo: el enunciado pedía dejar la entrega lista **sin** hacer push, sin cambiar la visibilidad del repositorio, sin inventar URL y sin incluir credenciales. Lo que la fase entrega de verdad son un README que sostiene el proyecto por sí solo, un escáner de secretos que también mira el historial, y una afirmación falsa corregida.
+
+**El README pasa de 18 a 37 secciones y deja de delegar en `docs/`.** Estaba completo en lo técnico pero le faltaban las secciones que permiten entender el proyecto a quien llega de cero: problema, objetivos general y específicos, alcance y **fuera de alcance** con el motivo de cada exclusión, usuarios y casos de uso con sus alternativas, diagrama de componentes, modelo de datos resumido con las tres decisiones que explican el resto, una tabla de decisiones con la alternativa descartada en cada caso, y capítulos propios de accesibilidad, SEO, rendimiento, licencia y derechos de marca. Lo que estaba repartido entre `docs/` y el código —Supabase, bootstrap del ADMIN, scripts— tiene ahora su apartado, porque un documento que para cada pregunta remite a otro archivo no es una referencia: es un índice.
+
+**Un defecto real: `robots.txt` no llevaba el `Disallow` que tres documentos afirmaban.** `docs/checklist-aceptacion.md` (requisito 1.7), `docs/despliegue-vercel.md` (smoke test 9) y `docs/evidencias-tfm.md` (§3) daban por hecho un `Disallow: /admin` que `app/robots.ts` no emitía: solo había `allow: "/"`. El `noindex` del panel sí era real, así que la protección efectiva existía, pero el smoke test del despliegue **habría fallado el primer día en producción** y la afirmación era falsa. Se corrige en el código —`disallow: ["/admin", "/api"]`— porque es donde la afirmación se vuelve cierta, y se añade `app/robots.test.ts` con cinco pruebas que fijan las dos decisiones: bloquear el panel y la API, y **no** bloquear las bibliotecas VIP, donde la exclusión tiene que seguir siendo por `noindex`. Bloquearlas en `robots.txt` produciría justo el resultado que se quiere evitar: URL indexadas sin que el buscador pueda leer la etiqueta que pide no indexarlas.
+
+**Escáner de secretos del historial** (`scripts/secrets-scan-history.ts`, `npm run secrets:history`). Existía el escáner del árbol de trabajo, y no basta: limpiar el árbol no limpia el historial. Un secreto añadido en un commit y borrado en el siguiente sigue estando en el primero, y en GitHub el commit anterior sigue siendo consultable por su URL para siempre — el escáner del árbol diría que todo está bien. El nuevo recorre todas las versiones de todos los archivos de todos los commits alcanzables desde cualquier referencia, deduplicadas por contenido, más los mensajes de commit. Los blobs se leen con un solo proceso `git cat-file --batch` en lugar de uno por archivo, porque en Windows cientos de procesos son decenas de segundos. Los dos escáneres comparten ahora patrones y excepciones en `lib/security/secret-patterns.ts`: estaban duplicados, y eso garantizaba que antes o después se desviaran.
+
+**Resultado del escaneo: historial limpio.** 5 commits, 288 versiones de archivo, 11 patrones, 0 hallazgos. La única coincidencia son los checksums SHA-256 de `project-reference/data/image-manifest.json` —64 caracteres hexadecimales, la misma forma que un secreto—, clasificados como falso positivo conocido. Esa línea es además la prueba de que la detección funciona de verdad: si estuviera rota, no aparecería. **No se ha reescrito ningún historial**, porque no hacía falta.
+
+**Un hueco del escáner, cerrado:** filtraba por extensión, así que no miraba archivos de texto sin extensión. `NOTICE` no se habría revisado, ni `LICENSE` cuando exista, ni un `Dockerfile`. Se añade una lista de nombres conocidos y una prueba que comprueba que `NOTICE` entra en el conjunto escaneado. Un escáner que da por revisado lo que no ha abierto es peor que no tenerlo, porque tranquiliza.
+
+**CI: `fetch-depth: 0` y un paso nuevo.** El escaneo del historial se añade al flujo de trabajo, pero `actions/checkout` hace un clon superficial por defecto: con `fetch-depth: 1` el escáner solo vería el último commit y **pasaría siempre**. Un paso de CI que no puede fallar es peor que ninguno.
+
+**CI verde, comprobado en su propio entorno.** Se simuló el runner apartando el `.env` —con restauración garantizada— para reproducir exactamente lo que ve GitHub Actions: **329 pruebas pasan y 325 se saltan solas** (las que necesitan base de datos, condicionadas a `DATABASE_URL`), exit 0. Afirmar «CI verde» sin ejecutarlo sin `.env` es afirmar algo que no se ha comprobado: en local todas las pruebas encuentran credenciales.
+
+**Comprobación de datos personales en lo que se publicaría.** Revisado el árbol versionable completo. **No hay datos personales de particulares.** Lo que hay, y por qué puede publicarse, queda documentado en `docs/publicacion-github.md` §3: los datos de contacto del negocio son los que él mismo publica en su web; `@elportondelacondesa` es su cuenta oficial; los nombres de las seis fichas de ejemplo son ficticios y el propio archivo lo declara; el único correo con dominio real vive en una prueba de normalización que **necesita** el dominio `gmail.com` para comprobar lo que comprueba; y los correos de la demostración usan `.test`, reservado por la RFC 2606. Los datos personales reales viven solo en la base de datos, nunca en el repositorio.
+
+**`.gitignore` endurecido.** Se añaden volcados (`*.dump`, `*.bak`, `*.sqlite`, `/dumps/`, `/backups/`, `/exports/`), subidas locales, `.vercel` y la basura de sistema y editores. `*.sql` **no** se ignora, y es deliberado: las migraciones de Prisma son `.sql` y tienen que estar versionadas —comprobado que las ocho siguen versionadas tras el cambio—. La regla de los `.env` se mantiene en negativo (ignorar todo, reabrir las plantillas una a una) y se documenta por qué: al contrario, una variante nueva como `.env.staging` quedaría versionable por omisión, que es exactamente como se filtran las credenciales.
+
+**`NOTICE`: la marca queda fuera de cualquier licencia de software.** El repositorio contiene dos cosas con dueños distintos, y sin este archivo quien leyera una licencia permisiva asumiría que cubre las fotografías de las bodas. Se enumeran archivo por archivo los logotipos, las fotografías, los textos comerciales y los datos de contacto del negocio; la fotografía con marca de agua de fotógrafo externo **cuyos derechos no están confirmados**; el logotipo de Solucionesbonicas como crédito de desarrollo; las tres tipografías con su OFL 1.1 y sus textos de licencia; y la declaración de que las seis fichas de ejemplo son ficticias. Se corrigió una afirmación propia por el camino: las cinco imágenes de relleno de la plantilla no están todas sin usar — `placeholder.svg` sí se usa, como valor de reserva de un componente.
+
+**`LICENSE` no se ha creado, a propósito.** La licencia la elige el titular del código, no quien lo escribe por encargo. Sin ese archivo el código queda bajo todos los derechos reservados por defecto, que para una entrega académica puede ser exactamente lo que se quiere. `docs/publicacion-github.md` §6 desarrolla las cinco opciones con sus implicaciones y las tres cosas que hay que tener presentes antes de decidir, incluida la que se olvida: si hay contrato con el cliente, puede que el código no sea del autor para licenciarlo.
+
+**Cuatro documentos de entrega.** `docs/checklist-entrega-tfm.md` (nueve entregables con estado, URL, permiso, última prueba en incógnito, responsable y pendiente; con el árbol de dependencias que explica por qué casi todo cuelga de dos decisiones de Javier), `docs/guion-presentacion-tfm.md` (14 diapositivas con mensaje único, evidencia, tiempo y notas del orador, más cinco preguntas probables ya contestadas), `docs/guion-video-obs.md` (escena, ajustes de OBS reales, qué no debe salir en ningún fotograma, recorrido minuto a minuto y comprobaciones antes de subir) y `docs/formulario-entrega-tfm.md` (plantilla, canal privado de credenciales por orden de preferencia, comprobación externa y justificante). Más `docs/publicacion-github.md` y `.github/RELEASE_TEMPLATE.md`.
+
+**Una regla repetida en los cuatro documentos, porque es la que más fácil se rompe:** ninguna credencial en el README, ni en el repositorio, ni en las Slides, ni en el vídeo, ni en el cuerpo de una release. Y la comprobación en incógnito no es opcional: una ventana normal arrastra las sesiones de Google y de GitHub del autor, así que todo parece accesible aunque esté restringido.
+
+**Archivos creados:** `NOTICE`, `CONTRIBUTING.md`, `.github/RELEASE_TEMPLATE.md`, `app/robots.test.ts`, `lib/security/secret-patterns.ts`, `scripts/secrets-scan-history.ts`, y cinco documentos (`publicacion-github.md`, `checklist-entrega-tfm.md`, `guion-presentacion-tfm.md`, `guion-video-obs.md`, `formulario-entrega-tfm.md`).
+
+**Archivos modificados:** `README.md` (reescrito: 18 → 37 secciones, conservando el historial completo), `app/robots.ts`, `lib/security/secrets-scan.test.ts`, `.gitignore`, `.github/workflows/ci.yml`, `package.json`, y las referencias cruzadas al README en `lib/storage/validate-image.ts`, `lib/storage/supabase.ts`, `lib/validation/lead-request.ts`, `lib/domain/privacy.ts`, `scripts/retention-report.ts`, `app/admin/(protected)/contenidos/actions.ts`, `e2e/05-crm.spec.ts`, `data/site-content.ts`, `docs/crm.md`, `docs/email.md`, `docs/migraciones.md`, `docs/pruebas-e2e.md`, `docs/evidencias-tfm.md`, `docs/autenticacion.md`, `docs/modelo-amenazas.md` y `docs/checklist-aceptacion.md`.
+
+Las referencias numéricas al README (`README §12`, `§7`, `§11`…) se han convertido en referencias **por nombre de sección** (`§Seguridad`, `§Variables de entorno`). Con 37 secciones, renumerar volvería a romperlas en la fase siguiente; un nombre sobrevive a la reordenación. Cuatro de ellas apuntaban ya a secciones que no existían.
+
+**Validación (comandos y resultados reales):**
+
+| Comando | Resultado |
+|---|---|
+| `npm ci` | correcto, un único lockfile |
+| `npm run lint` | exit 0 — 0 errores, 0 warnings |
+| `npm run typecheck` | exit 0 |
+| `npm test` | 58 archivos, **698 pruebas**, todas verdes |
+| `npm run build` | exit 0 — 32 rutas, 7 estáticas, sin peticiones de red |
+| `npm run e2e` | **23 pruebas, todas verdes** (1,4 min). No cambia nada que cubran, pero el `Disallow` toca una ruta y conviene comprobarlo |
+| `npm run secrets:history` | 5 commits, 288 versiones de archivo, **0 hallazgos** |
+| Escáner del árbol | 8 pruebas verdes, 11 patrones, 0 hallazgos |
+| Simulación del entorno de CI (sin `.env`) | 329 pasan, 325 se saltan solas, exit 0 |
+| `.env` versionable | ninguno: solo las dos plantillas, ambas sin valores |
+| Volcados, exportaciones y subidas en el árbol | ninguno |
+| Datos personales de particulares en el árbol | ninguno |
+| Migraciones aún versionadas tras endurecer `.gitignore` | las 8 |
+
+**Pendiente / no incluido:** el **push**, el **cambio de visibilidad** del repositorio y la **creación del `LICENSE`** (los tres, decisión explícita de Javier; los dos primeros los prohibía el enunciado). Sigue pendiente el **despliegue**, y con él las URL de aplicación, README público, Slides, vídeo y dashboard, más las métricas de Lighthouse. Y sigue en pie la **revisión jurídica** de la base legal y el plazo de retención.
+
+**Veredicto: APTO PARA ENTREGA DOCUMENTAL.** Lo que lo sostiene: el README es autocontenido y ninguna de sus 37 secciones remite a otro archivo para responder a lo que se le pregunta; el árbol y el historial están escaneados con herramienta propia y reproducible, y los dos están limpios; no hay ningún dato personal de particulares en lo que se publicaría; los cuatro documentos de entrega existen con su procedimiento y sus comprobaciones; y ninguna URL inventada figura como real — los marcadores `[PENDIENTE: URL]` son literales y están declarados como tales. Lo que **no** sostiene el veredicto y hay que decir en voz alta: la entrega **no está hecha**, y lo que falta no es documentación sino tres decisiones y un despliegue que solo Javier puede tomar y ejecutar. La documentación está lista para acompañar una entrega; la entrega, no.
+
+### Fase 12 — Auditoría correctiva final (2026-08-13)
+
+Revisión del proyecto como si fuera una pull request ajena, con mandato de corregir y no solo describir. El resultado son **15 defectos reales corregidos**, cada uno con la prueba que lo habría detectado, y dos límites de escala documentados con su umbral en lugar de reescritos.
+
+La auditoría se organizó como nueve lentes independientes sobre el código —secretos y datos personales, autorización, gate, contraseñas y sesión, solicitudes y consentimientos, Storage, migraciones e índices, accesibilidad y caché, y coherencia de la documentación— con verificación adversarial de cada hallazgo. **Seis de las nueve lentes completaron y la verificación automática se agotó a mitad**, así que los 22 hallazgos que quedaron sin refutar se verificaron a mano, leyendo el código, antes de tocar nada. Tres lentes (gate, contraseñas/sesión y Storage) se auditaron después directamente. Conviene decirlo porque cambia cómo hay que leer el resultado: no es "un agente dijo que había 22 fallos", es "22 candidatos, verificados uno a uno contra el código, de los que 15 eran reales".
+
+**El más grave: datos personales del visitante en el log de producción.** `DevelopmentEmailProvider` registraba `asunto: message.subject`, y el asunto del aviso interno se compone con el texto libre del formulario (`Nueva solicitud: ${request.subject}`). El nombre del adaptador engaña: `resolveEmailProvider` lo devuelve **siempre que falte `SENDGRID_API_KEY` o `LEADS_FROM_EMAIL`**, y las dos son opcionales —el estado documentado por defecto—, así que en producción sin SendGrid cada solicitud escribía en el log de Vercel lo que la persona hubiera teclado. Contradecía tres cosas escritas a la vez: que `NotificationLog` nunca guarda el asunto, que los logs no llevan datos personales, y el propio docstring del registro estructurado, cuya lista de claves bloqueadas incluye `subject|asunto`. La corrección es pasar por `logInfo` en vez de `console.info`: el filtro por nombre de clave existía y este código lo esquivaba.
+
+**El guardián de secretos no guardaba.** Dos defectos en el mismo archivo. La aserción que debía impedir versionar un `.env` era una tautología —`expect(files.some(f => f === ".env" || f.startsWith(".env."))).toBe(files.includes(".env.example"))`, es decir `true === true`, porque `.env.example` hace verdaderos los dos lados—: añadir un `.env.production` con credenciales reales no la rompía. Y ningún patrón detectaba **una contraseña en claro**, que es exactamente la fuga que este proyecto ya tuvo en la Fase 6. Ahora la aserción compara la lista exacta de plantillas, la familia `.env` entra en el escaneo por contenido (antes `.env.example` colaba por casualidad, por acabar en `.example`), y hay dos patrones nuevos con **pruebas propias de los patrones**, que era el hueco de fondo: un escáner sin casos positivos es un test que siempre pasa. El umbral son 12 caracteres porque es el mínimo que el proyecto exige a sus propias contraseñas.
+
+La primera versión del patrón de contraseñas produjo diez falsos positivos y enseñó algo: usaba `\s*` tras el igual, `\s` incluye el salto de línea, y en `.env.example` acababa tomando el nombre de la variable siguiente como valor de la anterior. Está anotado en el código, con su prueba de regresión.
+
+**Bloqueo irrecuperable de la administración.** `updateUserRoleAction` hacía `prisma.user.update` sin comprobar nada: el único ADMIN podía degradarse a sí mismo —el camino más probable es el más inocente, "a ver qué ve un CONTENT"— y a partir de ahí nadie podía volver a cambiar roles, porque el alta pública está desactivada a propósito. Con él se perdían la gestión de usuarios, la configuración, la exportación y **las tres operaciones de privacidad del RGPD**, que son obligaciones legales. Además era la **única mutación administrativa sin `AuditEvent`**, justo la que concede privilegios, y escribía con Prisma desde la capa de interfaz. Se movió a `lib/domain/users.ts`: rechaza el autocambio, cuenta administradores y actualiza **en la misma transacción** —hacerlo antes dejaría la ventana para que dos degradaciones simultáneas acaben en cero—, y audita con el rol anterior y el nuevo sin copiar datos personales. El guardián del último ADMIN se probó como función pura, porque la rama que importa no se puede provocar contra una base de desarrollo compartida que siempre tiene administradores reales; degradar cuentas de verdad para forzar el escenario habría sido peor.
+
+De paso, `docs/manual-admin.md` ya afirmaba "nadie puede cambiarse su propio perfil". Era falso; ahora es verdad.
+
+**Un POST público borraba el nombre de un contacto.** El `.trim()` de JavaScript no considera espacio en blanco a los caracteres de control, así que un `firstName` de dos caracteres C0 pasaba el `.min(1)` del esquema, el servidor los eliminaba antes de persistir, y el `update` del upsert escribía `""`. El endpoint no verifica el correo: quien conociera la dirección de un contacto dejaba su ficha del CRM sin nombre, de forma irreversible. Corregido en las dos capas: el esquema exige un carácter imprimible y devuelve 400 en el borde, y el dominio nunca sobrescribe con vacío —Prisma distingue `undefined` ("no toques") de `""` ("escribe vacío") y esa diferencia era el fallo—.
+
+**Un 503 sobre datos ya guardados, y el aviso comercial perdido.** `recalculateLeadScore` se llamaba sin `.catch` después del commit, al contrario que en `grantVipAccess`. Si fallaba —pool agotado, timeout del pooler—, el endpoint devolvía `persistence-failed` sobre una solicitud que **sí** estaba guardada, y `runAfterResponse(notifyNewLeadRequest)` no llegaba a ejecutarse. Peor: el reintento del visitante entraba por la rama `duplicate`, que tampoco avisa. La finca no se enteraba nunca de esa solicitud. Una línea, con el precedente correcto ya en el propio proyecto.
+
+**El gate registraba el consentimiento con la versión de política del servidor**, no con la que la persona tenía delante: el esquema del gate no tenía el campo. Si la política cambiaba mientras alguien tenía la página abierta, se guardaba un `ConsentEvent` sobre un texto que nunca vio — y `policyVersion` es precisamente el campo que existe para demostrar sobre qué texto se consintió. El endpoint del formulario ya devolvía 409 en ese caso; el gate no comprobaba nada. Ahora los dos caminos se comportan igual, con un código de error propio que pide recargar. El cambio rompió 17 pruebas por no enviar el campo, que es la señal de que ahora se exige de verdad.
+
+**Paginación que podía repetir y perder filas.** `listLeadsForAdmin` ordenaba por `[lastActivityAt, createdAt]` sin criterio único, mientras el README prometía que ningún listado del panel deja salir una fila en dos páginas —`listRequestsForAdmin` sí lo hacía—. Con contactos empatados en ambos campos, lo normal en una ráfaga de altas o en el sembrado, uno se veía dos veces y otro no se veía nunca; revisando la lista para atender una supresión, el omitido no se trataba. Añadido `{ id: "asc" }` en el listado, la exportación y el listado del CMS.
+
+**Dos señales de indexación contradictorias.** Las tres páginas legales estaban en `sitemap.xml` *y* emitían `noindex`. Search Console habría marcado como error de cobertura tres de las cuatro URL enviadas desde el primer rastreo. Se alineó el sitemap con el `noindex`, que es la opción que no cambia qué se indexa, y hay una prueba que lee el metadata real de cada página y falla por cualquiera de los dos lados.
+
+**Accesibilidad: cuatro correcciones, una de ellas seria.** El menú móvil cerrado solo se apagaba con `opacity-0 pointer-events-none`, y ninguna de las dos retira nada del recorrido de teclado ni del árbol de accesibilidad: por debajo de `xl`, pulsar Tab desde el botón de hamburguesa metía el foco en ocho controles completamente invisibles, sin anillo visible en ninguna parte y con Enter navegando a donde nadie había pedido. Ahora lleva `inert`. Además: **ninguno de los tres landmarks de navegación del sitio público tenía nombre** —el README lo declaraba resuelto y solo lo estaba en `/admin`—, faltaba el **enlace de salto al contenido**, no había **nada** que respetara `prefers-reduced-motion` en un sitio con animaciones de entrada y revelación de imágenes, y los placeholders del formulario iban al 50 % de opacidad, en torno a 2:1 de contraste, llevando información que no está en la etiqueta. No existía ninguna prueba de la cabecera ni del pie; ahora sí.
+
+**Tres índices que faltaban** (migración 9, solo `CREATE INDEX`). Cinco consultas del Resumen filtran `ContentInteraction` por `type` y ningún índice empezaba por ahí: cada carga de `/admin` recorría cinco veces la tabla que más crece. "Últimos movimientos" ordenaba `LeadActivity` por fecha sobre toda la tabla, y el índice compuesto que empieza por `leadId` no le servía.
+
+**Una prueba E2E que no probaba lo que decía.** Los escenarios de autorización llamaban a `?entity=leads` y `?leadId=`, y los handlers leen `?conjunto=` y `?lead=`: cualquier 4xx, incluido el de un parámetro inexistente, hacía pasar la prueba. Bastaba con mover el parseo por delante de la comprobación de permiso para que una regresión de autorización pasara inadvertida. Corregidos los nombres y **añadida la aserción positiva**: las mismas URL con sesión ADMIN devuelven 200 y `no-store`. Es lo que ancla la prueba al contrato real.
+
+**Y tres más, menores pero del mismo tipo:** `/api/admin/users` devolvía nombre, correo y rol de todo el personal interno sin `Cache-Control` —el middleware que la fija solo cubre `/admin`, no `/api`—; ese mismo endpoint y la Server Action de roles duplicaban la política con `requireRole(["ADMIN"])` en vez de leerla de `PERMISSIONS`, que es la desincronización que el proyecto declaraba resuelta; y la ficha 360º traía cuatro colecciones sin cota mientras su docstring afirmaba que todas llevaban `take`.
+
+**Lo que se investigó y NO era un defecto**, dicho porque una auditoría que solo lista hallazgos no permite juzgar su criterio: el dashboard `/admin` sin guarda explícita (comprueba `crm:access` antes de leer métricas, es correcto); las 11 rutas de documentación que un comprobador automático marcó como roto (son referencias deliberadas a archivos retirados y a rutas propuestas en la auditoría inicial); `robots.txt` (ya corregido en la Fase 11); y las tres vulnerabilidades altas de `npm audit`, que siguen ahí con un matiz que faltaba: `sharp` procesa las imágenes que sube el CMS, así que el vector existe, pero exige una cuenta CONTENT o ADMIN autenticada y las imágenes pasan validación por firma de bytes y tope de 10 MB antes de almacenarse. No se ha subido a `next@16.3.0`: es un salto de versión menor del framework fuera del rango declarado, y eso no es un cambio mínimo seguro en una auditoría final. Queda como decisión explícita.
+
+**Archivos creados:** `lib/domain/users.ts` (+ test), `lib/security/secret-patterns.test.ts`, `components/chrome-a11y.test.tsx`, `prisma/migrations/20260813205449_add_metrics_indexes/`.
+
+**Archivos modificados:** `lib/email/development.ts`, `lib/email/sendgrid.test.ts`, `lib/security/secret-patterns.ts`, `lib/security/secrets-scan.test.ts`, `app/admin/(protected)/usuarios/actions.ts` (+ test), `app/api/admin/users/route.ts`, `lib/domain/lead-requests.ts`, `lib/domain/leads.ts` (+ test), `lib/validation/lead-request.ts`, `app/api/leads/requests/route.test.ts`, `lib/validation/vip-gate.ts` (+ test), `lib/vip/gate-action.ts` (+ test), `lib/vip/gate-failure.test.ts`, `lib/domain/vip-access.ts`, `components/vip/vip-gate.tsx`, `lib/domain/crm-leads.ts`, `lib/domain/crm-export.ts`, `lib/domain/crm-requests.ts`, `lib/domain/crm.test.ts`, `lib/domain/content.ts`, `lib/domain/metrics.ts`, `app/sitemap.ts`, `lib/vip/metadata.test.ts`, `components/header.tsx`, `components/footer.tsx`, `components/sections/contact.tsx`, `app/layout.tsx`, `app/globals.css`, los cuatro `page.tsx` públicos y los dos componentes VIP (ancla del salto), `app/admin/(protected)/configuracion/page.tsx`, `prisma/schema.prisma`, `e2e/03-panel-acceso.spec.ts`, `e2e/06-autorizacion.spec.ts`, `.env.e2e.example`, `README.md`, `docs/manual-admin.md`, `docs/flujo-captacion.md`, `docs/migraciones.md`, `docs/checklist-aceptacion.md`, `docs/publicacion-github.md`, `docs/pruebas-e2e.md`, `docs/evidencias-tfm.md`.
+
+**Validación (comandos y resultados reales):**
+
+| Comando | Resultado |
+|---|---|
+| `npm ci` | correcto, un único lockfile |
+| `npm run lint` | exit 0 — 0 errores, 0 warnings |
+| `npm run typecheck` | exit 0 |
+| `npm test` | 58 archivos, **698 pruebas** (**+44**). Verde en 5 de 6 pasadas: ver el intermitente residual más abajo |
+| `npm run e2e` | **23 pruebas**, todas verdes (1,4 min) |
+| `npm run build` | exit 0 — 32 rutas, 7 estáticas, sin peticiones de red |
+| `npx prisma validate` / `generate` | esquema válido, cliente generado |
+| `npx prisma migrate deploy` | migración 9 aplicada, las 9 en orden |
+| `npm run secrets:history` | 5 commits, 288 versiones, **11 patrones**, 0 hallazgos |
+| Escáner del árbol | 8 pruebas verdes, 11 patrones, 0 hallazgos |
+| `npm audit` | 3 altas, heredadas de `next@16.0.10`, con su alcance real analizado |
+| Enlaces internos de documentación | 660 referencias, 0 roturas reales |
+
+**Y un último fallo, encontrado por la propia validación de esta fase: `npm ci` no dejaba un proyecto que compilase.** Al ejecutar la instalación limpia que el enunciado pedía comprobar, `npm run typecheck` falló con `Module '@prisma/client' has no exported member 'ContentType'`: el paquete se instala con un cliente incompleto y `prisma generate` no estaba en ningún sitio —ni en `postinstall`, ni en el flujo de trabajo de CI, ni en el procedimiento de instalación del README—. La secuencia que fallaba es exactamente la de integración continua, así que **CI habría estado rojo en el primer runner limpio**, y cualquiera que clonase el repositorio se habría encontrado lo mismo. No se había detectado en once fases porque en el equipo de desarrollo el cliente ya estaba generado de antes: el fallo solo aparece cuando `node_modules` se crea de cero, que es lo que nadie hace en local y CI hace siempre. Corregido con un `postinstall`, que arregla de una vez CI, un clon nuevo y Vercel, y verificado borrando el cliente y repitiendo `npm ci` + `typecheck` sin ningún paso manual. Con prueba en `lib/testing/reproducible-install.test.ts`, que además comprueba que el flujo de CI sigue ejecutando la secuencia completa.
+
+Es el hallazgo que mejor justifica esta fase: no lo encontró ninguna de las nueve lentes de auditoría leyendo código, sino ejecutar de verdad la validación que se pedía.
+
+**Veredictos: APTO PARA GITHUB PÚBLICO. APTO PARA DESPLIEGUE. APTO PARA ENTREGA TFM.** Los tres con la misma condición de siempre, que no es técnica: la revisión jurídica de la base legal y el plazo de retención sigue pendiente y debe resolverse **antes de recoger datos de personas reales**. Lo que sostiene los veredictos después de esta fase: el fallo de datos personales en el log de producción está cerrado y el filtro que debía impedirlo ahora se usa de verdad; el escáner de secretos detecta la clase de fuga que el proyecto ya sufrió, y lo demuestra con casos positivos propios; no hay forma de dejar el sistema sin administración; ningún POST público puede destruir un dato guardado; los consentimientos registran la versión que la persona aceptó por los dos caminos; y las cuatro carencias de accesibilidad que quedaban declaradas están corregidas menos las dos que exigen un lector de pantalla real y una auditoría formal. Lo que **no** sostiene los veredictos y queda enumerado: dos límites de escala con su umbral, el alta de usuarios sin pantalla, las tres vulnerabilidades heredadas, y los diez riesgos aceptados del modelo de amenazas.
+
+---
+
+### Fase 13 — Publicación del código y despliegue (2026-08-14)
+
+Las Fases 10 y 11 prepararon el despliegue y la publicación con el mandato expreso de **no ejecutarlos**. Esta fase los ejecuta.
+
+**La aplicación está en línea** en https://elportondelacondesa.solucionesbonicas.com, un subdominio del sitio de servicios del autor. La base de datos es el mismo proyecto de Supabase de desarrollo, con las nueve migraciones aplicadas y verificadas (`prisma migrate status` → *Database schema is up to date*), así que la publicación del código no arrastra ninguna migración pendiente.
+
+**Lo que había desplegado antes de esta fase era la Fase 6.** El despliegue seguía al último commit publicado (`5adde3a`, «Backend completo, Fases 1-6») y todo el trabajo de las Fases 7 a 12 estaba sin subir. Se comprobó sobre el sitio en vivo, y las tres diferencias que se ven desde fuera lo confirman: `robots.txt` servía `Allow: /` sin los `Disallow` de `/admin` y `/api` (§28), el sitemap enumeraba las tres páginas legales que emiten `noindex` (el defecto que corrigió la auditoría final), y de las cabeceras de seguridad de la Fase 9 solo llegaba `Strict-Transport-Security`, que la pone Vercel por su cuenta. Las tres se resuelven con este despliegue.
+
+**Comprobación previa a publicar**, porque un repositorio público no se puede despublicar de verdad: el escáner del árbol y el del historial, verdes; `.env` y `.env.e2e` fuera del índice y correctamente ignorados, con solo las dos plantillas sin valores versionadas; y la secuencia completa de validación repetida sobre el estado exacto que se iba a subir.
+
+**Un defecto encontrado al mirar el sitio en vivo, y no corregido a propósito:** la aplicación se sirve en un dominio y declara otro. La base de las URL canónicas, del `sitemap.xml` y del JSON-LD sale de `brand.website`, que vale `https://elportondelacondesa.com` —el WordPress del negocio, que sigue en pie—, de modo que el sitemap publicado en el subdominio enumera URL de un dominio distinto: Search Console lo rechaza, y si algún buscador indexara el subdominio competiría con el sitio real del cliente. No se ha cambiado por iniciativa propia porque las dos salidas razonables —`noindex` global mientras esto sea una demostración académica, o base tomada de `NEXT_PUBLIC_SITE_URL` cuando la aplicación sustituya al WordPress— llevan a sitios distintos y la elección es del titular. Documentado con las dos opciones en §32.
+
+**Archivos modificados:** `README.md`, `docs/checklist-entrega-tfm.md`, `docs/formulario-entrega-tfm.md`, `docs/despliegue-vercel.md`. Además de las URL reales de entrega, se corrigieron tres afirmaciones que la Fase 12 había dejado desfasadas en §32: seguía diciendo que faltaban el enlace de salto y `prefers-reduced-motion` (añadidos en la auditoría), que no había despliegue, y el recuento de defectos de la propia entrada de la Fase 12 (13 donde son 15).
+
+**Validación (comandos y resultados reales), sobre el estado publicado:**
+
+| Comando | Resultado |
+|---|---|
+| `npm run lint` | exit 0 |
+| `npm run typecheck` | exit 0 |
+| `npm test` | 58 archivos, **698 pruebas, todas verdes** |
+| `npm run build` | exit 0 — 32 rutas |
+| `npx prisma migrate status` | 9 migraciones, esquema al día |
+| Escáner del árbol | 19 pruebas verdes, 0 hallazgos |
+| `npm run secrets:history` | 5 commits, 288 versiones, 11 patrones, 0 hallazgos |
+| Aplicación en vivo | `/`, `/robots.txt`, `/sitemap.xml`, `/admin/login` → 200; `/admin` → 307 a `/admin/login` |
+
+**Pendiente, y es de Javier:**
+
+1. **El repositorio sigue privado.** El código está subido, pero cambiar la visibilidad exige la interfaz de GitHub (Settings → General → Danger Zone): `gh` no está instalado en el equipo. Antes conviene cerrar la licencia (§34) y revisar el `NOTICE` con el cliente.
+2. **Comprobar `BETTER_AUTH_URL` y `NEXT_PUBLIC_SITE_URL` en Vercel.** Deben valer exactamente el origen del subdominio. Si no coinciden, Better Auth responde `403 INVALID_ORIGIN` y el login del panel falla mostrando el mensaje genérico de credenciales incorrectas — el mismo síntoma diagnosticado en la Fase 3.
+3. **Decidir qué hacer con la indexación** entre las dos opciones de §32.
+4. La revisión jurídica, que sigue siendo la condición de los tres veredictos de la Fase 12.

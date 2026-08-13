@@ -32,6 +32,14 @@ const PERMISSIONS = {
   "users:manage": ["ADMIN"],
   "crm:access": ["ADMIN", "SALES"],
   "cms:access": ["ADMIN", "CONTENT"],
+  /**
+   * Exportar datos personales fuera de la aplicación es una operación de otro
+   * calibre que consultarlos: un CSV se copia, se reenvía y sobrevive a
+   * cualquier control de acceso posterior. Solo ADMIN.
+   */
+  "crm:export": ["ADMIN"],
+  /** Configuración del CRM (pesos de scoring, usuarios). Solo ADMIN. */
+  "settings:manage": ["ADMIN"],
 } as const satisfies Record<string, readonly Role[]>
 
 export type Permission = keyof typeof PERMISSIONS
@@ -68,4 +76,14 @@ export async function requireRole(roles: readonly Role[], providedHeaders?: Head
 /** Exige sesión y el permiso indicado (ver `PERMISSIONS`). */
 export async function requirePermission(permission: Permission, providedHeaders?: Headers): Promise<SessionUser> {
   return requireRole(PERMISSIONS[permission], providedHeaders)
+}
+
+/**
+ * ¿Tiene este rol el permiso indicado? Se usa **solo para decidir qué enseñar**
+ * en la navegación: un apartado que no se puede usar no se muestra. No sustituye
+ * a `requirePermission`, que es la que autoriza de verdad en cada página,
+ * Server Action y Route Handler.
+ */
+export function roleHasPermission(role: Role, permission: Permission): boolean {
+  return (PERMISSIONS[permission] as readonly Role[]).includes(role)
 }

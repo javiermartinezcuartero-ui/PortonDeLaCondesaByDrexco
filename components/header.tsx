@@ -59,7 +59,15 @@ export function Header() {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden xl:flex items-center gap-5 2xl:gap-8">
+          {/*
+            El nombre accesible no es decorativo: en cualquier página hay tres
+            landmarks de navegación a la vez (esta o la del menú móvil, más las dos
+            del pie). Sin nombre, un lector de pantalla los lista como tres
+            entradas "navegación" idénticas y hay que entrar en cada una para saber
+            cuál es. Navegar por landmarks es además la forma de saltarse la
+            cabecera, así que es justo el público que necesita distinguirlos.
+          */}
+          <nav aria-label={locale === "en" ? "Main" : "Principal"} className="hidden xl:flex items-center gap-5 2xl:gap-8">
             {navigation.map((item) => (
               <Link
                 key={item.label}
@@ -126,14 +134,30 @@ export function Header() {
       </div>
 
       {/* Mobile Menu */}
+      {/*
+        `inert` cuando está cerrado, y no basta con `opacity-0 pointer-events-none`.
+        Ninguna de esas dos clases saca nada del árbol de accesibilidad ni del orden
+        de tabulación: con el menú cerrado en móvil o tableta, pulsar Tab desde el
+        botón de hamburguesa metía el foco en ocho controles completamente
+        invisibles —los enlaces de navegación, el CTA, el conmutador de idioma y el
+        acceso al panel—, sin anillo de foco visible en ninguna parte y con Enter
+        navegando a donde nadie había pedido.
+
+        `inert` retira el subárbol entero de golpe y deja intacta la animación de
+        opacidad, que es la razón por la que el bloque no se desmonta.
+      */}
       <div
+        inert={!isMobileMenuOpen}
         className={cn(
           "xl:hidden fixed inset-0 bg-background transition-all duration-500 ease-out",
           isMobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
         )}
         style={{ top: isScrolled ? "81px" : "80px" }}
       >
-        <nav className="flex flex-col items-center justify-center h-full gap-8 pb-20">
+        <nav
+          aria-label={locale === "en" ? "Mobile menu" : "Menú"}
+          className="flex flex-col items-center justify-center h-full gap-8 pb-20"
+        >
           {navigation.map((item, index) => (
             <Link
               key={item.label}

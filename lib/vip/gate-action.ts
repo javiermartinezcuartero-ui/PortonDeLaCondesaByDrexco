@@ -3,6 +3,7 @@
 import { cookies, headers } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { grantVipAccess } from "@/lib/domain/vip-access"
+import { PRIVACY_POLICY_VERSION } from "@/lib/legal"
 import { clientIdentifierFromHeaders, consumeRateLimit, pruneExpiredRateLimits } from "@/lib/security/rate-limit"
 import { vipGateSchema } from "@/lib/validation/vip-gate"
 import { VIP_COOKIE_NAME, vipCookieOptions } from "@/lib/vip/session"
@@ -17,6 +18,8 @@ export type VipGateErrorCode =
   | "rate-limited"
   | "persistence-failed"
   | "invalid-request"
+  /** La política cambió mientras la página estaba abierta: hay que recargar. */
+  | "policy-version-mismatch"
 
 export type VipGateActionResult =
   | { ok: true }
@@ -52,6 +55,14 @@ export async function submitVipGateAction(input: unknown): Promise<VipGateAction
 
   const values = parsed.data
 
+  // La versión de la política se comprueba contra la vigente, igual que en
+  // `POST /api/leads/requests`. Si el navegador tenía la página abierta desde antes
+  // de un cambio de política, el consentimiento que enviaría no es sobre el texto
+  // que se le mostró: se pide recargar en lugar de registrar una prueba falsa.
+  if (values.policyVersion !== PRIVACY_POLICY_VERSION) {
+    return { ok: false, code: "policy-version-mismatch" }
+  }
+
   const requestHeaders = await headers()
   const limit = await consumeRateLimit(
     "vip-gate",
@@ -69,6 +80,7 @@ export async function submitVipGateAction(input: unknown): Promise<VipGateAction
       email: values.email,
       privacyConsent: true,
       marketingConsent: values.marketingConsent,
+      policyVersion: values.policyVersion,
       section: values.section,
       source: `vip-gate:${sectionSlug}`,
       attribution: values.attribution,

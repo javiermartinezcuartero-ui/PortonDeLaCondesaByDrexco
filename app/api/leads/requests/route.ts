@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/db"
 import { createLeadRequest } from "@/lib/domain/lead-requests"
+import { runAfterResponse } from "@/lib/notifications/after-response"
 import { notifyNewLeadRequest } from "@/lib/notifications/lead-request-notification"
 import { PRIVACY_POLICY_VERSION } from "@/lib/legal"
 import { clientIdentifierFromHeaders, consumeRateLimit, pruneExpiredRateLimits } from "@/lib/security/rate-limit"
 import { stripControlCharacters } from "@/lib/security/text"
+import { ERROR_CODES, logError, resolveRequestId } from "@/lib/observability/log"
 import {
   MAX_REQUEST_BODY_BYTES,
   MIN_FORM_FILL_MS,
@@ -39,7 +41,7 @@ const EMAIL_RATE_LIMIT = { windowSeconds: 3_600, max: 3 }
 function fail(
   code: LeadRequestErrorCode,
   status: number,
-  extra?: { fields?: string[]; retryAfterSeconds?: number }
+  extra?: { fields?: string[]; retryAfterSeconds?: number; requestId?: string }
 ): NextResponse<LeadRequestResponse> {
   return NextResponse.json({ ok: false, code, ...extra }, { status })
 }
@@ -65,6 +67,8 @@ function isForeignOrigin(request: Request): boolean {
 }
 
 export async function POST(request: Request): Promise<NextResponse<LeadRequestResponse>> {
+  const requestId = resolveRequestId(request.headers)
+
   if (isForeignOrigin(request)) return fail("invalid-request", 403)
 
   const contentType = request.headers.get("content-type") ?? ""
@@ -164,21 +168,28 @@ export async function POST(request: Request): Promise<NextResponse<LeadRequestRe
       },
     })
 
-    // Aviso interno: después del commit y sin `await`. Que no haya proveedor de
-    // correo configurado, o que falle, no cambia lo ya guardado ni la respuesta.
-    if (!duplicate) void notifyNewLeadRequest(lead, leadRequest)
+    // Avisos por correo: **después** del commit y después de responder. `after()`
+    // mantiene viva la invocación hasta que el envío termina sin retrasar la
+    // respuesta al visitante (ver lib/notifications/after-response.ts). Que no
+    // haya proveedor configurado, o que falle, no cambia lo ya guardado ni lo que
+    // ve quien envió el formulario.
+    if (!duplicate) runAfterResponse(() => notifyNewLeadRequest(lead, leadRequest))
 
     void pruneExpiredRateLimits()
 
     return NextResponse.json({ ok: true, duplicate }, { status: duplicate ? 200 : 201 })
   } catch (error) {
     // No se filtra el motivo real: podría describir el esquema de la base de
-    // datos. El detalle queda en el log del servidor, sin el cuerpo del envío.
-    console.error("[leads] no se pudo guardar la solicitud", {
+    // datos. El detalle va al log estructurado del servidor —sin stack, sin cuerpo
+    // y sin datos personales— junto al `requestId` que sí se devuelve, para poder
+    // cruzar una queja concreta con su traza.
+    logError("leads.persistence_failed", {
+      code: ERROR_CODES.persistence,
+      requestId,
       sourceForm: values.sourceForm,
-      error: error instanceof Error ? error.message : "desconocido",
+      error,
     })
-    return fail("persistence-failed", 503)
+    return fail("persistence-failed", 503, { requestId })
   }
 }
 

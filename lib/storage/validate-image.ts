@@ -8,11 +8,11 @@
  * reales leídas de la cabecera del propio formato.
  *
  * Las dimensiones se leen a mano (PNG/JPEG/WebP) en vez de con `sharp`: sharp
- * ya arrastra vulnerabilidades conocidas en este proyecto (README §12) y para
+ * ya arrastra vulnerabilidades conocidas en este proyecto (README §Seguridad) y para
  * leer una cabecera no hace falta decodificar el bitmap completo.
  */
 
-/** 10 MB por imagen. Documentado en README §10 y docs/cms.md. */
+/** 10 MB por imagen. Documentado en README §CMS de Bodas Reales y Catering y docs/cms.md. */
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024
 
 /** Mínimo razonable para un hero a pantalla completa; evita subir miniaturas por error. */

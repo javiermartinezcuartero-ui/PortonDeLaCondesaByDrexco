@@ -24,7 +24,10 @@ export default defineConfig({
     // encadena varias operaciones supera de largo el timeout por defecto de
     // 5s solo por latencia de red, sin que haya nada mal.
     testTimeout: 30_000,
-    exclude: ["node_modules", ".next", "project-reference"],
+    // `e2e/` queda fuera: sus especificaciones son de Playwright y el patrón por
+    // defecto de Vitest (`*.spec.ts`) las recogería, fallando con un error
+    // confuso sobre un `test` que no existe en este runner.
+    exclude: ["node_modules", ".next", "project-reference", "e2e"],
     coverage: {
       reporter: ["text", "html"],
       exclude: ["node_modules/**", ".next/**", "components/ui/**", "project-reference/**"],

@@ -32,11 +32,13 @@ vi.mock("next/headers", () => ({
 const revalidatePath = vi.fn()
 vi.mock("next/cache", () => ({ revalidatePath: (path: string) => revalidatePath(path) }))
 
+import { PRIVACY_POLICY_VERSION } from "@/lib/legal"
 import { submitVipGateAction } from "@/lib/vip/gate-action"
 
 const validInput = {
   email: "persona@example.test",
   privacyConsent: true,
+  policyVersion: PRIVACY_POLICY_VERSION,
   marketingConsent: false,
   section: "REAL_WEDDING" as const,
   returnPath: "/bodas-reales",

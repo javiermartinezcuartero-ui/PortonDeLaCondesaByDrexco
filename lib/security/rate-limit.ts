@@ -61,7 +61,26 @@ export async function consumeRateLimit(
   })
 
   if (consumed.count === 0) {
-    const elapsedMs = now.getTime() - existing.windowStartedAt.getTime()
+    // Cero filas afectadas tiene **dos** causas posibles y no significan lo mismo:
+    // que el contador esté agotado, o que la fila ya no exista (la purga la borró,
+    // u otra petición reinició la ventana justo entre la lectura y este update).
+    // Tratar el segundo caso como "límite alcanzado" produciría un 429 falso a
+    // alguien que no ha hecho nada. Se vuelve a leer para distinguirlos.
+    const current = await prisma.rateLimitCounter.findUnique({ where: { key } })
+
+    if (!current || current.windowStartedAt.getTime() !== existing.windowStartedAt.getTime()) {
+      // La ventana que se estaba contando ya no está. Se abre una nueva y se
+      // consume de ella: no hay riesgo de abuso, porque un atacante no puede
+      // provocar este caso (no puede borrar filas ni reiniciar ventanas ajenas).
+      await prisma.rateLimitCounter.upsert({
+        where: { key },
+        create: { key, count: 1, windowStartedAt: now },
+        update: { count: 1, windowStartedAt: now },
+      })
+      return { allowed: true }
+    }
+
+    const elapsedMs = now.getTime() - current.windowStartedAt.getTime()
     const retryAfterSeconds = Math.max(1, Math.ceil((rule.windowSeconds * 1000 - elapsedMs) / 1000))
     return { allowed: false, retryAfterSeconds }
   }

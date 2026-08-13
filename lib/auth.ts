@@ -45,6 +45,33 @@ export const auth = betterAuth({
     // Sin `customRules`: las reglas por defecto de Better Auth ya limitan
     // /sign-in, /sign-up y /change-password a 3 solicitudes cada 10s.
   },
+  databaseHooks: {
+    session: {
+      create: {
+        /**
+         * Minimización de datos en la sesión administrativa.
+         *
+         * Better Auth guarda por defecto la IP y el user-agent completos de cada
+         * sesión. El proyecto no tiene ninguna función que los use —no hay
+         * "cerrar sesión en otros dispositivos" ni panel de sesiones activas—, así
+         * que son datos personales almacenados sin finalidad.
+         *
+         * **No se usa `advanced.ipAddress.disableIpTracking`**, que sería el
+         * interruptor obvio: además de no guardar la IP, deja al limitador de
+         * Better Auth sin clave por la que agrupar y **desactiva el rate limit del
+         * login** (ver `resolveRateLimitConfig` en su código: sin IP y con esa
+         * opción activa devuelve `null`). Cambiar protección contra fuerza bruta
+         * por minimización sería un mal negocio.
+         *
+         * Este hook es la vía precisa: la IP se sigue resolviendo en memoria para
+         * el rate limit, pero no llega a la tabla. Si algún día hiciera falta
+         * detectar accesos desde ubicaciones inusuales, lo correcto sería guardar
+         * su HMAC (como ya se hace en lib/security/rate-limit.ts), no el valor.
+         */
+        before: async (session) => ({ data: { ...session, ipAddress: "", userAgent: "" } }),
+      },
+    },
+  },
   user: {
     additionalFields: {
       role: {

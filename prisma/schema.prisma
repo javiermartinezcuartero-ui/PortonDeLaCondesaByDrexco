@@ -182,10 +182,23 @@ enum NotificationChannel {
   EMAIL
 }
 
+/// Resultado de un intento de notificación.
+/// - PENDING: valor por defecto de la columna. Una fila que se queda aquí es un
+///   aviso del que nadie decidió nada, y eso sería un fallo del código: todos los
+///   caminos de `lib/notifications/` escriben uno de los cuatro estados de abajo.
+/// - SENT: el proveedor aceptó el mensaje.
+/// - SKIPPED_CONFIG: no se intentó porque falta configuración de correo. No es un
+///   error: el proyecto funciona sin proveedor.
+/// - RETRY_PENDING: fallo transitorio (timeout, 429, 5xx). Merece reintento, pero
+///   **nada lo reintenta automáticamente** hoy (ver docs/email.md §7).
+/// - FAILED: fallo permanente (payload o credenciales rechazados). Reintentar no
+///   arreglaría nada.
 enum NotificationStatus {
   PENDING
   SENT
   FAILED
+  SKIPPED_CONFIG
+  RETRY_PENDING
 }
 
 /// Persona identificada por email. Una única fila por email normalizado;
@@ -312,6 +325,14 @@ model LeadActivity {
   actor        User?         @relation("ActivityActor", fields: [actorId], references: [id], onDelete: SetNull)
 
   @@index([leadId, createdAt])
+  // "Últimos movimientos" del Resumen ordena por fecha sobre toda la tabla, sin
+  // filtrar por contacto, así que el índice compuesto que empieza por `leadId` no
+  // le servía: era un recorrido completo con ordenación para devolver 12 filas.
+  @@index([createdAt])
+  // El enlace entre una tarea y su solicitud vive en esta columna (ver la
+  // limitación L1 de docs/checklist-aceptacion.md). Sin índice, cada consulta por
+  // solicitud recorría la tabla.
+  @@index([leadRequestId])
   @@map("lead_activity")
 }
 
@@ -385,18 +406,28 @@ model ScoringRule {
 }
 
 model NotificationLog {
-  id        String              @id @default(cuid())
-  leadId    String
+  id String @id @default(cuid())
+  /// Contacto al que se refiere el aviso. Nullable porque los avisos internos de
+  /// resumen (p. ej. el digest de tareas vencidas) hablan de varios contactos a la
+  /// vez y no pertenecen a ninguno.
+  leadId    String?
   channel   NotificationChannel @default(EMAIL)
   template  String
   status    NotificationStatus  @default(PENDING)
-  error     String?
-  createdAt DateTime            @default(now())
-  sentAt    DateTime?
+  /// Proveedor que atendió el intento ("sendgrid", "development"). No es secreto.
+  provider  String?
+  /// Destinatarios **parcialmente ocultos** (`an***a@example.test`). Permite
+  /// diagnosticar a dónde se intentó enviar sin guardar la dirección completa.
+  recipients String?
+  /// Motivo corto del fallo. Nunca el cuerpo del mensaje ni la clave de API.
+  error      String?
+  createdAt  DateTime            @default(now())
+  sentAt     DateTime?
 
-  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@index([leadId, createdAt])
+  @@index([template, createdAt])
   @@map("notification_log")
 }
 
@@ -676,5 +707,11 @@ model ContentInteraction {
 
   @@index([leadId, createdAt])
   @@index([contentEntryId, createdAt])
+  // Cinco de las consultas del Resumen filtran por `type` (GATE_GRANTED,
+  // CONTENT_VIEWED) con un rango de fechas, y ningún índice empezaba por `type`:
+  // cada carga de /admin recorría la tabla entera cinco veces. Es, con
+  // `lead_activity`, la tabla que más crece —una fila por sección vista— así que
+  // era el punto donde el panel se iba a degradar primero.
+  @@index([type, createdAt])
   @@map("content_interaction")
 }

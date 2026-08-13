@@ -25,7 +25,7 @@ export async function VipLibrary({ type }: { type: ContentType }) {
 
   if (!lead) {
     return (
-      <main className="min-h-screen bg-background px-6 pt-32 pb-24 md:px-12 md:pt-40 lg:px-20">
+      <main id="contenido" className="min-h-screen bg-background px-6 pt-32 pb-24 md:px-12 md:pt-40 lg:px-20">
         <VipGate section={type} returnPath={basePath} />
       </main>
     )
@@ -42,7 +42,7 @@ export async function VipLibrary({ type }: { type: ContentType }) {
   })
 
   return (
-    <main className="min-h-screen bg-background pt-32 md:pt-40 pb-24 md:pb-32">
+    <main id="contenido" className="min-h-screen bg-background pt-32 md:pt-40 pb-24 md:pb-32">
       <TrackVipView section={type} />
       <div className="max-w-[1800px] mx-auto px-6 md:px-12 lg:px-20">
         <VipListHeader kind={kind} />

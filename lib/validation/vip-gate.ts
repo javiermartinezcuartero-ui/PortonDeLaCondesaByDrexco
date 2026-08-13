@@ -23,6 +23,18 @@ export const vipGateSchema = z.object({
   marketingConsent: z.boolean().default(false),
 
   /**
+   * Versión de la política que el navegador tenía delante al marcar la casilla.
+   *
+   * Faltaba, y el gate guardaba en su lugar la constante del servidor. La
+   * diferencia importa: si la política cambia mientras alguien tiene la página
+   * abierta, se registraba un consentimiento sobre un texto que esa persona nunca
+   * vio, y `policyVersion` es precisamente el campo que existe para demostrar
+   * sobre qué texto se consintió. El endpoint del formulario ya lo hacía bien y
+   * devolvía 409; el gate no. Ahora los dos caminos se comportan igual.
+   */
+  policyVersion: z.string().trim().min(1).max(50),
+
+  /**
    * Honeypot: un campo oculto que una persona nunca rellena. Si llega con
    * contenido, la petición viene de un bot. Debe estar vacío.
    */

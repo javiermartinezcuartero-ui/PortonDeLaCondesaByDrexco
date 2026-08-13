@@ -1,0 +1,48 @@
+# Base de datos PostgreSQL **exclusiva para las pruebas E2E**.
+#
+# Existe para cumplir un requisito explícito de la Fase 10: las E2E se ejecutan
+# contra una base aislada y con datos ficticios, nunca contra la base de
+# desarrollo ni contra producción. Ver docs/pruebas-e2e.md.
+#
+# Arranque:   npm run e2e:db:up
+# Parada:     npm run e2e:db:down       (conserva los datos)
+# Borrado:    npm run e2e:db:reset      (borra el volumen: base virgen)
+#
+# Decisiones deliberadas:
+#
+# - **Puerto 55432**, no 5432. El 5432 puede estar ocupado por otro PostgreSQL
+#   de la máquina; usar un puerto propio evita conectarse por error a una base
+#   ajena, que es exactamente el accidente que esta fase debe impedir.
+# - **Publicado solo en 127.0.0.1**. Una base de pruebas no tiene por qué ser
+#   alcanzable desde la red local.
+# - **La contraseña no está escrita aquí.** Se toma de `.env.e2e`, que está en
+#   `.gitignore`. Ningún archivo versionable del proyecto contiene credenciales,
+#   ni siquiera las de un contenedor local (`lib/security/secrets-scan.test.ts`
+#   lo comprueba en cada ejecución de la suite).
+# - **Versión fijada** a la misma familia mayor que Supabase (PostgreSQL 16):
+#   probar contra otra mayor podría ocultar diferencias de comportamiento.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: porton-e2e-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${E2E_POSTGRES_USER:?falta E2E_POSTGRES_USER en .env.e2e}
+      POSTGRES_PASSWORD: ${E2E_POSTGRES_PASSWORD:?falta E2E_POSTGRES_PASSWORD en .env.e2e}
+      POSTGRES_DB: ${E2E_POSTGRES_DB:?falta E2E_POSTGRES_DB en .env.e2e}
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - porton-e2e-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # `pg_isready` con usuario y base explícitos: sin ellos comprueba el
+      # usuario del sistema ("postgres") y da un falso negativo.
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  porton-e2e-pgdata:
+    name: porton-e2e-pgdata

@@ -174,7 +174,15 @@ export async function createLeadRequest(input: CreateLeadRequestInput): Promise<
     throw error
   }
 
-  await recalculateLeadScore(created.lead.id)
+  // Fuera de la transacción y **sin propagar el fallo**, igual que en
+  // `grantVipAccess`. La solicitud ya está confirmada: si el recálculo del score
+  // falla —agotamiento del pool, timeout del pooler—, propagar la excepción haría
+  // que el endpoint devolviese 503 `persistence-failed` sobre datos que SÍ están
+  // guardados, y que `runAfterResponse(notifyNewLeadRequest)` no llegara a
+  // ejecutarse nunca: la finca no recibiría el aviso de esa solicitud, y el
+  // reintento del visitante entraría por la rama `duplicate`, que tampoco avisa.
+  // El score no se pierde: se recalcula en el siguiente movimiento del contacto.
+  await recalculateLeadScore(created.lead.id).catch(() => undefined)
 
   return { ...created, duplicate: false }
 }
@@ -223,7 +231,19 @@ export type ChangeLeadRequestStatusInput = {
   lostReason?: string
 }
 
-/** Cambia el estado de pipeline de una LeadRequest validando la transición. */
+/** Transiciones permitidas desde un estado dado. Para pintar solo lo posible. */
+export function allowedTransitionsFrom(status: LeadRequestStatus): readonly LeadRequestStatus[] {
+  return ALLOWED_TRANSITIONS[status]
+}
+
+/**
+ * Cambia el estado de pipeline de una LeadRequest validando la transición.
+ *
+ * La actividad del contacto y el evento de auditoría se escriben **dentro de la
+ * misma transacción** que el cambio de estado: no puede quedar una solicitud
+ * movida sin rastro de quién la movió, ni un rastro de un movimiento que no
+ * ocurrió.
+ */
 export async function changeLeadRequestStatus(input: ChangeLeadRequestStatusInput): Promise<LeadRequest> {
   const current = await prisma.leadRequest.findUniqueOrThrow({ where: { id: input.leadRequestId } })
 
@@ -233,8 +253,8 @@ export async function changeLeadRequestStatus(input: ChangeLeadRequestStatusInpu
   if (!allowed.includes(input.nextStatus)) {
     throw new InvalidTransitionError(current.status, input.nextStatus)
   }
-  if (input.nextStatus === "LOST" && !input.lostReason) {
-    throw new DomainError("lostReason es obligatorio al marcar una LeadRequest como LOST")
+  if (input.nextStatus === "LOST" && !input.lostReason?.trim()) {
+    throw new DomainError("Indica el motivo de la pérdida para poder marcarla como perdida")
   }
 
   return prisma.$transaction(async (tx) => {
@@ -242,7 +262,7 @@ export async function changeLeadRequestStatus(input: ChangeLeadRequestStatusInpu
       where: { id: input.leadRequestId },
       data: {
         status: input.nextStatus,
-        lostReason: input.nextStatus === "LOST" ? input.lostReason : current.lostReason,
+        lostReason: input.nextStatus === "LOST" ? input.lostReason?.trim() : current.lostReason,
       },
     })
 
@@ -256,6 +276,22 @@ export async function changeLeadRequestStatus(input: ChangeLeadRequestStatusInpu
       },
       tx
     )
+
+    await tx.auditEvent.create({
+      data: {
+        entityType: "LeadRequest",
+        entityId: current.id,
+        action: "request.status",
+        actorId: input.actorId,
+        // Sin PII: estados y, si acaso, la longitud del motivo. El motivo en sí
+        // vive en la propia solicitud, no duplicado en la auditoría.
+        metadata: {
+          from: current.status,
+          to: input.nextStatus,
+          ...(input.nextStatus === "LOST" ? { motivoLongitud: input.lostReason?.trim().length ?? 0 } : {}),
+        },
+      },
+    })
 
     return updated
   })

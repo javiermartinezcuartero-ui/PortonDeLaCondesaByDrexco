@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { requirePermission } from "@/lib/auth/session"
+import { requireCmsAccess } from "../../../guards"
 import { getContentEntryForAdmin } from "@/lib/domain/content"
 import { resolveMediaUrls } from "@/lib/domain/content-media"
 import { toStoryDetailData } from "@/lib/content/to-story-detail"
@@ -17,11 +17,11 @@ export const metadata: Metadata = {
 /**
  * Previsualización de una ficha tal como se verá públicamente, **incluidos
  * borradores y archivados**. Es una ruta de /admin: la protege el middleware,
- * el layout protegido y además `requirePermission("cms:access")` aquí mismo.
+ * el layout protegido y además `requireCmsAccess()` aquí mismo.
  * Un visitante anónimo nunca llega a ver contenido no publicado por esta vía.
  */
 export default async function ContentPreviewPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermission("cms:access")
+  await requireCmsAccess()
 
   const { id } = await params
   const entry = await getContentEntryForAdmin(id)

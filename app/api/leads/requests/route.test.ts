@@ -94,7 +94,14 @@ afterEach(async () => {
     await prisma.rateLimitCounter.deleteMany({ where: { key: { in: keys } } })
     usedIps.length = 0
   }
-  await prisma.rateLimitCounter.deleteMany({ where: { key: { startsWith: "lead-request-email:" } } })
+  // Solo los contadores por email de **este** archivo. Antes se borraba todo lo
+  // que empezara por "lead-request-email:", y eso pisaba los de otros archivos que
+  // corren en paralelo contra la misma base (ver el mismo arreglo, en el otro
+  // sentido, en lib/security/attack-surface.test.ts).
+  if (createdEmails.length) {
+    const keys = createdEmails.map((email) => `lead-request-email:${hashRateLimitKey(email)}`)
+    await prisma.rateLimitCounter.deleteMany({ where: { key: { in: keys } } })
+  }
 })
 
 describe("POST /api/leads/requests — solicitud válida", () => {
@@ -429,19 +436,27 @@ describe("POST /api/leads/requests — atribución", () => {
 })
 
 describe("POST /api/leads/requests — aviso por email", () => {
-  const originalApiKey = process.env.SENDGRID_API_KEY
-  const originalRecipient = process.env.LEAD_NOTIFICATION_TO
+  const EMAIL_VARS = [
+    "SENDGRID_API_KEY",
+    "LEADS_FROM_EMAIL",
+    "LEADS_NOTIFICATION_TO",
+    "SEND_LEAD_ACKNOWLEDGEMENT",
+  ] as const
+  const original: Record<string, string | undefined> = {}
+
+  beforeEach(() => {
+    for (const name of EMAIL_VARS) original[name] = process.env[name]
+  })
 
   afterEach(() => {
-    if (originalApiKey === undefined) delete process.env.SENDGRID_API_KEY
-    else process.env.SENDGRID_API_KEY = originalApiKey
-    if (originalRecipient === undefined) delete process.env.LEAD_NOTIFICATION_TO
-    else process.env.LEAD_NOTIFICATION_TO = originalRecipient
+    for (const name of EMAIL_VARS) {
+      if (original[name] === undefined) delete process.env[name]
+      else process.env[name] = original[name]
+    }
   })
 
   itDb("guarda la solicitud aunque no haya proveedor de correo configurado", async () => {
-    delete process.env.SENDGRID_API_KEY
-    delete process.env.LEAD_NOTIFICATION_TO
+    for (const name of EMAIL_VARS) delete process.env[name]
 
     const payload = basePayload()
     const { response } = await post(payload)
@@ -451,15 +466,72 @@ describe("POST /api/leads/requests — aviso por email", () => {
   })
 
   itDb("un fallo del envío de correo no afecta a lo que ya está guardado", async () => {
-    // Con configuración presente y sin transporte implementado, el aviso falla.
-    process.env.SENDGRID_API_KEY = "clave-de-prueba"
-    process.env.LEAD_NOTIFICATION_TO = "avisos@example.test"
+    // Proveedor configurado y respondiendo 500: el aviso falla de verdad.
+    process.env.SENDGRID_API_KEY = "SG.clave-de-prueba"
+    process.env.LEADS_FROM_EMAIL = "avisos@example.test"
+    process.env.LEADS_NOTIFICATION_TO = "equipo@example.test"
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 500 }))
+    vi.stubGlobal("fetch", fetchMock)
 
-    const payload = basePayload()
+    try {
+      const payload = basePayload()
+      const { response, body } = await post(payload)
+
+      // El visitante recibe su confirmación real, no un error prestado del correo.
+      expect(response.status).toBe(201)
+      expect(body.ok).toBe(true)
+      expect((await leadFor(payload.email))?.requests).toHaveLength(1)
+    } finally {
+      vi.unstubAllGlobals()
+    }
+
+    // El estado del envío se comprueba en lib/notifications/*.test.ts: aquí el
+    // aviso sale por `runAfterResponse`, así que su registro puede escribirse
+    // después de que este test termine y afirmar sobre él sería intermitente.
+  })
+})
+
+describe("POST /api/leads/requests — integridad del contacto ya guardado", () => {
+  itDb("un nombre formado solo por caracteres de control se rechaza con 400", async () => {
+    // Regresión. `.trim()` de JavaScript no considera espacio en blanco a los
+    // caracteres de control, así que "\u0001\u0002" medía 2 y pasaba el `.min(1)`
+    // del esquema. Después, el servidor los eliminaba antes de persistir y el campo
+    // obligatorio acababa guardado como cadena vacía.
+    const payload = basePayload({ firstName: "\u0001\u0002", lastName: "García" })
+
     const { response, body } = await post(payload)
 
-    expect(response.status).toBe(201)
-    expect(body.ok).toBe(true)
-    expect((await leadFor(payload.email))?.requests).toHaveLength(1)
+    expect(response.status).toBe(400)
+    expect(body.code).toBe("invalid-payload")
+    expect(body.fields).toContain("firstName")
+    // El error no devuelve el valor recibido, solo el nombre del campo.
+    expect(JSON.stringify(body)).not.toContain("\u0001")
+  })
+
+  itDb("un envío no puede dejar sin nombre a un contacto que ya lo tenía", async () => {
+    // El endpoint es público y no verifica el correo: quien conociese la dirección
+    // de un contacto podía vaciar su ficha del CRM con un solo POST. La pérdida era
+    // irreversible.
+    const first = basePayload({ firstName: "Ana", lastName: "García" })
+    expect((await post(first)).response.status).toBe(201)
+
+    const saved = await leadFor(first.email)
+    expect(saved?.firstName).toBe("Ana")
+
+    // Segundo envío con el MISMO correo y nombres que el esquema aceptaría pero que
+    // quedan vacíos al limpiarlos. Al estar rechazado en el borde, no llega a la
+    // base; y si algún día llegara, la capa de dominio tampoco sobrescribiría.
+    const attack = basePayload({
+      email: first.email,
+      firstName: "\u0001",
+      lastName: "\u0001",
+      submissionId: `sub-${randomBytes(8).toString("hex")}`,
+    })
+    const { response } = await post(attack, { ip: "198.18.0.240" })
+    expect(response.status).toBe(400)
+
+    const after = await leadFor(first.email)
+    expect(after?.firstName).toBe("Ana")
+    expect(after?.lastName).toBe("García")
   })
 })

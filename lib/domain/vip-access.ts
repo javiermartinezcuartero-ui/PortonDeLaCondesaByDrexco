@@ -14,6 +14,8 @@ export type GrantVipAccessInput = {
   email: string
   privacyConsent: true
   marketingConsent: boolean
+  /** Versión de la política que la persona tenía delante. La valida quien llama. */
+  policyVersion: string
   /** Sección desde la que se pidió el acceso. La sesión desbloquea ambas. */
   section: ContentType
   /** Origen legible del acceso (p. ej. "vip-gate:bodas-reales"). */
@@ -79,7 +81,7 @@ export async function grantVipAccess(input: GrantVipAccessInput): Promise<GrantV
         leadId: lead.id,
         purpose: "PRIVACY",
         granted: true,
-        policyVersion: PRIVACY_POLICY_VERSION,
+        policyVersion: input.policyVersion,
         source: input.source,
       },
     })
@@ -92,7 +94,7 @@ export async function grantVipAccess(input: GrantVipAccessInput): Promise<GrantV
           leadId: lead.id,
           purpose: "MARKETING",
           granted: true,
-          policyVersion: PRIVACY_POLICY_VERSION,
+          policyVersion: input.policyVersion,
           source: input.source,
         },
       })

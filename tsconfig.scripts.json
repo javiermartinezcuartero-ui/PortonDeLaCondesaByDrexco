@@ -1,0 +1,21 @@
+{
+  // Configuración solo para los scripts de consola que se ejecutan con `tsx`.
+  //
+  // El paquete `server-only` lanza a propósito salvo que se resuelva con la
+  // condición `react-server`, que solo aplica el bundler de Next. Un script de
+  // Node se la come de frente, aunque lo que importe sea perfectamente legítimo
+  // en servidor. Aquí se apunta a su módulo vacío, igual que hace
+  // `vitest.config.mts` para los tests.
+  //
+  // La protección real **no se toca**: el build de Next sigue usando el paquete
+  // de verdad, así que importar un módulo `server-only` desde un componente
+  // cliente continúa rompiendo la compilación. Este mapeo solo existe para
+  // `tsx`, que no tiene cliente al que filtrar nada.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./*"],
+      "server-only": ["./node_modules/server-only/empty.js"]
+    }
+  }
+}

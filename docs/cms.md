@@ -96,7 +96,7 @@ coherente con ese MIME → dimensiones reales leídas de la cabecera del formato
 
 - **Límite documentado: 10 MB por imagen** (`MAX_IMAGE_BYTES`). También se corta antes de leer el archivo en memoria, usando `File.size`.
 - Dimensiones entre 200 px y 8000 px por lado.
-- Las cabeceras de PNG, JPEG (recorriendo marcadores hasta el SOF) y WebP (VP8/VP8L/VP8X) se leen a mano en vez de con `sharp`: `sharp` ya arrastra vulnerabilidades conocidas en este proyecto (README §12) y para leer una cabecera no hace falta decodificar el bitmap.
+- Las cabeceras de PNG, JPEG (recorriendo marcadores hasta el SOF) y WebP (VP8/VP8L/VP8X) se leen a mano en vez de con `sharp`: `sharp` ya arrastra vulnerabilidades conocidas en este proyecto (README §Seguridad) y para leer una cabecera no hace falta decodificar el bitmap.
 - Casos probados que una comprobación por extensión dejaría pasar: JPEG declarado como PNG, `.exe` renombrado a `.png`, SVG (que puede llevar scripts), PDF.
 
 ### Nombres de objeto

@@ -13,7 +13,7 @@
  * finca. `05` se recortó para eliminar la marca de agua de Fredy Mazza.
  */
 
-import type { EventTypeCode } from "@/lib/validation/lead-request"
+import type { BudgetRangeCode, EventTypeCode } from "@/lib/validation/lead-request"
 
 export const brand = {
   name: "El Portón de la Condesa",
@@ -334,6 +334,21 @@ export const eventTypeLabels: Record<EventTypeCode, string> = {
   CONGRESS: "Congreso o convención",
   EXTERNAL_CATERING: "Catering externo",
   OTHER: "Otro",
+}
+
+/**
+ * Etiqueta visible de cada tramo de presupuesto. Igual que con los tipos de
+ * evento, el código es lo que se guarda y esto es solo el texto.
+ *
+ * TODO(negocio): los tramos son una propuesta de trabajo, no tarifas de la finca.
+ * Pendientes de confirmación del cliente (ver README §Limitaciones conocidas).
+ */
+export const budgetRangeLabels: Record<BudgetRangeCode, string> = {
+  "hasta-10000": "Hasta 10.000 €",
+  "10000-20000": "Entre 10.000 y 20.000 €",
+  "20000-35000": "Entre 20.000 y 35.000 €",
+  "mas-35000": "Más de 35.000 €",
+  "por-definir": "Prefiere hablarlo",
 }
 
 export const contactContent = {

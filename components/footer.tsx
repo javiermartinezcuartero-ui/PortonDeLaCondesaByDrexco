@@ -58,11 +58,16 @@ export function Footer() {
           </div>
 
           {/* Navigation */}
+          {/*
+            `aria-labelledby` en lugar de `aria-label`: el nombre sale del encabezado
+            que ya está en pantalla, así que se traduce con el resto de la interfaz y
+            no hay que mantener el texto en dos idiomas ni en dos sitios.
+          */}
           <div className="lg:col-span-2">
-            <h4 className="text-xs tracking-[0.2em] uppercase text-muted-foreground mb-6">
+            <h4 id="footer-nav-heading" className="text-xs tracking-[0.2em] uppercase text-muted-foreground mb-6">
               {t.navigation}
             </h4>
-            <nav className="space-y-4">
+            <nav aria-labelledby="footer-nav-heading" className="space-y-4">
               {navigation.map((item) => (
                 <Link
                   key={item.label}
@@ -77,10 +82,10 @@ export function Footer() {
 
           {/* Legal */}
           <div className="lg:col-span-2">
-            <h4 className="text-xs tracking-[0.2em] uppercase text-muted-foreground mb-6">
+            <h4 id="footer-legal-heading" className="text-xs tracking-[0.2em] uppercase text-muted-foreground mb-6">
               {t.legal}
             </h4>
-            <nav className="space-y-4">
+            <nav aria-labelledby="footer-legal-heading" className="space-y-4">
               {footerContent.legalLinks.map((item) => (
                 <Link
                   key={item.label}

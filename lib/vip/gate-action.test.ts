@@ -43,6 +43,7 @@ function baseInput(overrides: Record<string, unknown> = {}) {
   return {
     email,
     privacyConsent: true,
+    policyVersion: PRIVACY_POLICY_VERSION,
     marketingConsent: false,
     section: "REAL_WEDDING" as const,
     returnPath: "/bodas-reales",
@@ -171,6 +172,44 @@ describe("submitVipGateAction — acceso concedido", () => {
       granted: true,
       policyVersion: PRIVACY_POLICY_VERSION,
     })
+  })
+
+  itDb("una política caducada no concede acceso ni registra un consentimiento falso", async () => {
+    // Regresión. El gate no recibía la versión de la política: guardaba la
+    // constante del servidor. Si la política cambiaba mientras alguien tenía la
+    // página abierta, se registraba un ConsentEvent con una versión que esa persona
+    // nunca había visto — y `policyVersion` es exactamente el campo que existe para
+    // demostrar sobre qué texto se consintió. El endpoint del formulario ya
+    // devolvía 409 en ese caso; el gate no comprobaba nada.
+    const input = baseInput({ policyVersion: "1999-01" })
+
+    const result = await submitVipGateAction(input)
+
+    expect(result).toEqual({ ok: false, code: "policy-version-mismatch" })
+
+    // Y no se ha escrito nada: ni contacto, ni consentimiento, ni sesión.
+    const lead = await prisma.lead.findUnique({
+      where: { emailNormalized: (input.email as string).toLowerCase() },
+    })
+    expect(lead).toBeNull()
+  })
+
+  itDb("el consentimiento se registra con la versión que aceptó la persona", async () => {
+    // La cara positiva: la versión guardada tiene que venir del cliente, no de la
+    // constante del servidor. Con las dos coincidiendo hoy, la única forma de
+    // distinguirlo es comprobar que el valor llega hasta la fila.
+    const input = baseInput({ marketingConsent: true })
+    await submitVipGateAction(input)
+
+    const lead = await prisma.lead.findUniqueOrThrow({
+      where: { emailNormalized: (input.email as string).toLowerCase() },
+    })
+    const consents = await prisma.consentEvent.findMany({ where: { leadId: lead.id } })
+
+    expect(consents).toHaveLength(2)
+    for (const consent of consents) {
+      expect(consent.policyVersion).toBe(input.policyVersion)
+    }
   })
 
   itDb("el marketing es opcional: sin marcar no genera ConsentEvent de marketing", async () => {

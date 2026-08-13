@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function AvisoLegalPage() {
   return (
-    <main className="min-h-screen bg-background pt-32 md:pt-40 pb-24 md:pb-32">
+    <main id="contenido" className="min-h-screen bg-background pt-32 md:pt-40 pb-24 md:pb-32">
       <div className="max-w-3xl mx-auto px-6 md:px-12">
         <h1 className="font-serif text-4xl md:text-5xl font-light text-foreground mb-12">Aviso legal</h1>
 

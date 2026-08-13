@@ -183,7 +183,7 @@ navegador disponible en este entorno): la interacción visual del botón
 discreto, el estado de carga del formulario de login y la navegación
 `router.push`/`router.refresh` del cliente. Se comprobó en su lugar que el
 HTML servido contiene los elementos esperados (`curl` sobre `/` y
-`/admin/login`). Limitación reconocida, no oculta — ver README §16.
+`/admin/login`). Limitación reconocida, no oculta — ver README §Limitaciones conocidas.
 
 ## 7. Pruebas automatizadas
 

@@ -12,6 +12,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Historial completo: el escáner de secretos del historial recorre
+          # `git rev-list --all`, y con el clon superficial por defecto
+          # (fetch-depth 1) solo vería el último commit y pasaría siempre.
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -30,6 +35,13 @@ jobs:
 
       - name: Test
         run: npm run test
+
+      # Los tests ya incluyen el escáner del árbol de trabajo
+      # (lib/security/secrets-scan.test.ts). Este revisa el historial, que es un
+      # estado distinto: borrar un secreto en un commit nuevo no lo quita del
+      # anterior, y en GitHub el commit anterior sigue siendo consultable.
+      - name: Secret scan (historial completo)
+        run: npm run secrets:history
 
       - name: Build
         run: npm run build

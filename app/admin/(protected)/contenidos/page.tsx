@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import type { ContentStatus, ContentType } from "@prisma/client"
-import { requirePermission } from "@/lib/auth/session"
+import { requireCmsAccess } from "../guards"
 import {
   CONTENT_LIST_PAGE_SIZE,
   countContentEntriesByStatus,
@@ -86,7 +86,7 @@ export default async function AdminContentListPage({
 }: {
   searchParams: Promise<SearchParams>
 }) {
-  await requirePermission("cms:access")
+  await requireCmsAccess()
 
   const params = await searchParams
   const tab = (TABS.find((item) => item.key === params.tab)?.key ?? "todo") as TabKey

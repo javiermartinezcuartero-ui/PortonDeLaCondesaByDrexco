@@ -460,7 +460,10 @@ export async function listContentEntriesForAdmin(filters: ContentListFilters = {
     prisma.contentEntry.count({ where }),
     prisma.contentEntry.findMany({
       where,
-      orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }],
+      // `sortOrder` lo fija a mano el equipo y se repite mucho (todo a 0 por
+      // defecto), así que sin un tercer criterio único una ficha podía aparecer en
+      // dos páginas del listado del CMS.
+      orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }, { id: "asc" }],
       skip: (page - 1) * pageSize,
       take: pageSize,
       include: {

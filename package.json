@@ -8,14 +8,33 @@
     "lint": "eslint .",
     "start": "next start",
     "typecheck": "tsc --noEmit",
+    "postinstall": "prisma generate",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
     "db:studio": "prisma studio",
-    "admin:bootstrap": "tsx scripts/admin-bootstrap.ts",
-    "storage:bootstrap": "tsx scripts/ensure-storage-bucket.ts"
+    "admin:bootstrap": "tsx --env-file-if-exists=.env scripts/admin-bootstrap.ts",
+    "storage:bootstrap": "tsx --env-file-if-exists=.env scripts/ensure-storage-bucket.ts",
+    "notify:overdue": "tsx --env-file-if-exists=.env --tsconfig tsconfig.scripts.json scripts/notify-overdue-tasks.ts",
+    "privacy:retention": "tsx --env-file-if-exists=.env --tsconfig tsconfig.scripts.json scripts/retention-report.ts",
+    "secrets:history": "tsx --tsconfig tsconfig.scripts.json scripts/secrets-scan-history.ts",
+    "demo:seed": "tsx --env-file-if-exists=.env --tsconfig tsconfig.scripts.json scripts/demo-seed.ts",
+    "demo:clean": "tsx --env-file-if-exists=.env --tsconfig tsconfig.scripts.json scripts/demo-clean.ts",
+    "e2e": "playwright test",
+    "e2e:env": "node scripts/e2e-env-init.mjs",
+    "e2e:ui": "playwright test --ui",
+    "e2e:report": "playwright show-report",
+    "e2e:db:up": "docker compose -f docker-compose.e2e.yml --env-file .env.e2e up -d --wait",
+    "e2e:db:down": "docker compose -f docker-compose.e2e.yml --env-file .env.e2e down",
+    "e2e:db:reset": "docker compose -f docker-compose.e2e.yml --env-file .env.e2e down -v",
+    "e2e:db:migrate": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.e2e --tsconfig tsconfig.scripts.json scripts/e2e-migrate.ts",
+    "e2e:seed": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.e2e --tsconfig tsconfig.scripts.json scripts/e2e-seed.ts",
+    "e2e:setup": "npm run e2e:db:up && npm run e2e:db:migrate && npm run e2e:seed"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -76,6 +95,7 @@
     "zod": "3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.1.9",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",

@@ -26,11 +26,39 @@ function supabaseImagePattern() {
   }
 }
 
+/**
+ * Cabeceras de seguridad.
+ *
+ * La lista y la CSP viven en `lib/security/headers.ts`, no aquí, para que se
+ * puedan probar: una CSP escrita en la configuración es un sitio donde nadie mira
+ * hasta que algo se rompe en producción. Este archivo solo las conecta.
+ *
+ * Se importa con `await import()` porque `next.config.mjs` es un módulo ESM y el
+ * archivo de cabeceras es TypeScript: Next compila la configuración, así que la
+ * importación dinámica es la vía que funciona en los dos momentos (build y dev).
+ */
+async function headers() {
+  const { securityHeaders } = await import("./lib/security/headers.ts")
+
+  return [
+    {
+      // Todas las rutas, incluidas las de API y los archivos estáticos servidos
+      // por Next.
+      source: "/:path*",
+      headers: securityHeaders(),
+    },
+  ]
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
     remotePatterns: supabaseImagePattern(),
   },
+  headers,
+  // No se expone la versión de Next en las respuestas: es información que solo
+  // sirve a quien busca una vulnerabilidad conocida de esa versión concreta.
+  poweredByHeader: false,
 }
 
 export default nextConfig

@@ -156,18 +156,40 @@ si dos peticiones simultáneas la esquivan, una gana el insert y la otra recibe
 ## 8. Aviso interno por email
 
 `lib/notifications/lead-request-notification.ts` se invoca **después** del commit
-y sin `await`. Su regla es que no puede hacer fallar un envío de formulario:
+y **después de responder al visitante**, a través de `runAfterResponse`
+(`after()` de Next.js, no un `void promise`: ver `docs/email.md` §3). Su regla es
+que no puede hacer fallar un envío de formulario.
 
-- Sin `SENDGRID_API_KEY` / `LEAD_NOTIFICATION_TO`, no intenta nada y deja el
-  aviso como `PENDING` en `NotificationLog`.
-- Con configuración pero sin transporte implementado todavía, falla y se registra
-  como `FAILED`, sin tocar la solicitud ya guardada.
+Los estados que deja en `NotificationLog` son cuatro, y se corresponden con
+situaciones distintas a propósito:
+
+| Estado | Cuándo | Qué significa |
+|---|---|---|
+| `SENT` | El proveedor aceptó el mensaje | **No** promete bandeja de entrada |
+| `SKIPPED_CONFIG` | Falta `SENDGRID_API_KEY` o `LEADS_FROM_EMAIL` | No es un error: no había transporte |
+| `RETRY_PENDING` | Timeout, 429 o 5xx | Fallo transitorio que merecería reintento. **Nada lo reintenta** |
+| `FAILED` | 4xx del proveedor | Reintentar no arreglaría nada |
+
+Dos avisos de configuración, porque son el error más frecuente al desplegar:
+
+- Las variables son **`LEADS_FROM_EMAIL`** y **`LEADS_NOTIFICATION_TO`**, en
+  plural. La versión anterior de este documento decía `LEAD_NOTIFICATION_TO`, que
+  se renombró en la Fase 8 y **ya no existe**: configurarla no hace nada, y cada
+  aviso quedaría como `SKIPPED_CONFIG` sin que la interfaz lo advirtiera.
+- Hacen falta **las dos** junto con la clave. Con la clave y sin remitente
+  verificado, SendGrid rechazaría el envío.
+
+El transporte real está implementado desde la Fase 8 (`lib/email/sendgrid.ts`).
+Detalle completo, plantillas y clasificación de respuestas del proveedor:
+**`docs/email.md`**.
+
+Y dos cosas que no cambian:
+
 - El cuerpo del aviso escapa el texto libre con `escapeHtml`, porque ahí no hay
   JSX que lo haga por nosotros.
-- `NotificationLog.error` guarda un motivo corto y sin PII: nunca el
-  destinatario ni el cuerpo.
-
-El transporte real se integra al montar el CRM.
+- `NotificationLog` guarda un motivo corto y sin datos personales: nunca el
+  cuerpo, el asunto, la clave de API ni el destinatario completo —solo
+  enmascarado—.
 
 ## 9. Texto libre: qué se guarda y cómo se muestra
 

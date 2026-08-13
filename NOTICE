@@ -1,0 +1,142 @@
+AVISOS DE DERECHOS DE TERCEROS
+El Portón de la Condesa — Web pública y CRM de captación
+=========================================================
+
+Este repositorio contiene dos cosas con dueños distintos: **software** y
+**contenido de un negocio real**. La licencia del software —cuando se decida,
+ver README §Licencia— no se aplica al contenido. Este archivo dice exactamente
+qué queda fuera.
+
+Nadie puede tomar este repositorio y republicar la marca, las fotografías o los
+textos de El Portón de la Condesa, ni con licencia abierta ni sin ella.
+
+
+1. MARCA Y CONTENIDO DE EL PORTÓN DE LA CONDESA
+-----------------------------------------------
+
+Titular: El Portón de la Condesa (Molina de Segura, Murcia).
+Todos los derechos reservados. **No** cubiertos por ninguna licencia de
+software que se aplique al código de este repositorio.
+
+  - Denominación "El Portón de la Condesa" y cualquier signo distintivo
+    asociado.
+  - Logotipos e iconos de marca:
+        public/brand/icon-porton-hq.png
+        public/brand/icon-porton-on-green.png
+        public/brand/logo-porton-hq.png
+        public/brand/logo-porton-transparent-hq.png
+        public/apple-icon.png
+        public/icon.svg
+        public/icon-dark-32x32.png
+        public/icon-light-32x32.png
+        project-reference/assets/brand/**
+  - Fotografías de la finca, los espacios y la gastronomía:
+        public/images/porton/**
+        public/images/gastronomia/**
+        project-reference/images/**
+  - Textos comerciales, descripciones de espacios y de gastronomía, y
+    cualquier redacción de negocio:
+        data/site-content.ts
+        data/site-content.en.ts
+        project-reference/data/site-content.json
+        project-reference/data/instagram-content.json
+        project-reference/docs/**
+  - Datos de contacto del negocio (dirección, teléfono, correo, coordenadas) y
+    los textos legales del sitio (aviso legal, política de privacidad,
+    política de cookies).
+
+Uso permitido: leer, evaluar y ejecutar este proyecto para estudiar el
+software. Cualquier otro uso de los elementos de este apartado —reproducción,
+distribución, modificación o uso comercial— necesita autorización expresa del
+titular.
+
+
+2. FOTOGRAFÍA CON DERECHOS SIN CONFIRMAR
+----------------------------------------
+
+    public/images/porton/02-salon-celebraciones.jpg
+
+Lleva marca de agua de un fotógrafo externo y **los derechos de uso no están
+confirmados**. Está en el repositorio porque proviene del sitio web original
+del negocio, no porque haya una cesión verificada.
+
+Consecuencia práctica: antes de cualquier publicación comercial hay que
+sustituirla o conseguir la cesión por escrito. Anotado también en
+README §Limitaciones conocidas.
+
+
+3. TERCEROS AJENOS AL NEGOCIO
+-----------------------------
+
+    public/brand/solucionesbonicas-logo.png
+
+Logotipo de Solucionesbonicas, que aparece como crédito de desarrollo en el
+pie del sitio. Marca de su titular; se incluye únicamente como atribución.
+
+
+4. CONTENIDO DE EJEMPLO: TODO FICTICIO
+--------------------------------------
+
+Las seis fichas de ejemplo de las bibliotecas VIP (data/vip-stories.ts, y las
+mismas sembradas por `npm run demo:seed` con isDemo = true) son ILUSTRATIVAS.
+
+Nombres de pareja, proveedores, menús, cronologías, testimonios y precios son
+inventados. No corresponden a ninguna boda ni a ningún evento real, y ninguna
+persona real aparece identificada. La interfaz lo dice en cada ficha con la
+etiqueta "Ejemplo ilustrativo".
+
+Los datos de la demostración usan dominios reservados por la RFC 2606 para
+documentación (`.test`), de modo que ninguna dirección de correo ficticia pueda
+coincidir nunca con la de una persona real. Ver docs/runbook-demo.md.
+
+Los tramos de precio que aparecen en los ejemplos y en el formulario NO son
+tarifas de la finca: son una propuesta de trabajo pendiente de confirmación.
+
+
+5. TIPOGRAFÍAS
+--------------
+
+Se sirven desde el propio repositorio (next/font/local) en lugar de desde
+Google Fonts, para que el navegador del visitante no haga peticiones a terceros
+y el build no dependa de la red.
+
+    app/fonts/cormorant-garamond-latin-variable.woff2   Cormorant Garamond
+    app/fonts/dm-sans-latin-variable.woff2              DM Sans
+    app/fonts/jetbrains-mono-latin-variable.woff2       JetBrains Mono
+
+Las tres están publicadas bajo la SIL Open Font License 1.1, que permite
+expresamente esta redistribución. El texto completo de cada licencia acompaña a
+su archivo:
+
+    app/fonts/cormorant-garamond-OFL.txt
+    app/fonts/dm-sans-OFL.txt
+    app/fonts/jetbrains-mono-OFL.txt
+
+Origen y versión de cada tipografía: app/fonts/README.md.
+
+
+6. DEPENDENCIAS DE SOFTWARE
+---------------------------
+
+Next.js, React, Prisma, Better Auth, Tailwind CSS, Radix UI, Zod, Playwright,
+Vitest y el resto de dependencias conservan sus licencias respectivas, que se
+instalan con ellas en node_modules. Este repositorio no redistribuye ninguna:
+se declaran en package.json y se descargan con `npm ci`.
+
+Los componentes de components/ui/ provienen de shadcn/ui (licencia MIT), que
+está pensado para copiarse al proyecto y adaptarse, y así se ha hecho.
+
+
+7. IMÁGENES DE RELLENO DE LA PLANTILLA
+--------------------------------------
+
+    public/placeholder.jpg, public/placeholder.svg,
+    public/placeholder-logo.png, public/placeholder-logo.svg,
+    public/placeholder-user.jpg
+
+Restos de la plantilla base sobre la que se construyó el proyecto, sin
+contenido de marca ni fotografía de nadie.
+
+De los cinco, solo `placeholder.svg` se usa: como valor de reserva en
+components/ui/image-reveal.tsx, para que el componente no se rompa si le llega
+una ruta vacía. Los otros cuatro no aparecen en ninguna página.

@@ -125,3 +125,27 @@ describe("clientIdentifierFromHeaders", () => {
     expect(clientIdentifierFromHeaders(new Headers())).toBe("sin-ip-identificable")
   })
 })
+
+describe("consumeRateLimit — falso positivo por fila desaparecida", () => {
+  itDb("si el contador desaparece entre la lectura y el incremento, no rechaza", async () => {
+    const scope = uniqueScope()
+    scopes.push(scope)
+    const identifier = "198.18.0.1"
+    const rule = { windowSeconds: 600, max: 1 }
+    const key = `${scope}:${hashRateLimitKey(identifier)}`
+
+    // Se agota el límite: la siguiente petición debería rechazarse...
+    expect((await consumeRateLimit(scope, identifier, rule)).allowed).toBe(true)
+    expect((await consumeRateLimit(scope, identifier, rule)).allowed).toBe(false)
+
+    // ...pero si la fila desaparece (la purga, o una ventana reiniciada en paralelo),
+    // el rechazo sería un 429 a alguien que no ha hecho nada.
+    await prisma.rateLimitCounter.delete({ where: { key } })
+    expect((await consumeRateLimit(scope, identifier, rule)).allowed).toBe(true)
+
+    // Y la ventana nueva vuelve a limitar con normalidad.
+    expect((await consumeRateLimit(scope, identifier, rule)).allowed).toBe(false)
+
+    await prisma.rateLimitCounter.deleteMany({ where: { key } })
+  })
+})

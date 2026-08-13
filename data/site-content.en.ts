@@ -9,7 +9,7 @@
  */
 import type { NavItem } from "@/data/site-content"
 import { brand } from "@/data/site-content"
-import type { EventTypeCode } from "@/lib/validation/lead-request"
+import type { BudgetRangeCode, EventTypeCode } from "@/lib/validation/lead-request"
 
 export const navigation: NavItem[] = [
   { label: "Weddings", href: "/#vision", isRoute: false },
@@ -189,6 +189,15 @@ export const eventTypeLabels: Record<EventTypeCode, string> = {
   CONGRESS: "Congress or convention",
   EXTERNAL_CATERING: "External catering",
   OTHER: "Other",
+}
+
+/** Etiquetas en inglés de los mismos códigos de tramo de presupuesto. */
+export const budgetRangeLabels: Record<BudgetRangeCode, string> = {
+  "hasta-10000": "Up to €10,000",
+  "10000-20000": "Between €10,000 and €20,000",
+  "20000-35000": "Between €20,000 and €35,000",
+  "mas-35000": "More than €35,000",
+  "por-definir": "I'd rather discuss it",
 }
 
 export const contactContent = {

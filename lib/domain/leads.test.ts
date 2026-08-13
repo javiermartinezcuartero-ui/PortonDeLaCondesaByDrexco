@@ -1,6 +1,6 @@
 import { afterEach, describe, expect } from "vitest"
 import { prisma } from "@/lib/db"
-import { getOrCreateLead, anonymizeLead } from "@/lib/domain/leads"
+import { getOrCreateLead } from "@/lib/domain/leads"
 import { itDb, uniqueTestEmail } from "@/lib/domain/test-helpers"
 
 const createdLeadIds: string[] = []
@@ -40,20 +40,42 @@ describe("getOrCreateLead", () => {
   })
 })
 
-describe("anonymizeLead", () => {
-  itDb("sustituye los campos identificativos y marca lifecycle = ANONYMIZED", async () => {
-    const email = uniqueTestEmail("anonimizar")
-    const lead = await getOrCreateLead({ email, firstName: "Carlos", lastName: "Ejemplo", phone: "619865403" })
-    createdLeadIds.push(lead.id)
 
-    const anonymized = await anonymizeLead(lead.id)
+describe("getOrCreateLead — no sobrescribe con vacío", () => {
+  itDb("una cadena vacía no borra el nombre ya guardado", async () => {
+    // Red de seguridad de la capa de dominio. El endpoint público ya rechaza en el
+    // borde un nombre sin caracteres imprimibles, pero `getOrCreateLead` tiene otros
+    // llamantes (gate VIP, sembrado) y Prisma distingue `undefined` ("no toques la
+    // columna") de `""` ("escribe vacío"). Sin esta guarda, cualquier camino que
+    // pasara "" dejaba la ficha del CRM sin nombre de forma irreversible.
+    const email = uniqueTestEmail("no-sobrescribir")
 
-    expect(anonymized.lifecycle).toBe("ANONYMIZED")
-    expect(anonymized.firstName).toBeNull()
-    expect(anonymized.lastName).toBeNull()
-    expect(anonymized.phone).toBeNull()
-    expect(anonymized.phoneNormalized).toBeNull()
-    expect(anonymized.email).not.toBe(email)
-    expect(anonymized.anonymizedAt).not.toBeNull()
+    const created = await getOrCreateLead({ email, firstName: "Ana", lastName: "García", phone: "+34600111222" })
+    createdLeadIds.push(created.id)
+    expect(created.firstName).toBe("Ana")
+
+    const updated = await getOrCreateLead({ email, firstName: "", lastName: "   ", phone: "" })
+
+    expect(updated.id).toBe(created.id)
+    expect(updated.firstName).toBe("Ana")
+    expect(updated.lastName).toBe("García")
+    expect(updated.phone).toBe("+34600111222")
+    expect(updated.phoneNormalized).toBe(created.phoneNormalized)
+  })
+
+  itDb("un dato nuevo de verdad sí actualiza", async () => {
+    // La guarda no debe convertirse en "nunca se actualiza nada": un contacto
+    // captado por el gate (solo correo) tiene que poder recibir su nombre cuando
+    // rellena el formulario.
+    const email = uniqueTestEmail("si-actualiza")
+
+    const created = await getOrCreateLead({ email })
+    createdLeadIds.push(created.id)
+    expect(created.firstName).toBeNull()
+
+    const updated = await getOrCreateLead({ email, firstName: "Elena", lastName: "Ruiz" })
+
+    expect(updated.firstName).toBe("Elena")
+    expect(updated.lastName).toBe("Ruiz")
   })
 })

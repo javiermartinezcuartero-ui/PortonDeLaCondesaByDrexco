@@ -7,7 +7,7 @@ import type { ContentType } from "@prisma/client"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useLocale } from "@/lib/i18n"
-import { PRIVACY_POLICY_PATH } from "@/lib/legal"
+import { PRIVACY_POLICY_PATH, PRIVACY_POLICY_VERSION } from "@/lib/legal"
 import { getAttribution } from "@/lib/attribution"
 import { submitVipGateAction, type VipGateErrorCode } from "@/lib/vip/gate-action"
 
@@ -38,6 +38,8 @@ const copy = {
       "rate-limited": "Demasiados intentos. Vuelve a probar en unos minutos.",
       "persistence-failed": "No hemos podido registrar tu acceso. Inténtalo de nuevo en un momento.",
       "invalid-request": "No hemos podido procesar la solicitud. Revisa los datos e inténtalo de nuevo.",
+      "policy-version-mismatch":
+        "La política de privacidad se ha actualizado. Recarga la página para leerla antes de continuar.",
     } satisfies Record<VipGateErrorCode, string>,
   },
   en: {
@@ -66,6 +68,8 @@ const copy = {
       "rate-limited": "Too many attempts. Please try again in a few minutes.",
       "persistence-failed": "We couldn't register your access. Please try again in a moment.",
       "invalid-request": "We couldn't process the request. Please check the details and try again.",
+      "policy-version-mismatch":
+        "The privacy policy has been updated. Please reload the page to read it before continuing.",
     } satisfies Record<VipGateErrorCode, string>,
   },
 } as const
@@ -107,6 +111,11 @@ export function VipGate({ section, returnPath }: { section: ContentType; returnP
         email,
         privacyConsent,
         marketingConsent,
+        // La versión que se le ha mostrado, no la que tenga el servidor al
+        // procesar: si cambió mientras la página estaba abierta, el servidor lo
+        // detecta y pide recargar en vez de registrar un consentimiento sobre un
+        // texto que nadie vio.
+        policyVersion: PRIVACY_POLICY_VERSION,
         honeypot,
         section,
         returnPath,

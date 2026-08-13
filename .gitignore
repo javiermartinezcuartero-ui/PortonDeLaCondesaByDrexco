@@ -17,8 +17,14 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files
+# Regla en negativo a propósito: se ignora TODO lo que empiece por .env y se
+# reabren una a una las plantillas sin valores. Al contrario (ignorar .env,
+# .env.local, ...) cualquier variante nueva (.env.production, .env.staging)
+# quedaría versionable por omisión, que es exactamente como se filtran las
+# credenciales. Comprobado por lib/security/secrets-scan.test.ts.
 .env*
 !.env.example
+!.env.e2e.example
 
 
 # typescript
@@ -27,3 +33,46 @@ next-env.d.ts
 
 # tests
 /coverage
+
+# volcados, copias y datos exportados
+# Nunca deben entrar en un repositorio público: un volcado de la base de datos
+# lleva dentro los datos personales de todos los contactos, y una exportación
+# del CRM es exactamente eso en CSV. Nótese que NO se ignora *.sql: las
+# migraciones de Prisma son .sql y tienen que estar versionadas.
+*.dump
+*.dump.gz
+*.bak
+*.sqlite
+*.sqlite3
+*.db
+/dumps/
+/backups/
+/exports/
+*.log
+
+# subidas locales
+# Las imágenes del CMS viven en el bucket privado de Supabase, no en el
+# repositorio. Si alguna vez se prueba un almacenamiento en disco, que no acabe
+# publicado con fotografías de clientes reales dentro.
+/uploads/
+/public/uploads/
+
+# plataforma y herramientas
+.vercel
+.turbo
+.swc
+
+# sistema operativo y editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+*.swp
+
+# playwright: estados de sesión, trazas, capturas e informes.
+# Los estados de sesión son credenciales efímeras y las trazas pueden contener
+# datos del escenario: ninguno de los dos debe salir del equipo.
+/e2e/.auth/
+/e2e/.results/
+/playwright-report/
+/test-results/

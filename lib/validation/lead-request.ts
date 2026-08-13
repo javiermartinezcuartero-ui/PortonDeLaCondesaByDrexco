@@ -45,6 +45,12 @@ export type LeadRequestResponse =
       /** Solo en `invalid-payload`: nombres de campo con problemas, sin valores. */
       fields?: string[]
       retryAfterSeconds?: number
+      /**
+       * Identificador de la petición, solo cuando falla por causa del servidor.
+       * Permite que alguien diga "me falló con este código" y se pueda encontrar la
+       * traza, sin que el mensaje cuente nada sobre el fallo ni sobre la persona.
+       */
+      requestId?: string
     }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +110,7 @@ export const PREFERRED_SPACES: readonly string[] = [
  *
  * TODO(negocio): los tramos son una propuesta de trabajo, no tarifas de la
  * finca. Pendiente de confirmación del cliente antes de producción (anotado en
- * README §Pendientes). El campo es opcional y `por-definir` permite enviar la
+ * README §Limitaciones conocidas). El campo es opcional y `por-definir` permite enviar la
  * solicitud sin comprometerse a ninguno.
  */
 export const BUDGET_RANGES = ["hasta-10000", "10000-20000", "20000-35000", "mas-35000", "por-definir"] as const
@@ -168,7 +174,27 @@ const optionalText = (max: number) => z.string().trim().max(max).optional()
 
 const attributionText = optionalText(FIELD_LIMITS.attribution)
 
-const requiredText = (max: number) => z.string().trim().min(1).max(max)
+/** Al menos un carácter que no sea de control (C0/C1) ni espacio en blanco. */
+const PRINTABLE = /[^\p{Cc}\s]/u
+
+/**
+ * Un campo obligatorio de texto.
+ *
+ * `.min(1)` sobre el valor recortado no basta: el `.trim()` de JavaScript solo
+ * quita espacio en blanco, y los caracteres de control (C0/C1) no lo son. Un valor
+ * como `""` medía 2, pasaba el esquema, y el servidor lo dejaba en `""`
+ * al limpiar los caracteres de control antes de persistir —así que un campo
+ * declarado obligatorio acababa guardado vacío—. Se exige al menos un carácter
+ * imprimible para que el rechazo ocurra en el borde, con un 400, en lugar de
+ * convertirse en un dato vacío tres capas más abajo.
+ */
+const requiredText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .min(1)
+    .max(max)
+    .refine((value) => PRINTABLE.test(value), "debe contener al menos un carácter visible")
 
 /** Ruta interna: se guarda como origen y nunca se usa para redirigir. */
 const internalPath = z
@@ -279,7 +305,7 @@ const corporateRule = (
 ) => {
   // En un evento corporativo la empresa es el dato que permite cualificar la
   // solicitud; cargo y necesidades audiovisuales se ofrecen pero no se exigen
-  // (ver README §Formularios públicos para el criterio).
+  // (ver README §Gate de acceso y captación para el criterio).
   if (isCorporateEventType(values.eventType) && !values.company) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,

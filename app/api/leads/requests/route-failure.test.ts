@@ -68,7 +68,11 @@ describe("POST /api/leads/requests — fallo de persistencia", () => {
     expect(response.status).toBe(503)
 
     const body = await response.json()
-    expect(body).toEqual({ ok: false, code: "persistence-failed" })
+    expect(body.ok).toBe(false)
+    expect(body.code).toBe("persistence-failed")
+    // Se devuelve el identificador de la petición para poder cruzar una queja
+    // concreta con su traza; no dice nada del fallo ni de quien envió el formulario.
+    expect(typeof body.requestId).toBe("string")
 
     const serialized = JSON.stringify(body)
     expect(serialized).not.toContain("lead_request")

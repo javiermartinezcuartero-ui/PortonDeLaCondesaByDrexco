@@ -60,9 +60,35 @@ describe("sitemap", () => {
     expect(urls.some((url) => url.includes("gala-empresa"))).toBe(false)
   })
 
-  it("sí incluye la home y las páginas legales", () => {
+  it("sí incluye la home", () => {
     expect(urls.some((url) => url.endsWith("/"))).toBe(true)
-    expect(urls.some((url) => url.endsWith("/politica-privacidad"))).toBe(true)
-    expect(urls.some((url) => url.endsWith("/aviso-legal"))).toBe(true)
+  })
+
+  it("no envía ninguna URL que a la vez pida noindex", async () => {
+    // Regresión: las tres páginas legales estaban en el sitemap Y emitían
+    // `robots: { index: false }`. Un sitemap es una petición de indexación y el
+    // noindex es la orden contraria; Search Console lo habría marcado como error de
+    // cobertura en tres de las cuatro URL enviadas desde el primer rastreo.
+    //
+    // La prueba lee el metadata real de cada página, así que si alguien vuelve a
+    // añadir al sitemap una ruta con noindex —o pone noindex a una que está en el
+    // sitemap— falla por cualquiera de los dos lados.
+    const pages: Array<[string, () => Promise<{ metadata?: { robots?: unknown } }>]> = [
+      ["/aviso-legal", () => import("@/app/aviso-legal/page")],
+      ["/politica-privacidad", () => import("@/app/politica-privacidad/page")],
+      ["/politica-cookies", () => import("@/app/politica-cookies/page")],
+    ]
+
+    for (const [path, load] of pages) {
+      const mod = await load()
+      const robots = mod.metadata?.robots as { index?: boolean } | undefined
+      const isNoindex = robots?.index === false
+      const inSitemap = urls.some((url) => url.endsWith(path))
+
+      expect(
+        isNoindex && inSitemap,
+        `${path} está en el sitemap y a la vez pide noindex: hay que elegir una`
+      ).toBe(false)
+    }
   })
 })

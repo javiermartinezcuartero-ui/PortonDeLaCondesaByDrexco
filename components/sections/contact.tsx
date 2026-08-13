@@ -30,9 +30,15 @@ import {
   contactContent as contactContentEs,
   mapContent as mapContentEs,
   eventTypeLabels as eventTypeLabelsEs,
+  budgetRangeLabels as budgetRangeLabelsEs,
   spacesContent,
 } from "@/data/site-content"
-import { contactContent as contactContentEn, mapContent as mapContentEn, eventTypeLabels as eventTypeLabelsEn } from "@/data/site-content.en"
+import {
+  contactContent as contactContentEn,
+  mapContent as mapContentEn,
+  eventTypeLabels as eventTypeLabelsEn,
+  budgetRangeLabels as budgetRangeLabelsEn,
+} from "@/data/site-content.en"
 import { useLocale } from "@/lib/i18n"
 import { PRIVACY_POLICY_PATH } from "@/lib/legal"
 import { newSubmissionId, submitLeadRequest } from "@/lib/leads"
@@ -43,7 +49,6 @@ import {
   isCorporateEventType,
   isEventTypeCode,
   leadRequestFormSchema,
-  type BudgetRangeCode,
   type LeadRequestErrorCode,
   type LeadRequestFormValues,
 } from "@/lib/validation/lead-request"
@@ -99,13 +104,6 @@ const formCopy = {
       "persistence-failed": "No hemos podido registrar tu solicitud. Escríbenos por WhatsApp o llámanos, por favor.",
       "invalid-request": "No hemos podido procesar la solicitud. Recarga la página e inténtalo de nuevo.",
     } satisfies Record<LeadRequestErrorCode, string>,
-    budgetLabels: {
-      "hasta-10000": "Hasta 10.000 €",
-      "10000-20000": "Entre 10.000 y 20.000 €",
-      "20000-35000": "Entre 20.000 y 35.000 €",
-      "mas-35000": "Más de 35.000 €",
-      "por-definir": "Prefiero hablarlo",
-    } satisfies Record<BudgetRangeCode, string>,
   },
   en: {
     firstName: "First name", firstNamePh: "Your first name",
@@ -157,18 +155,19 @@ const formCopy = {
       "persistence-failed": "We couldn't register your request. Please reach us on WhatsApp or by phone.",
       "invalid-request": "We couldn't process the request. Please reload the page and try again.",
     } satisfies Record<LeadRequestErrorCode, string>,
-    budgetLabels: {
-      "hasta-10000": "Up to €10,000",
-      "10000-20000": "Between €10,000 and €20,000",
-      "20000-35000": "Between €20,000 and €35,000",
-      "mas-35000": "More than €35,000",
-      "por-definir": "I'd rather discuss it",
-    } satisfies Record<BudgetRangeCode, string>,
   },
 } as const
 
 const underlineFieldClass =
-  "rounded-none border-0 border-b border-border bg-transparent px-0 py-3 h-auto shadow-none text-foreground placeholder:text-muted-foreground/50 focus-visible:ring-0 focus-visible:border-foreground"
+  // `placeholder:text-muted-foreground` a opacidad plena, no `/50`.
+  //
+  // El token ya está medido para cumplir contraste (~6,9:1 sobre el fondo); al
+  // rebajarlo al 50 % quedaba en torno a 2:1, por debajo del 4,5:1 que exige WCAG
+  // para texto normal. Y aquí importa más que en un placeholder decorativo, porque
+  // estos llevan información que no está en la etiqueta: el formato del teléfono,
+  // el orden de magnitud de los invitados y un ejemplo de asunto. Con brillo bajo o
+  // a la luz del sol no se leían, en el único formulario de conversión del sitio.
+  "rounded-none border-0 border-b border-border bg-transparent px-0 py-3 h-auto shadow-none text-foreground placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:border-foreground"
 
 const EMPTY_VALUES: LeadRequestFormValues = {
   firstName: "",
@@ -190,11 +189,39 @@ const EMPTY_VALUES: LeadRequestFormValues = {
   honeypot: "",
 }
 
+/**
+ * Envoltorio del `onValueChange` de un desplegable que descarta la cadena vacía.
+ *
+ * **No es una precaución teórica.** Radix Select, cuando vive dentro de un
+ * `<form>`, renderiza además un `<select>` nativo oculto para que las librerías de
+ * formularios lo vean, y su `BubbleSelect` dispara un evento `change` sintético
+ * cada vez que cambia su valor. Con el desplegable cerrado ese select nativo solo
+ * tiene la opción vacía del marcador de posición —los `SelectItem` viven en
+ * `SelectContent`, que no está montado—, así que el evento llega con `""` y
+ * escribe la cadena vacía de vuelta en el formulario.
+ *
+ * El efecto era este: el CTA "Quiero una boda así" precargaba el asunto pero **no**
+ * el tipo de evento, y el primer envío se rechazaba con "Selecciona el tipo de
+ * evento". Lo destapó la prueba E2E del escenario 6, no una revisión del código:
+ * la prueba de la Fase 6 volvía a elegir el tipo a mano y tapaba el fallo.
+ *
+ * Descartar `""` es seguro porque ninguna opción real la usa: ni `EVENT_TYPES`, ni
+ * los espacios (la opción "sin preferencia" tiene su propio código), ni
+ * `BUDGET_RANGES`. Una cadena vacía nunca es una elección de la persona.
+ */
+function ignoreEmptySelection(onChange: (value: string) => void) {
+  return (value: string) => {
+    if (value === "") return
+    onChange(value)
+  }
+}
+
 export function ContactSection() {
   const { locale } = useLocale()
   const contactContent = locale === "en" ? contactContentEn : contactContentEs
   const mapContent = locale === "en" ? mapContentEn : mapContentEs
   const eventTypeLabels = locale === "en" ? eventTypeLabelsEn : eventTypeLabelsEs
+  const budgetRangeLabels = locale === "en" ? budgetRangeLabelsEn : budgetRangeLabelsEs
   const t = formCopy[locale]
 
   const [isVisible, setIsVisible] = useState(false)
@@ -575,7 +602,7 @@ export function ContactSection() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.eventType}</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={ignoreEmptySelection(field.onChange)} value={field.value}>
                             <FormControl>
                               <SelectTrigger className={`${underlineFieldClass} w-full`}>
                                 <SelectValue placeholder={t.eventTypePh} />
@@ -629,7 +656,7 @@ export function ContactSection() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.budgetRange}</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                          <Select onValueChange={ignoreEmptySelection(field.onChange)} value={field.value ?? ""}>
                             <FormControl>
                               <SelectTrigger className={`${underlineFieldClass} w-full`}>
                                 <SelectValue placeholder={t.budgetRangePh} />
@@ -638,7 +665,7 @@ export function ContactSection() {
                             <SelectContent>
                               {BUDGET_RANGES.map((code) => (
                                 <SelectItem key={code} value={code}>
-                                  {t.budgetLabels[code]}
+                                  {budgetRangeLabels[code]}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -656,7 +683,7 @@ export function ContactSection() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.preferredSpace}</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                        <Select onValueChange={ignoreEmptySelection(field.onChange)} value={field.value}>
                           <FormControl>
                             <SelectTrigger className={`${underlineFieldClass} w-full`}>
                               <SelectValue placeholder={t.preferredSpacePh} />

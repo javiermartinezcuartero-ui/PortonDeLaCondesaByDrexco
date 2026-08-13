@@ -1,11 +1,12 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { requirePermission } from "@/lib/auth/session"
+import { requireCmsAccess } from "../../guards"
 import { getContentEntryForAdmin, getMissingPublicationRequirements } from "@/lib/domain/content"
 import { resolveMediaUrls } from "@/lib/domain/content-media"
 import { isStorageConfigured } from "@/lib/storage/supabase"
-import { ContentEditor, type EditorMedia } from "./content-editor"
+import { ContentEditor } from "./content-editor"
+import { toEditorMedia, type EditorMedia } from "./editor-media"
 
 export const dynamic = "force-dynamic"
 
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
 }
 
 export default async function EditContentPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermission("cms:access")
+  await requireCmsAccess()
 
   const { id } = await params
   const entry = await getContentEntryForAdmin(id)
@@ -25,19 +26,7 @@ export default async function EditContentPage({ params }: { params: Promise<{ id
   // viaja al navegador de quien ya está autorizado y caduca por sí sola.
   const signedUrls = await resolveMediaUrls(entry.media)
 
-  const media: EditorMedia[] = entry.media.map((item) => ({
-    id: item.id,
-    type: item.type,
-    previewUrl: signedUrls.get(item) ?? null,
-    thumbnailUrl: item.thumbnailUrl,
-    alt: item.alt ?? "",
-    caption: item.caption ?? "",
-    sortOrder: item.sortOrder,
-    isHero: item.isHero,
-    inGallery: item.inGallery,
-    isExternal: !item.storagePath,
-    dimensions: item.width && item.height ? `${item.width}×${item.height}` : null,
-  }))
+  const media: EditorMedia[] = entry.media.map((item) => toEditorMedia(item, signedUrls.get(item) ?? null))
 
   const spanish = entry.translations.find((translation) => translation.locale === "ES")
   const english = entry.translations.find((translation) => translation.locale === "EN")

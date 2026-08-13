@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest"
 import { vipGateSchema } from "@/lib/validation/vip-gate"
+import { PRIVACY_POLICY_VERSION } from "@/lib/legal"
 
 function baseInput(overrides: Record<string, unknown> = {}) {
   return {
     email: "persona@example.test",
     privacyConsent: true,
+    policyVersion: PRIVACY_POLICY_VERSION,
     marketingConsent: false,
     section: "REAL_WEDDING",
     ...overrides,
@@ -103,5 +105,29 @@ describe("vipGateSchema — atribución", () => {
     const parsed = vipGateSchema.parse(baseInput({ attribution: { utmSource: "", utmMedium: "  " } }))
     expect(parsed.attribution?.utmSource).toBeUndefined()
     expect(parsed.attribution?.utmMedium).toBeUndefined()
+  })
+})
+
+describe("vipGateSchema — versión de la política", () => {
+  it("la exige: sin ella no se puede registrar sobre qué texto se consintió", () => {
+    // Antes de la auditoría final el esquema no tenía este campo y el gate guardaba
+    // la constante del servidor, así que `policyVersion` podía acabar apuntando a un
+    // texto que la persona nunca vio. Es justo el campo que existe para demostrar lo
+    // contrario.
+    const { policyVersion: _omitida, ...sinVersion } = baseInput()
+    expect(vipGateSchema.safeParse(sinVersion).success).toBe(false)
+  })
+
+  it("acepta la versión vigente y la conserva tal cual", () => {
+    const parsed = vipGateSchema.parse(baseInput())
+    expect(parsed.policyVersion).toBe(PRIVACY_POLICY_VERSION)
+  })
+
+  it("acepta una versión distinta: quien decide si vale es el servidor, no el esquema", () => {
+    // El esquema solo comprueba la forma. La comparación con la vigente la hace
+    // `submitVipGateAction`, que devuelve `policy-version-mismatch`: así el error es
+    // distinguible de un payload malformado y el cliente puede pedir recargar.
+    const parsed = vipGateSchema.parse(baseInput({ policyVersion: "1999-01" }))
+    expect(parsed.policyVersion).toBe("1999-01")
   })
 })

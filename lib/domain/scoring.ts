@@ -1,4 +1,7 @@
 import { prisma } from "@/lib/db"
+import { recordAuditEvent } from "@/lib/domain/audit"
+import { DomainError } from "@/lib/domain/errors"
+import type { ScoringRule } from "@prisma/client"
 
 /**
  * Claves de ScoringRule. Los pesos son configurables en la tabla
@@ -56,4 +59,59 @@ export async function recalculateLeadScore(leadId: string): Promise<number> {
 
   await prisma.lead.update({ where: { id: leadId }, data: { score } })
   return score
+}
+
+// ---------------------------------------------------------------------------
+// Configuración de los pesos (solo ADMIN, ver app/admin/(protected)/configuracion)
+// ---------------------------------------------------------------------------
+
+/** Tope por hito. Un peso desbocado convierte el score en ruido. */
+export const MAX_RULE_POINTS = 100
+
+export async function listScoringRules(): Promise<ScoringRule[]> {
+  return prisma.scoringRule.findMany({ orderBy: { key: "asc" } })
+}
+
+/**
+ * Cambia el peso o el estado de una regla.
+ *
+ * No se recalcula el score de toda la base al vuelo: `recalculateLeadScore` lee
+ * los pesos vigentes cada vez que corre, así que cada contacto se pone al día en
+ * su siguiente movimiento. Recalcular miles de filas dentro de una petición HTTP
+ * sería peor que la ligera desactualización que esto deja, y el número que se
+ * muestra siempre indica cuándo se calculó.
+ */
+export async function updateScoringRule(input: {
+  key: string
+  points: number
+  active: boolean
+  actorId?: string
+}): Promise<ScoringRule> {
+  if (!Number.isInteger(input.points) || input.points < 0 || input.points > MAX_RULE_POINTS) {
+    throw new DomainError(`Los puntos deben ser un entero entre 0 y ${MAX_RULE_POINTS}`)
+  }
+
+  const current = await prisma.scoringRule.findUnique({ where: { key: input.key } })
+  if (!current) throw new DomainError("La regla de scoring no existe")
+
+  const updated = await prisma.scoringRule.update({
+    where: { key: input.key },
+    data: { points: input.points, active: input.active },
+  })
+
+  await recordAuditEvent({
+    entityType: "ScoringRule",
+    entityId: updated.id,
+    action: "scoring.update",
+    actorId: input.actorId,
+    metadata: {
+      clave: input.key,
+      puntosAnteriores: current.points,
+      puntosNuevos: input.points,
+      activaAnterior: current.active,
+      activaNueva: input.active,
+    },
+  })
+
+  return updated
 }

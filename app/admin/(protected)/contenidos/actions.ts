@@ -13,7 +13,7 @@ import {
   saveContentEntry,
   unpublishContentEntry,
 } from "@/lib/domain/content"
-import { addExternalMedia, deleteContentMedia, uploadContentImage } from "@/lib/domain/content-media"
+import { addExternalMedia, deleteContentMedia, resolveMediaUrls, uploadContentImage } from "@/lib/domain/content-media"
 import { DomainError } from "@/lib/domain/errors"
 import { InvalidImageError, MAX_IMAGE_BYTES } from "@/lib/storage/validate-image"
 import { InvalidExternalUrlError } from "@/lib/storage/external-url"
@@ -23,6 +23,7 @@ import {
   saveContentEntrySchema,
   validateSaveConsistency,
 } from "@/lib/validation/content"
+import { toEditorMedia, type EditorMedia } from "./[id]/editor-media"
 
 export type ActionResult<T = undefined> =
   | { ok: true; data: T }
@@ -30,9 +31,12 @@ export type ActionResult<T = undefined> =
 
 /**
  * Rutas públicas afectadas por una ficha. Se revalidan tras publicar,
- * despublicar y archivar. Las rutas públicas todavía leen `data/vip-stories.ts`
- * (ver README §11), así que hoy esto solo purga la caché; queda conectado ya
- * para que al migrarlas no haya que recordar añadirlo.
+ * despublicar y archivar.
+ *
+ * Desde la Fase 5 estas rutas leen del CMS (`listPublishedContent` /
+ * `getPublishedContentBySlug`, ver README §Funcionalidades públicas), así que la
+ * revalidación es lo que hace que publicar se vea de inmediato. Antes leían
+ * `data/vip-stories.ts` y esto solo purgaba caché; ya no.
  */
 function publicPathsFor(type: ContentType, slug: string): string[] {
   const base = type === "REAL_WEDDING" ? "/bodas-reales" : "/catering"
@@ -199,7 +203,18 @@ export async function duplicateContentEntryAction(id: string): Promise<ActionRes
 // Media
 // ---------------------------------------------------------------------------
 
-export async function uploadContentImageAction(formData: FormData): Promise<ActionResult<{ id: string }>> {
+/**
+ * Devuelve el archivo ya en la forma que usa el editor, no un `{ id }` suelto.
+ *
+ * Antes devolvía solo el identificador y el panel se limitaba a `router.refresh()`.
+ * Eso no funcionaba: el editor guarda la ficha —media incluida— en estado de
+ * cliente inicializado una única vez, así que el refresco actualizaba los avisos
+ * calculados en servidor ("falta el alt de 1 archivo") pero **no** la lista del
+ * panel, que seguía diciendo "todavía no hay archivos". El archivo subido no
+ * aparecía hasta recargar la página entera, y sin poder escribir su alt no se
+ * podía publicar. Lo destapó la prueba E2E del escenario 8.
+ */
+export async function uploadContentImageAction(formData: FormData): Promise<ActionResult<{ media: EditorMedia }>> {
   try {
     const user = await requireContentAccess()
 
@@ -231,8 +246,12 @@ export async function uploadContentImageAction(formData: FormData): Promise<Acti
       },
     })
 
+    // La URL firmada se genera aquí para que la miniatura se vea de inmediato,
+    // sin esperar a la siguiente carga de la página.
+    const signed = await resolveMediaUrls([media])
+
     revalidatePath(`/admin/contenidos/${contentEntryId}`)
-    return { ok: true, data: { id: media.id } }
+    return { ok: true, data: { media: toEditorMedia(media, signed.get(media) ?? null) } }
   } catch (error) {
     return { ok: false, errors: toActionErrors(error) }
   }

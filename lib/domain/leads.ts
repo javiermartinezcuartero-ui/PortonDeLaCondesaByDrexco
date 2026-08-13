@@ -38,10 +38,19 @@ export async function getOrCreateLead(input: GetOrCreateLeadInput, db: Db = pris
       lastActivityAt: new Date(),
     },
     update: {
-      firstName: input.firstName,
-      lastName: input.lastName,
-      phone: input.phone,
-      phoneNormalized,
+      // `orIgnore`: una cadena vacía NO sobrescribe lo que ya hay.
+      //
+      // Prisma trata `undefined` como "no toques esta columna" y `""` como "escribe
+      // cadena vacía". El endpoint público limpia los caracteres de control del
+      // nombre antes de llegar aquí, y un valor formado **solo** por caracteres de
+      // control queda en `""` después de pasar el esquema (`.trim()` de Zod no los
+      // considera espacio en blanco). Sin esta guarda, cualquiera que conociese el
+      // correo de un contacto podía dejar su ficha del CRM sin nombre con un solo
+      // POST, y la pérdida era irreversible.
+      firstName: orIgnore(input.firstName),
+      lastName: orIgnore(input.lastName),
+      phone: orIgnore(input.phone),
+      phoneNormalized: orIgnore(phoneNormalized),
       lastSource: input.source,
       lastActivityAt: new Date(),
     },
@@ -49,26 +58,23 @@ export async function getOrCreateLead(input: GetOrCreateLeadInput, db: Db = pris
 }
 
 /**
- * Anonimiza un Lead: sustituye los campos identificativos por valores no
- * reversibles y marca lifecycle = ANONYMIZED. Transaccional: si falla
- * cualquier paso, no queda el Lead a medio anonimizar.
+ * Convierte "" en `undefined` para que Prisma no sobrescriba la columna.
+ *
+ * No confundir con un saneado: aquí no se transforma nada. Solo se distingue
+ * "no me han dado este dato" de "me han dado un dato vacío", que para un `update`
+ * son cosas opuestas y que Prisma solo diferencia por `undefined`.
  */
-export async function anonymizeLead(leadId: string): Promise<Lead> {
-  return prisma.$transaction(async (tx) => {
-    const lead = await tx.lead.findUniqueOrThrow({ where: { id: leadId } })
-
-    return tx.lead.update({
-      where: { id: leadId },
-      data: {
-        email: `anonimizado+${lead.id}@example.invalid`,
-        emailNormalized: `anonimizado+${lead.id}@example.invalid`,
-        firstName: null,
-        lastName: null,
-        phone: null,
-        phoneNormalized: null,
-        lifecycle: "ANONYMIZED",
-        anonymizedAt: new Date(),
-      },
-    })
-  })
+function orIgnore(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined
+  return value.trim() === "" ? undefined : value
 }
+
+/**
+ * La anonimización vive en `lib/domain/privacy.ts`.
+ *
+ * Estaba aquí y se movió en la fase de endurecimiento: la versión de este archivo
+ * solo tocaba las columnas del propio `Lead`, lo que dejaba a la persona
+ * identificable en el texto libre de sus solicitudes y en las notas del equipo.
+ * Mantener dos funciones con el mismo nombre y distinto alcance era la vía directa
+ * a llamar a la incompleta sin darse cuenta, así que aquí no queda ninguna.
+ */

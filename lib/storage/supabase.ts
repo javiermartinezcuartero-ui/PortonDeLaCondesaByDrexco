@@ -26,7 +26,7 @@ export class StorageNotConfiguredError extends Error {
 
 function readPrivilegedKey(): string | undefined {
   // Formato nuevo (sb_secret_...) con la clave legacy service_role como
-  // alternativa, en ese orden: ver .env.example y README §7.
+  // alternativa, en ese orden: ver .env.example y README §Variables de entorno.
   return process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
 }
 

@@ -7,6 +7,7 @@ import { ALLOWED_IMAGE_EXTENSIONS, MAX_IMAGE_BYTES } from "@/lib/storage/validat
 import type { EditorMedia } from "./content-editor"
 
 type ActionOutcome = { ok: boolean; errors?: string[] }
+type UploadOutcome = { ok: true; data: { media: EditorMedia } } | { ok: false; errors: string[] }
 
 const labelClass = "text-xs tracking-[0.2em] uppercase text-muted-foreground"
 const smallButtonClass =
@@ -31,7 +32,7 @@ export function MediaPanel({
   media: EditorMedia[]
   storageConfigured: boolean
   onChange: (media: EditorMedia[]) => void
-  onUpload: (formData: FormData) => Promise<ActionOutcome>
+  onUpload: (formData: FormData) => Promise<UploadOutcome>
   onDelete: (mediaId: string) => Promise<ActionOutcome>
 }) {
   const router = useRouter()
@@ -55,7 +56,14 @@ export function MediaPanel({
         setErrors(result.errors ?? ["No se ha podido subir el archivo."])
         return
       }
-      // La nueva media la aporta el servidor al recargar los datos de la página.
+
+      // El archivo se añade a la lista con lo que devuelve la acción, **no** se
+      // espera a que el refresco lo traiga: el editor guarda la ficha en estado
+      // de cliente inicializado una sola vez, así que un `router.refresh()` no
+      // repuebla esta lista y el archivo no se veía hasta recargar la página.
+      // El refresco se mantiene además para que los avisos de "falta para
+      // publicar", que sí se calculan en servidor, queden al día.
+      onChange([...media, result.data.media])
       router.refresh()
     })
   }
@@ -69,6 +77,8 @@ export function MediaPanel({
         setErrors(result.errors ?? ["No se ha podido borrar el archivo."])
         return
       }
+      // Mismo motivo que en la subida: se quita de la lista aquí.
+      onChange(media.filter((current) => current.id !== item.id))
       router.refresh()
     })
   }

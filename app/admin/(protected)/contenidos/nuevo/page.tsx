@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { requirePermission } from "@/lib/auth/session"
+import { requireCmsAccess } from "../../guards"
 import { NewContentForm } from "./new-content-form"
 
 export const dynamic = "force-dynamic"
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 }
 
 export default async function NewContentPage() {
-  await requirePermission("cms:access")
+  await requireCmsAccess()
 
   return (
     <div className="max-w-xl space-y-8">

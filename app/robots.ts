@@ -1,19 +1,26 @@
 import type { MetadataRoute } from "next"
 import { brand } from "@/data/site-content"
+import { isSiteIndexable } from "@/lib/seo/indexing"
 
 export default function robots(): MetadataRoute.Robots {
-  return {
-    rules: {
-      userAgent: "*",
-      allow: "/",
-      // El panel y la API no son contenido: no hay nada que un buscador pueda
-      // mostrar y sí un formulario de acceso que no necesita rastreadores
-      // encima. Ver la nota de abajo sobre por qué aquí sí y en las
-      // bibliotecas VIP no.
-      disallow: ["/admin", "/api"],
-    },
-    sitemap: `${brand.website}sitemap.xml`,
+  const rules = {
+    userAgent: "*",
+    allow: "/",
+    // El panel y la API no son contenido: no hay nada que un buscador pueda
+    // mostrar y sí un formulario de acceso que no necesita rastreadores
+    // encima. Ver la nota de abajo sobre por qué aquí sí y en las
+    // bibliotecas VIP no.
+    disallow: ["/admin", "/api"],
   }
+
+  // Un despliegue que no es el sitio oficial no declara sitemap: un sitemap es
+  // una petición explícita de indexación, y este despliegue pide justo lo
+  // contrario con `X-Robots-Tag` (lib/security/headers.ts).
+  if (!isSiteIndexable()) {
+    return { rules }
+  }
+
+  return { rules, sitemap: `${brand.website}sitemap.xml` }
 }
 
 // Dos mecanismos distintos para dos problemas distintos:
@@ -33,3 +40,12 @@ export default function robots(): MetadataRoute.Robots {
 //   (`lib/vip/metadata.ts`), que es lo que se hace. Bloquearlas en `robots.txt`
 //   daría exactamente el resultado que se quiere evitar: URLs indexadas sin
 //   que nadie pueda leer la etiqueta que pide no indexarlas.
+//
+// Y por la misma razón, el despliegue de demostración **no** emite un
+// `Disallow: /` pese a estar excluido entero de los buscadores. Sería el mismo
+// error a mayor escala: el rastreador no llegaría a leer el `X-Robots-Tag:
+// noindex` que lo excluye de verdad, y Google puede listar una URL bloqueada por
+// `robots.txt` —sin título ni descripción, con el aviso de que no hay
+// información disponible— si alguien la enlaza desde fuera. Para desaparecer de
+// los resultados hay que **dejar rastrear y decir que no se indexe**, que es
+// exactamente lo contrario de lo que sugiere la intuición.

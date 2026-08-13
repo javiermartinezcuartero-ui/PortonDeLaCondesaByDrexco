@@ -223,22 +223,29 @@ lo pare `npm test` en lugar de una revisión manual.
 
 ---
 
-## 6. Licencia: pendiente de decisión
+## 6. Licencia: MIT
 
-**No se ha creado ningún archivo LICENSE**, y es a propósito: la licencia la
-elige el titular del código, no quien lo escribe por encargo.
+**Decidida en la Fase 13.** El archivo `LICENSE` está en la raíz con el texto
+íntegro de la MIT, a nombre de Javier Martínez y con fecha 2026.
 
-Mientras no haya archivo LICENSE, en la mayoría de jurisdicciones el código está
-bajo **todos los derechos reservados** por defecto. Un repositorio público sin
-licencia se puede leer y evaluar, pero nadie puede reutilizarlo legalmente. Para
-una entrega académica eso puede ser exactamente lo que se quiere.
+Es la opción habitual en una entrega académica: permisiva, de una página, y
+permite a cualquiera leer, citar y reutilizar el código conservando la autoría.
+Frente a Apache 2.0 —también permisiva, pero con concesión expresa de patentes y
+obligación de declarar modificaciones— pesó que este proyecto no tiene patentes
+que conceder y que la brevedad importa cuando el lector es un tribunal.
 
-Las opciones, con lo que implica cada una:
+**La advertencia del punto 1 de más abajo se aplicó al escribir el archivo:** los
+dos últimos párrafos del `LICENSE`, en inglés y en español, dicen expresamente
+que la licencia cubre el código fuente y no la marca, el logotipo, las
+fotografías ni los textos del negocio, y remiten a `NOTICE`. Sin eso, quien lea
+"MIT" asumiría que cubre el repositorio entero.
+
+Las opciones que se valoraron, con lo que implica cada una:
 
 | Opción | Qué permite | Cuándo tiene sentido |
 |---|---|---|
-| **Sin LICENSE** (situación actual) | Leer y evaluar. Nada más | Entrega académica de un proyecto con un cliente real detrás. Es la opción por defecto y la más conservadora |
-| **MIT** | Todo, incluido uso comercial, con solo conservar el aviso de copyright | Se quiere que el código sirva de portfolio reutilizable |
+| **Sin LICENSE** | Leer y evaluar. Nada más | Entrega académica de un proyecto con un cliente real detrás. Es la opción por defecto y la más conservadora |
+| **MIT** ← *elegida* | Todo, incluido uso comercial, con solo conservar el aviso de copyright | Se quiere que el código sirva de portfolio reutilizable |
 | **Apache 2.0** | Como MIT, más concesión expresa de patentes y obligación de señalar cambios | Igual que MIT pero con más protección para el autor |
 | **AGPL 3.0** | Uso libre, pero quien lo despliegue como servicio debe publicar su código | Se quiere evitar que alguien monte un SaaS cerrado con esto |
 | **Propietaria** | Lo que diga el texto | Si el cliente considera el CRM parte de su ventaja competitiva |
@@ -256,8 +263,12 @@ Tres cosas que conviene tener presentes al decidir:
 3. **Añadir una licencia es fácil; retirarla, no.** Quien haya clonado el
    repositorio conserva los derechos que la licencia le dio en ese momento.
 
-Cuando Javier decida: crear `LICENSE` en la raíz con el texto íntegro,
-referenciarlo en README §Licencia y añadir un párrafo remitiendo a `NOTICE`.
+Hecho: `LICENSE` creado, referenciado en README §Licencia y con el párrafo que
+remite a `NOTICE`. **Queda una comprobación que no es técnica:** el punto 2 de
+esta lista. Si existe contrato con el cliente que ceda la titularidad del
+desarrollo, hay que confirmar que la decisión de licenciar como MIT es de Javier
+y no del cliente. Y el punto 3 sigue vigente: quien clone el repositorio a partir
+de ahora conserva los derechos que la MIT le da, aunque se cambie después.
 
 ---
 

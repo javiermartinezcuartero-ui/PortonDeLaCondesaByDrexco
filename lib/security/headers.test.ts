@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { buildContentSecurityPolicy, isCspEnforced, securityHeaders, supabaseHost } from "@/lib/security/headers"
+import { CANONICAL_SITE_ORIGIN, isSiteIndexable } from "@/lib/seo/indexing"
 
 const originalSupabase = process.env.SUPABASE_URL
 const originalEnforce = process.env.CSP_ENFORCE
@@ -125,5 +127,50 @@ describe("securityHeaders", () => {
     const serialized = JSON.stringify(securityHeaders())
     expect(serialized).not.toContain("SG.no-debe-aparecer")
     delete process.env.SENDGRID_API_KEY
+  })
+})
+
+describe("X-Robots-Tag", () => {
+  function robotsTag(options?: { indexable?: boolean }): string | undefined {
+    return new Map(securityHeaders(options).map((header) => [header.key, header.value])).get("X-Robots-Tag")
+  }
+
+  it("excluye de los buscadores un despliegue que no es el sitio oficial", () => {
+    // Es el mecanismo que de verdad mantiene la demo fuera de los resultados, y
+    // se aplica a todas las respuestas: también a las imágenes y a cualquier
+    // archivo, que una etiqueta `<meta>` no alcanza.
+    expect(robotsTag({ indexable: false })).toBe("noindex, nofollow")
+  })
+
+  it("no la emite en el sitio oficial", () => {
+    expect(robotsTag({ indexable: true })).toBeUndefined()
+  })
+
+  it("excluye por defecto cuando no se le dice nada", () => {
+    // El lado seguro: un sitio de más fuera de los buscadores es un problema
+    // menor que un duplicado compitiendo contra el dominio del cliente.
+    expect(robotsTag()).toBe("noindex, nofollow")
+    expect(robotsTag({})).toBe("noindex, nofollow")
+  })
+
+  it("la decisión sale del dominio servido", () => {
+    // La regla completa vive en lib/seo/indexing.ts y tiene sus propias pruebas;
+    // aquí se comprueba que las dos piezas encajan.
+    expect(robotsTag({ indexable: isSiteIndexable(CANONICAL_SITE_ORIGIN) })).toBeUndefined()
+    expect(robotsTag({ indexable: isSiteIndexable("https://elportondelacondesa.solucionesbonicas.com") })).toBe(
+      "noindex, nofollow"
+    )
+  })
+
+  it("next.config.mjs pasa el valor real, no el de por defecto", () => {
+    // Sin esta prueba, el fallo sería mudo: si alguien quita el argumento de
+    // `securityHeaders()` en la configuración, todo sigue verde y el sitio
+    // oficial deja de indexarse sin que nada avise. `headers.ts` no puede
+    // importar `indexing.ts` por sí mismo —rompe el build—, así que este
+    // acoplamiento solo existe en next.config.mjs y solo se puede fijar leyéndolo.
+    const config = readFileSync("next.config.mjs", "utf8")
+
+    expect(config).toContain("lib/seo/indexing.ts")
+    expect(config).toContain("securityHeaders({ indexable: isSiteIndexable() })")
   })
 })

@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it } from "vitest"
 import robots from "@/app/robots"
+import { CANONICAL_SITE_ORIGIN } from "@/lib/seo/indexing"
 
 /**
  * `robots.txt` es una de las pocas afirmaciones del proyecto que un evaluador
@@ -44,9 +45,43 @@ describe("robots.txt", () => {
     expect(rules().allow).toBe("/")
   })
 
-  it("declara el sitemap con URL absoluta", () => {
+  it("nunca bloquea el sitio entero", () => {
+    // Ni siquiera en el despliegue de demostración, que está excluido de los
+    // buscadores: la exclusión se hace con `X-Robots-Tag: noindex`, y un
+    // `Disallow: /` impediría al rastreador leerla. Ver el comentario final de
+    // `app/robots.ts`.
+    expect(disallowList()).not.toContain("/")
+    expect(rules().allow).toBe("/")
+  })
+})
+
+describe("el sitemap solo se declara en el sitio oficial", () => {
+  const original = process.env.NEXT_PUBLIC_SITE_URL
+
+  afterEach(() => {
+    if (original === undefined) delete process.env.NEXT_PUBLIC_SITE_URL
+    else process.env.NEXT_PUBLIC_SITE_URL = original
+  })
+
+  it("lo declara con URL absoluta cuando se sirve el dominio del negocio", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = CANONICAL_SITE_ORIGIN
+
     const { sitemap } = robots()
     expect(typeof sitemap).toBe("string")
     expect(sitemap).toMatch(/^https?:\/\/.+\/sitemap\.xml$/)
+  })
+
+  it("no lo declara en el subdominio de demostración", () => {
+    // Un sitemap es una petición explícita de indexación; este despliegue pide
+    // justo lo contrario.
+    process.env.NEXT_PUBLIC_SITE_URL = "https://elportondelacondesa.solucionesbonicas.com"
+
+    expect(robots().sitemap).toBeUndefined()
+  })
+
+  it("tampoco lo declara si la variable falta", () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL
+
+    expect(robots().sitemap).toBeUndefined()
   })
 })

@@ -193,7 +193,7 @@ Alguien pide su copia de datos: ADMIN la descarga en JSON desde la ficha del con
 | Publicación del código y despliegue | **Implementado** (Fase 13) — §30, §36 |
 | **Despliegue en producción** | **Desplegado** (Fase 13) en https://elportondelacondesa.solucionesbonicas.com — §30 |
 | **Revisión jurídica de los textos legales** | `PENDIENTE` — la base jurídica y el plazo de retención los tiene que fijar un profesional. §26 |
-| **Licencia del código** | `PENDIENTE` — decisión del titular. §34 |
+| Licencia del código | **MIT** (Fase 13) — `LICENSE`, §34 |
 
 ---
 
@@ -1111,8 +1111,11 @@ Lo que está hecho, y lo que falta. Las dos listas importan.
 
 ### Implementado
 
+- **Solo se indexa el sitio oficial.** `lib/seo/indexing.ts` responde a una única pregunta —¿el origen desde el que se sirve esto es el dominio del negocio?— y de ella cuelgan las tres señales: el `X-Robots-Tag: noindex, nofollow` que se emite en todas las respuestas cuando no lo es, el sitemap, que solo se genera y solo se declara en `robots.txt` cuando sí lo es, y el valor por defecto, que es **no indexar**. Así el subdominio de demostración, las previews de Vercel y el desarrollo local quedan fuera de los buscadores sin que nadie tenga que acordarse de configurar nada, y el sitio oficial se indexa en cuanto `NEXT_PUBLIC_SITE_URL` es su dominio. Motivo y coste en §32.
+
+  **La exclusión se hace con la cabecera, no con un `Disallow: /`**, y la diferencia importa: un rastreador que tiene prohibido el acceso tampoco puede leer la orden de no indexar, y Google puede acabar listando la URL a secas —sin título ni descripción— si alguien la enlaza desde fuera. Para desaparecer de los resultados hay que **dejar rastrear y decir que no se indexe**, que es lo contrario de lo que sugiere la intuición. Es el mismo razonamiento que ya gobernaba las bibliotecas VIP, aplicado al sitio entero.
 - **Metadatos por ruta.** Título, descripción, canonical y Open Graph en cada página, con `generateMetadata` donde el contenido es dinámico.
-- **`robots.txt`** (`app/robots.ts`, con pruebas): permite el sitio, **prohíbe `/admin` y `/api`**, y declara el sitemap con URL absoluta.
+- **`robots.txt`** (`app/robots.ts`, con pruebas): permite el sitio, **prohíbe `/admin` y `/api`**, y declara el sitemap con URL absoluta cuando hay sitemap que declarar.
 - **`sitemap.xml`** (`app/sitemap.ts`): solo la home. **No incluye las bibliotecas VIP ni ningún slug de ficha**, y eso es deliberado por dos razones: un buscador solo vería el formulario del gate, y publicar los slugs revelaría qué fichas existen sin que nadie haya dejado su correo.
 
   **Tampoco las tres páginas legales, y esto se corrigió en la auditoría final:** estaban en el sitemap *y* emitían `robots: { index: false }`. Un sitemap es una petición explícita de indexación y el `noindex` es la orden contraria, así que Search Console habría marcado como error de cobertura tres de las cuatro URL enviadas desde el primer rastreo. Se alineó el sitemap con el `noindex` —y no al contrario— porque es la opción que no cambia qué se indexa. Hay una prueba que lee el metadata real de cada página y falla si alguien vuelve a poner las dos señales en contra.
@@ -1128,7 +1131,7 @@ Lo que está hecho, y lo que falta. Las dos listas importan.
 
 ### Pendiente
 
-Métricas reales de posicionamiento y Core Web Vitals: necesitan el sitio en producción con dominio propio (§29, §32).
+Métricas reales de posicionamiento: no las habrá mientras el despliegue esté excluido de los buscadores a propósito, y esa exclusión es deliberada (§32). Core Web Vitals sí se pueden medir ya sobre el despliegue actual; no se ha hecho (§29).
 
 ---
 
@@ -1157,7 +1160,7 @@ Métricas reales de posicionamiento y Core Web Vitals: necesitan el sitio en pro
 
 ## 30. Despliegue en Vercel
 
-**Desplegado** en https://elportondelacondesa.solucionesbonicas.com, un subdominio del sitio de servicios del autor. No es el dominio del negocio: `elportondelacondesa.com` sigue sirviendo el WordPress original, y esta aplicación convive con él en lugar de sustituirlo. Esa convivencia tiene una consecuencia de indexación que está sin resolver y se explica en §32.
+**Desplegado** en https://elportondelacondesa.solucionesbonicas.com, un subdominio del sitio de servicios del autor. No es el dominio del negocio: `elportondelacondesa.com` sigue sirviendo el WordPress original, y esta aplicación convive con él en lugar de sustituirlo. Por eso **este despliegue está excluido de los buscadores**; el mecanismo y el motivo, en §28.
 
 La base de datos es el proyecto de Supabase descrito en §19, con las nueve migraciones aplicadas (`prisma migrate status` → *Database schema is up to date*).
 
@@ -1244,18 +1247,27 @@ Ordenadas por lo que importa. Cada una con su motivo.
 - **Sin escucha con lector de pantalla real y sin auditoría formal WCAG.** Se prueban atributos, nombres de landmarks y movimiento del foco en jsdom, que no es lo mismo que oír cómo se anuncia. El enlace de salto y `prefers-reduced-motion` sí están, desde la auditoría final. Detalle y motivo en §27.
 - **El menú móvil no gestiona el foco al abrirse ni se cierra con Escape.**
 
-### Indexación: la aplicación se sirve en un dominio y declara otro
+### Indexación: por qué este despliegue no sale en Google
 
-Sin resolver, y conviene entenderlo antes de tocarlo. La aplicación vive en `elportondelacondesa.solucionesbonicas.com`, pero la base de las URL canónicas, del `sitemap.xml` y del JSON-LD sale de `brand.website` (`data/site-content.ts`), que vale `https://elportondelacondesa.com` — el WordPress del negocio, que sigue en pie. El resultado, comprobado sobre el despliegue: el sitemap publicado en este subdominio enumera URL de otro dominio.
+No es una limitación pendiente, es una decisión, pero conviene entenderla antes
+de tocarla. La aplicación vive en `elportondelacondesa.solucionesbonicas.com` y
+el negocio sigue teniendo su WordPress en `elportondelacondesa.com`. Publicar el
+mismo contenido en los dos sitios habría enfrentado al proyecto contra su propio
+cliente en los resultados de búsqueda, así que **solo se indexa el despliegue
+servido desde el dominio oficial** (§28). El día que esta aplicación sustituya al
+WordPress y `NEXT_PUBLIC_SITE_URL` pase a ser ese dominio, la indexación se
+activa sola.
 
-Eso tiene dos efectos. Search Console rechaza un sitemap cuyas URL están fuera del dominio que lo sirve, así que hoy ese sitemap no sirve para nada. Y si algún buscador llegase a indexar el subdominio, competiría con el sitio real del cliente con contenido muy parecido.
+Lo que había antes era el peor de los mundos y se corrigió en la Fase 13: el
+subdominio publicaba un `sitemap.xml` con las URL del *otro* dominio. Search
+Console rechaza un sitemap cuyas URL están fuera del dominio que lo sirve, así
+que no servía para nada; y si algún buscador lo hubiera seguido, habría
+encontrado dos sitios casi idénticos.
 
-No se ha cambiado por iniciativa propia porque las dos salidas razonables llevan a sitios distintos y la elección es del titular, no técnica:
-
-1. **Mientras esto sea una demostración académica**, lo correcto es que el subdominio no se indexe en absoluto: `noindex` global y sin sitemap. Es lo que protege el posicionamiento del negocio.
-2. **Cuando la aplicación sustituya al WordPress**, la base debe pasar a ser el origen real desde el que se sirve —`NEXT_PUBLIC_SITE_URL`, con `brand.website` como valor por defecto—, y entonces sí publicar el sitemap.
-
-Lo que **no** hay que hacer es dejarlo como está: es la única combinación que no sirve para ninguno de los dos objetivos.
+**El coste real de la decisión**, que es lo que hay que saber: no se pueden medir
+posicionamiento ni impresiones sobre este despliegue, porque no lo hay. Para el
+tribunal es indiferente —nadie necesita que una demo esté en Google para
+evaluarla— y para el negocio es exactamente lo que interesa.
 
 ### Escala: dos límites conocidos, con su umbral
 
@@ -1326,11 +1338,13 @@ Los dos se encontraron en la auditoría final. Ninguno se ha reescrito, y el mot
 
 ## 34. Licencia
 
-**`PENDIENTE` — decisión del titular del código.**
+**MIT**, decidida por el titular en la Fase 13. El texto está en **`LICENSE`**.
 
-No hay archivo `LICENSE` en el repositorio, y es a propósito: la licencia la elige el titular, no quien escribe el código por encargo. Mientras no exista ese archivo, en la mayoría de jurisdicciones el código está bajo **todos los derechos reservados** por defecto: un repositorio público sin licencia se puede leer y evaluar, pero nadie puede reutilizarlo legalmente. Para una entrega académica eso puede ser exactamente lo deseado.
+Es la licencia habitual en una entrega académica: permisiva, de una página, y permite a cualquiera leer, citar y reutilizar el código conservando la autoría. Se eligió frente a Apache-2.0 —también permisiva, pero con concesión expresa de patentes y obligación de declarar modificaciones— porque este proyecto no tiene patentes que conceder y la brevedad importa cuando el lector es un tribunal.
 
-Las opciones, con lo que implica cada una, y las tres cosas que conviene tener presentes al decidir —incluida la posibilidad de que el código no sea del autor para licenciarlo, si hay contrato con el cliente— están desarrolladas en **`docs/publicacion-github.md`** §6.
+**La licencia cubre el código fuente y nada más.** El propio `LICENSE` lo dice en sus dos últimos párrafos, en inglés y en español, para que no haya que leer el `NOTICE` para enterarse: la marca, el nombre, el logotipo, las fotografías y los textos comerciales de El Portón de la Condesa **no son software**, no pertenecen al autor y no se licencian aquí. Ver §35.
+
+Queda una comprobación que no es técnica y sigue siendo del titular: si existe contrato con el cliente, confirmar que la titularidad del código permite licenciarlo así. Desarrollado en **`docs/publicacion-github.md`** §6.
 
 **Lo que sí está decidido, y no depende de esa elección:** ninguna licencia de software que se aplique al código cubre el contenido del negocio. Ver §35.
 
@@ -2042,9 +2056,19 @@ Las Fases 10 y 11 prepararon el despliegue y la publicación con el mandato expr
 
 **Comprobación previa a publicar**, porque un repositorio público no se puede despublicar de verdad: el escáner del árbol y el del historial, verdes; `.env` y `.env.e2e` fuera del índice y correctamente ignorados, con solo las dos plantillas sin valores versionadas; y la secuencia completa de validación repetida sobre el estado exacto que se iba a subir.
 
-**Un defecto encontrado al mirar el sitio en vivo, y no corregido a propósito:** la aplicación se sirve en un dominio y declara otro. La base de las URL canónicas, del `sitemap.xml` y del JSON-LD sale de `brand.website`, que vale `https://elportondelacondesa.com` —el WordPress del negocio, que sigue en pie—, de modo que el sitemap publicado en el subdominio enumera URL de un dominio distinto: Search Console lo rechaza, y si algún buscador indexara el subdominio competiría con el sitio real del cliente. No se ha cambiado por iniciativa propia porque las dos salidas razonables —`noindex` global mientras esto sea una demostración académica, o base tomada de `NEXT_PUBLIC_SITE_URL` cuando la aplicación sustituya al WordPress— llevan a sitios distintos y la elección es del titular. Documentado con las dos opciones en §32.
+**Un defecto encontrado al mirar el sitio en vivo: la aplicación se servía en un dominio y declaraba otro.** La base de las URL canónicas, del `sitemap.xml` y del JSON-LD sale de `brand.website`, que vale `https://elportondelacondesa.com` —el WordPress del negocio, que sigue en pie—, de modo que el sitemap publicado en el subdominio enumera URL de un dominio distinto: Search Console lo rechaza, y si algún buscador indexara el subdominio competiría con el sitio real del cliente. Se planteó al titular con las dos salidas razonables —excluir el subdominio de los buscadores mientras sea una demostración, o tomar la base de `NEXT_PUBLIC_SITE_URL` cuando la aplicación sustituya al WordPress— y **eligió la primera**.
 
-**Archivos modificados:** `README.md`, `docs/checklist-entrega-tfm.md`, `docs/formulario-entrega-tfm.md`, `docs/despliegue-vercel.md`. Además de las URL reales de entrega, se corrigieron tres afirmaciones que la Fase 12 había dejado desfasadas en §32: seguía diciendo que faltaban el enlace de salto y `prefers-reduced-motion` (añadidos en la auditoría), que no había despliegue, y el recuento de defectos de la propia entrada de la Fase 12 (13 donde son 15).
+Implementado en `lib/seo/indexing.ts`, que responde a una única pregunta: ¿el origen desde el que se sirve esto es el dominio del negocio? De ella cuelgan las tres señales —la cabecera `X-Robots-Tag`, el sitemap y su declaración en `robots.txt`—, el valor por defecto es no indexar, y la indexación se activará sola el día que `NEXT_PUBLIC_SITE_URL` sea el dominio oficial. Detalle en §28.
+
+**La exclusión se hace con `X-Robots-Tag: noindex, nofollow` y no con un `Disallow: /`**, aunque lo segundo sea lo que sugiere la intuición: un rastreador que tiene prohibido el acceso tampoco puede leer la orden de no indexar, y Google puede acabar listando la URL a secas si alguien la enlaza. Es el mismo razonamiento que ya gobernaba las bibliotecas VIP, aplicado al sitio entero. Verificado sobre el servidor de producción local: la cabecera viaja en la home **y en las imágenes** —donde una etiqueta `<meta>` no llega—, `robots.txt` no declara sitemap y `sitemap.xml` sale vacío.
+
+Tres detalles del camino, porque los tres eran evitables y ninguno lo pareció de entrada. `lib/security/headers.ts` **no puede importar** `lib/seo/indexing.ts`: `next.config.mjs` lo carga con un `import` dinámico fuera del grafo de módulos de Next, donde no se resuelven ni el alias `@/` ni las rutas sin extensión, y el intento rompió el build con `Cannot find module`. La decisión se resuelve por tanto en `next.config.mjs` y se le pasa a `securityHeaders({ indexable })`, cuyo valor por defecto es *no indexable* —el lado seguro— con una prueba que lee la configuración y falla si alguien quita el argumento, porque ese fallo sería mudo: todo seguiría verde y el sitio oficial dejaría de indexarse. Y el origen canónico se repite como constante en `indexing.ts` en lugar de leerse de `data/site-content.ts`, por la misma limitación, con una prueba que compara las dos y falla si se separan.
+
+**Licencia decidida: MIT** (§34). El archivo `LICENSE` está en la raíz, y sus dos últimos párrafos —en inglés y en español— dicen expresamente que cubre el código fuente y no la marca, el logotipo, las fotografías ni los textos del negocio, que quedan donde estaban: en `NOTICE`. Sin ese párrafo, quien lea "MIT" asumiría que cubre el repositorio entero.
+
+**Archivos creados:** `LICENSE`, `lib/seo/indexing.ts` (+ test).
+
+**Archivos modificados:** `app/robots.ts` (+ test), `app/sitemap.ts`, `lib/security/headers.ts` (+ test), `next.config.mjs`, `lib/vip/metadata.test.ts`, `README.md`, `docs/checklist-entrega-tfm.md`, `docs/formulario-entrega-tfm.md`, `docs/despliegue-vercel.md`, `docs/publicacion-github.md`. Además de las URL reales de entrega, se corrigieron tres afirmaciones que la Fase 12 había dejado desfasadas en §32: seguía diciendo que faltaban el enlace de salto y `prefers-reduced-motion` (añadidos en la auditoría), que no había despliegue, y el recuento de defectos de la propia entrada de la Fase 12 (13 donde son 15).
 
 **Validación (comandos y resultados reales), sobre el estado publicado:**
 
@@ -2052,7 +2076,7 @@ Las Fases 10 y 11 prepararon el despliegue y la publicación con el mandato expr
 |---|---|
 | `npm run lint` | exit 0 |
 | `npm run typecheck` | exit 0 |
-| `npm test` | 58 archivos, **698 pruebas, todas verdes** |
+| `npm test` | 59 archivos, **717 pruebas** (**+19**). Reaparecio el intermitente conocido en `crm.test.ts`; el archivo aislado da 48/48 |
 | `npm run build` | exit 0 — 32 rutas |
 | `npx prisma migrate status` | 9 migraciones, esquema al día |
 | Escáner del árbol | 19 pruebas verdes, 0 hallazgos |
@@ -2063,5 +2087,5 @@ Las Fases 10 y 11 prepararon el despliegue y la publicación con el mandato expr
 
 1. **El repositorio sigue privado.** El código está subido, pero cambiar la visibilidad exige la interfaz de GitHub (Settings → General → Danger Zone): `gh` no está instalado en el equipo. Antes conviene cerrar la licencia (§34) y revisar el `NOTICE` con el cliente.
 2. **Comprobar `BETTER_AUTH_URL` y `NEXT_PUBLIC_SITE_URL` en Vercel.** Deben valer exactamente el origen del subdominio. Si no coinciden, Better Auth responde `403 INVALID_ORIGIN` y el login del panel falla mostrando el mensaje genérico de credenciales incorrectas — el mismo síntoma diagnosticado en la Fase 3.
-3. **Decidir qué hacer con la indexación** entre las dos opciones de §32.
+3. **Definir `NEXT_PUBLIC_SITE_URL` en Vercel** con el origen del subdominio. Hoy no está definida en ningún sitio, y aunque el resultado coincide con lo que se quiere —sin variable no se indexa—, coincide por omisión y no por decisión; además los enlaces de los correos caen a `http://localhost:3000` (§18).
 4. La revisión jurídica, que sigue siendo la condición de los tres veredictos de la Fase 12.

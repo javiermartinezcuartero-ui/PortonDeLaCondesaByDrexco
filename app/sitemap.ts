@@ -1,8 +1,17 @@
 import type { MetadataRoute } from "next"
 import { brand } from "@/data/site-content"
+import { isSiteIndexable } from "@/lib/seo/indexing"
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = brand.website.replace(/\/$/, "")
+
+  // Un despliegue que no es el sitio oficial no publica sitemap. Antes sí lo
+  // hacía, y el resultado era el peor posible: el subdominio de demostración
+  // servía un sitemap con las URL de `elportondelacondesa.com`, un dominio que
+  // esa aplicación no sirve. Search Console rechaza un sitemap cuyas URL están
+  // fuera del dominio que lo publica, así que no valía para nada; y si algún
+  // buscador lo hubiera seguido, habría enfrentado dos sitios casi idénticos.
+  if (!isSiteIndexable()) return []
 
   return [
     { url: `${base}/`, changeFrequency: "weekly", priority: 1 },

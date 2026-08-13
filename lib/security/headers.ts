@@ -82,11 +82,38 @@ export function isCspEnforced(): boolean {
  * hace en todos los dominios que sirve por HTTPS) y ponerla desde la aplicación en
  * desarrollo, sobre `http://localhost`, obligaría al navegador a recordar que ese
  * host es solo-HTTPS y rompería el desarrollo local durante meses.
+ *
+ * `indexable` **se recibe, no se calcula aquí**, y no es una preferencia de
+ * estilo: este módulo lo carga `next.config.mjs` con un `import` dinámico fuera
+ * del grafo de módulos de Next, donde no se resuelve ni el alias `@/` ni una ruta
+ * relativa sin extensión. Intentar importar `lib/seo/indexing` desde aquí rompe
+ * el build con `Cannot find module`. Quien decide es `isSiteIndexable()`, y quien
+ * lo llama es `next.config.mjs`, que sí puede importar los dos con extensión
+ * explícita.
+ *
+ * El valor por defecto es **no indexable**, que es el lado seguro: si alguien
+ * llama a esta función sin argumento, el resultado es un sitio de más excluido de
+ * los buscadores, no un duplicado compitiendo contra el dominio del cliente.
+ * `headers.test.ts` comprueba además que `next.config.mjs` pasa el valor real.
  */
-export function securityHeaders(): Array<{ key: string; value: string }> {
+export function securityHeaders({ indexable = false }: { indexable?: boolean } = {}): Array<{
+  key: string
+  value: string
+}> {
   const csp = buildContentSecurityPolicy()
 
+  const indexing: Array<{ key: string; value: string }> = indexable
+    ? []
+    : // Este despliegue no es el sitio oficial del negocio, así que no debe
+      // aparecer en los buscadores: sería un duplicado compitiendo contra el
+      // dominio del cliente. Se hace con una cabecera y no con un `Disallow: /`
+      // a propósito —el motivo, en el comentario final de `app/robots.ts`— y se
+      // aplica a todas las rutas, incluidas las imágenes y los PDF, que una
+      // etiqueta `<meta>` no puede alcanzar.
+      [{ key: "X-Robots-Tag", value: "noindex, nofollow" }]
+
   return [
+    ...indexing,
     {
       key: isCspEnforced() ? "Content-Security-Policy" : "Content-Security-Policy-Report-Only",
       value: csp,

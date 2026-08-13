@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import sitemap from "@/app/sitemap"
+import { CANONICAL_SITE_ORIGIN } from "@/lib/seo/indexing"
 import { vipLibraryMetadata, vipStoryMetadata } from "@/lib/vip/metadata"
 
 describe("metadata de las bibliotecas VIP", () => {
@@ -48,7 +49,30 @@ describe("metadata de las bibliotecas VIP", () => {
 })
 
 describe("sitemap", () => {
+  // El sitemap solo se genera en el despliegue servido desde el dominio oficial
+  // del negocio (lib/seo/indexing.ts). Estas pruebas son sobre su contenido, así
+  // que se sitúan en ese caso; el otro tiene sus propias pruebas allí y en
+  // app/robots.test.ts.
+  const original = process.env.NEXT_PUBLIC_SITE_URL
+  process.env.NEXT_PUBLIC_SITE_URL = CANONICAL_SITE_ORIGIN
   const urls = sitemap().map((entry) => entry.url)
+  if (original === undefined) delete process.env.NEXT_PUBLIC_SITE_URL
+  else process.env.NEXT_PUBLIC_SITE_URL = original
+
+  it("está vacío en un despliegue que no es el sitio oficial", () => {
+    // El subdominio de demostración publicaba un sitemap con las URL del
+    // dominio del cliente: Search Console lo rechaza y, de seguirse, habría
+    // enfrentado dos sitios casi idénticos. Corregido en la Fase 13.
+    const previo = process.env.NEXT_PUBLIC_SITE_URL
+    process.env.NEXT_PUBLIC_SITE_URL = "https://elportondelacondesa.solucionesbonicas.com"
+
+    try {
+      expect(sitemap()).toEqual([])
+    } finally {
+      if (previo === undefined) delete process.env.NEXT_PUBLIC_SITE_URL
+      else process.env.NEXT_PUBLIC_SITE_URL = previo
+    }
+  })
 
   it("no incluye las bibliotecas VIP", () => {
     expect(urls.some((url) => url.includes("/bodas-reales"))).toBe(false)

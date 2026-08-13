@@ -39,13 +39,19 @@ function supabaseImagePattern() {
  */
 async function headers() {
   const { securityHeaders } = await import("./lib/security/headers.ts")
+  // Decide si este despliegue debe aparecer en los buscadores. Se resuelve aquí
+  // y se le pasa al módulo de cabeceras porque este es el único punto que puede
+  // importar los dos: `headers.ts` no puede importar `indexing.ts` por sí mismo
+  // sin romper el build, ya que en este contexto no se resuelven ni el alias
+  // `@/` ni las rutas sin extensión.
+  const { isSiteIndexable } = await import("./lib/seo/indexing.ts")
 
   return [
     {
       // Todas las rutas, incluidas las de API y los archivos estáticos servidos
       // por Next.
       source: "/:path*",
-      headers: securityHeaders(),
+      headers: securityHeaders({ indexable: isSiteIndexable() }),
     },
   ]
 }

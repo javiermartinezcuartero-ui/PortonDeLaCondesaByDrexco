@@ -234,11 +234,16 @@ body.cookie-banner-visible .floating-action {
   animation: admin-gate-zoom 40s linear infinite;
 }
 
+/* Velo suave, no un apagón. La primera versión iba del 25 % al 70 % de negro y
+ * apagaba la fotografía sin necesidad: el texto de la pantalla va sobre la
+ * tarjeta de vidrio, que ya aporta su propio fondo, no sobre la imagen desnuda.
+ * Lo que sí hace falta es rebajar los bordes, porque el zoom acerca la parte
+ * más saturada y sin esto los extremos vibran. */
 .admin-gate__veil {
   position: fixed;
   inset: 0;
   z-index: 1;
-  background: radial-gradient(ellipse at center, rgb(8 15 30 / 25%) 0%, rgb(8 15 30 / 70%) 100%);
+  background: radial-gradient(ellipse at center, rgb(8 15 30 / 8%) 0%, rgb(8 15 30 / 45%) 100%);
 }
 
 @keyframes admin-gate-zoom {

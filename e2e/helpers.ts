@@ -101,7 +101,13 @@ export async function unlockVipGate(page: Page, email: string, path = "/bodas-re
   await page.getByRole("button", { name: "Acceder" }).click()
 
   const error = uiAlert(page)
-  const gateHeading = page.getByRole("heading", { name: /Accede a la biblioteca/i })
+  // **El gate se reconoce por su campo de email, no por su titular.** Lo era hasta que
+  // el titular del gate pasó a ser el mismo que el de la biblioteca —«Bodas reales
+  // celebradas aquí»—, y entonces esta comprobación dejó de distinguir el gate cerrado
+  // del contenido abierto: el mismo texto aparecía en los dos casos. El campo de email
+  // solo existe mientras el gate está cerrado, así que es la señal que de verdad separa
+  // los dos estados.
+  const gateCampo = page.locator("#vip-email")
 
   // Se espera a que pase una de las dos cosas: el gate se abre (su título
   // desaparece porque el servidor ya validó la sesión) o aparece un mensaje de
@@ -112,7 +118,7 @@ export async function unlockVipGate(page: Page, email: string, path = "/bodas-re
     .poll(
       async () => {
         if (await error.count()) return (await error.innerText()).trim()
-        return (await gateHeading.count()) ? "el gate sigue cerrado" : "acceso concedido"
+        return (await gateCampo.count()) ? "el gate sigue cerrado" : "acceso concedido"
       },
       { timeout: 20_000 }
     )

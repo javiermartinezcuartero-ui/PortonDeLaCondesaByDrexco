@@ -36,7 +36,19 @@ export function HeroSection() {
   return (
     <section
       ref={sectionRef}
-      className="relative min-h-screen flex items-end overflow-hidden"
+      // Por encima de la pantalla completa en escritorio. El recorrido fue: 100vh →
+      // 88vh para acortar la página → 100vh otra vez porque el contenido quedaba
+      // apretado → y ahora 112vh, que es lo que se pidió para darle aire de verdad.
+      // Que sobrepase el alto del viewport es intencionado: la fotografía continúa
+      // por debajo del pliegue e invita a bajar.
+      //
+      // En móvil se queda en pantalla completa. Un 112vh en un teléfono es una
+      // fotografía que no cabe entera de ninguna manera, y obligaría a desplazarse
+      // solo para llegar a leer el titular.
+      //
+      // `hero-brand-text` cambia el texto del casi negro al verde de marca; el motivo
+      // está en app/globals.css.
+      className="hero-brand-text relative min-h-screen md:min-h-[112vh] flex items-end overflow-hidden"
     >
       {/* Background Image with Parallax */}
       <div
@@ -52,18 +64,36 @@ export function HeroSection() {
           // ligeramente el contraste sobre la propia imagen, en vez de añadir una
           // capa oscura encima, para no alterar los dos degradados que vienen
           // después ni el tono cálido del jardín.
-          className="object-cover object-center brightness-[0.72] contrast-[1.12] saturate-[1.05]"
+          className="object-cover object-center brightness-[0.62] contrast-[1.16] saturate-[1.08]"
           sizes="100vw"
           delay={300}
         />
-        {/* Gradient Overlay
-            Estos dos velos crema son la razón real de que la escena se viera
-            lavada: el filtro de la imagen actuaba por debajo de un velo del
-            color de fondo al 40 % y 60 %. Se aligeran —no se quitan— porque son
-            lo que sostiene el contraste del titular, que es texto oscuro sobre
-            fotografía. El borde inferior sigue llegando a crema opaco. */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/32 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-background/48 via-transparent to-transparent" />
+        {/* Los dos velos crema que aclaran los bordes —el «efecto viñeta»—.
+            No se pueden quitar: el titular es texto **oscuro** sobre la
+            fotografía, y son ellos los que le dan base. Lo que se hace es
+            concentrarlos donde el texto está y retirarlos del resto.
+
+            El de abajo mantiene el crema opaco en el borde inferior, que es lo
+            que funde el hero con la sección siguiente, y su parada intermedia
+            baja del 32 % al 26 %. El lateral es el que más se recorta —del 48 %
+            al 22 %, y cortado al 30 % en vez de recorrer todo el ancho—, porque
+            era el que velaba el lado izquierdo de arriba abajo.
+
+            El 26 % de la parada intermedia está medido, no elegido a ojo: con el
+            16 % que se probó primero, la etiqueta de localización —12 px sobre la
+            zona de follaje— caía a 2,37:1 y quedaba por debajo del 4,5:1 de la
+            WCAG. Es el suelo por debajo del cual no se puede bajar mientras el
+            texto del hero sea oscuro. */}
+        {/* En móvil la parada intermedia sube del 26 % al 46 %. No es un ajuste a
+            ojo: en un viewport estrecho y alto el titular queda más arriba en el
+            encuadre, sobre la zona de sombra de la pérgola, y con el 26 % de
+            escritorio el fondo bajo el titular se quedaba en 1,47:1 —las letras se
+            empastaban de verdad—. Con el 46 % sube a 3,4:1, que es el mínimo de la
+            WCAG para texto grande, y el titular no baja de 48 px en ningún tamaño.
+            En escritorio se mantiene el valor original, ya medido contra la etiqueta
+            de localización. */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background from-[6%] via-background/46 via-[58%] md:via-background/26 md:via-[52%] to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-background/22 via-transparent via-[30%] to-transparent" />
       </div>
 
       {/* Architectural Grid Lines */}
@@ -138,12 +168,25 @@ export function HeroSection() {
             >
               <div className="flex items-center gap-4">
                 <div className="w-8 h-px bg-accent shrink-0" />
-                <span className="text-xs tracking-[0.2em] uppercase text-foreground/75">{brand.locationLabel}</span>
+                {/* Con la fotografía más oscura, esta etiqueta —12 px, el texto más
+                    pequeño del hero— se quedaba en 4,35:1 sobre la zona de follaje,
+                    por debajo del 4,5:1 de la WCAG. En vez de volver a subir el velo
+                    de toda la imagen por un elemento, se le da base propia: es el
+                    mismo recurso que ya usa la etiqueta de coordenadas de la esquina
+                    de este hero, así que no introduce un patrón nuevo. */}
+                <span className="text-xs tracking-[0.2em] uppercase text-foreground bg-background/85 backdrop-blur-sm px-2.5 py-1 rounded-sm">
+                  {brand.locationLabel}
+                </span>
               </div>
-              {/* `text-foreground/80` y no `text-muted-foreground`: este párrafo
-                  va sobre la fotografía, y al aligerar los velos el gris de
-                  texto secundario se quedaba corto de contraste. */}
-              <p className="text-base md:text-lg leading-relaxed text-foreground/80 max-w-md">
+              {/* Este párrafo va sobre la fotografía, no sobre una superficie plana, y
+                  eso cambia lo que necesita: color a plena opacidad —el 80 % que tenía
+                  lo dejaba lavado sobre las zonas claras— y peso 500 en lugar de 400,
+                  porque un trazo fino sobre textura fotográfica se rompe aunque el
+                  contraste medido dé de sobra. `text-muted-foreground` queda descartado
+                  por lo mismo: es un gris pensado para fondos lisos. El cuerpo no
+                  cambia, y el halo crema que se probó aquí se retiró junto con el del
+                  titular (ver app/globals.css): emborronaba en lugar de separar. */}
+              <p className="text-base md:text-lg font-medium leading-relaxed text-foreground max-w-md">
                 {heroContent.supportingText}
               </p>
               <div className="pt-2 flex flex-wrap items-center gap-4">

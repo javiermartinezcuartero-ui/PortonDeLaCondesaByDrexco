@@ -84,6 +84,16 @@ export type NavItem = {
   href: string
   /** false cuando el destino es un ancla temporal a la espera de una ruta propia */
   isRoute: boolean
+  /**
+   * Se dibuja como llamada a la acción —botón de color— en vez de como enlace de
+   * texto, con la variante de color que se indique. Cada biblioteca tiene la suya
+   * (`.nav-cta--catering`, `.nav-cta--bodas` en app/globals.css).
+   *
+   * Es una marca explícita y no algo deducido de `isRoute`: que un destino tenga
+   * página propia no significa que deba destacarse, y el día que se añada otra ruta al
+   * menú no debería heredar el tratamiento sin que nadie lo decida.
+   */
+  highlight?: "catering" | "bodas"
 }
 
 // Los anclas (`/#vision`, ...) apuntan a secciones de la home. Se resuelven
@@ -95,9 +105,11 @@ export const navigation: NavItem[] = [
   { label: "Espacios", href: "/#espacios", isRoute: false },
   { label: "Gastronomía", href: "/#gastronomia", isRoute: false },
   { label: "Celebraciones", href: "/#filosofia", isRoute: false },
-  { label: "Catering", href: "/catering", isRoute: true },
-  { label: "Bodas reales", href: "/bodas-reales", isRoute: true },
+  // Contacto va antes de las dos pastillas: así los enlaces de texto quedan juntos y
+  // las dos llamadas a la acción cierran el menú como un bloque.
   { label: "Contacto", href: "/#contacto", isRoute: false },
+  { label: "Catering", href: "/catering", isRoute: true, highlight: "catering" },
+  { label: "Bodas reales", href: "/bodas-reales", isRoute: true, highlight: "bodas" },
 ]
 
 export const headerCta = {
@@ -362,6 +374,12 @@ export const mapContent = {
   title: "Cómo llegar",
   description: `${brand.address.line}, ${brand.address.postalCode} ${brand.address.city}, ${brand.address.province}`,
   ctaLabel: "Abrir en Google Maps",
+  addressLabel: "Dirección",
+  coordinatesLabel: "Coordenadas",
+  routeLabel: "Ver ruta",
+  copyLabel: "Copiar coordenadas",
+  copiedLabel: "Copiado",
+  parkingNote: "Acceso en coche con aparcamiento en la propia finca.",
 }
 
 export const footerContent = {

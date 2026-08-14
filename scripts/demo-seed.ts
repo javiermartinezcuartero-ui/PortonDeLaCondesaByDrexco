@@ -117,7 +117,7 @@ const DEMO_REQUESTS: DemoRequest[] = [
     subject: "Boda íntima entre olivos",
     message: "Somos 90 personas y buscamos algo recogido. Nos gustó mucho el reportaje de la boda de otoño.",
     marketing: false,
-    path: ["CONTACTED"],
+    path: ["PRESENTATION"],
     task: { title: "Enviar dossier de bodas íntimas", dueInDays: 2, priority: "NORMAL" },
   },
   {
@@ -132,7 +132,7 @@ const DEMO_REQUESTS: DemoRequest[] = [
     subject: "Comunión de mi hija en mayo",
     message: "Buscamos comida al mediodía para unas 60 personas, con zona de juegos para los niños.",
     marketing: true,
-    path: ["CONTACTED", "QUALIFIED"],
+    path: ["PRESENTATION"],
     note: "Pide menú infantil y sombra en la terraza. Presupuesto ajustado.",
   },
   {
@@ -150,7 +150,7 @@ const DEMO_REQUESTS: DemoRequest[] = [
     subject: "Convención anual de la empresa",
     message: "Necesitamos proyector, sonido y streaming para la sesión de la mañana, y comida para 120 personas.",
     marketing: false,
-    path: ["CONTACTED", "QUALIFIED", "VISIT_SCHEDULED"],
+    path: ["PRESENTATION"],
     task: { title: "Confirmar necesidades audiovisuales con el proveedor", dueInDays: 5, priority: "HIGH" },
   },
   {
@@ -164,7 +164,7 @@ const DEMO_REQUESTS: DemoRequest[] = [
     subject: "Catering para una inauguración",
     message: "El evento es fuera de la finca, en nuestras oficinas. Queremos algo de picoteo de nivel para 200 personas.",
     marketing: true,
-    path: ["CONTACTED", "QUALIFIED", "VISIT_SCHEDULED", "PROPOSAL_SENT"],
+    path: ["PRESENTATION", "PROPOSAL"],
     note: "Propuesta enviada el mismo día de la visita. Pendiente de respuesta.",
   },
   {
@@ -179,7 +179,7 @@ const DEMO_REQUESTS: DemoRequest[] = [
     subject: "Cincuenta aniversario de mis padres",
     message: "Somos pocos pero queremos que sea especial. Aconsejadnos el espacio.",
     marketing: false,
-    path: ["CONTACTED", "QUALIFIED", "VISIT_SCHEDULED", "PROPOSAL_SENT", "NEGOTIATION"],
+    path: ["PRESENTATION", "PROPOSAL"],
     task: { title: "Llamar para cerrar la fecha", dueInDays: -1, priority: "URGENT" },
   },
   {
@@ -195,7 +195,7 @@ const DEMO_REQUESTS: DemoRequest[] = [
     subject: "Boda de septiembre, 180 invitados",
     message: "Ya hemos visitado la finca y nos ha encantado. Queremos reservar la fecha.",
     marketing: true,
-    path: ["CONTACTED", "QUALIFIED", "VISIT_SCHEDULED", "PROPOSAL_SENT", "NEGOTIATION", "WON"],
+    path: ["PRESENTATION", "PROPOSAL", "CLIENT"],
     note: "Firmado. Se envía calendario de pagos.",
   },
   {
@@ -208,7 +208,7 @@ const DEMO_REQUESTS: DemoRequest[] = [
     subject: "Ceremonia civil en un mes",
     message: "Sé que es con poco margen. ¿Tenéis disponibilidad?",
     marketing: false,
-    path: ["CONTACTED", "LOST"],
+    path: ["PRESENTATION", "LOST"],
     lostReason: "La fecha solicitada ya estaba reservada y no aceptaron ninguna alternativa.",
   },
 ]

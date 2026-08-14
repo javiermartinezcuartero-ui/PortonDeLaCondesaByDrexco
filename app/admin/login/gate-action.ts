@@ -1,6 +1,7 @@
 "use server"
 
-import { headers } from "next/headers"
+import { cookies, headers } from "next/headers"
+import { ADMIN_THEME_COOKIE, ADMIN_THEME_COOKIE_PATH } from "@/lib/admin-theme"
 import { auth } from "@/lib/auth"
 import { matchesAdminGatePassword, readAdminGateConfig } from "@/lib/auth/admin-gate"
 import { logInfo, logWarn } from "@/lib/observability/log"
@@ -70,6 +71,11 @@ export async function enterAdminArea(password: string): Promise<GateResult> {
     logWarn("admin_gate.account_sign_in_failed", {})
     return { ok: false, code: "invalid" }
   }
+
+  // El panel arranca en modo día en cada acceso, así que se descarta la preferencia
+  // que hubiera quedado de una sesión anterior en este navegador. Es lo que pidió el
+  // titular; el modo elegido sigue recordándose mientras se navega por el panel.
+  ;(await cookies()).delete({ name: ADMIN_THEME_COOKIE, path: ADMIN_THEME_COOKIE_PATH })
 
   logInfo("admin_gate.granted", {})
   return { ok: true }

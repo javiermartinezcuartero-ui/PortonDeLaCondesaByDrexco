@@ -11,7 +11,6 @@ import {
   INTERACTION_LABEL,
   LIFECYCLE_LABEL,
   PRIORITY_LABEL,
-  REQUEST_STATUS_LABEL,
   SECTION_LABEL,
   TASK_STATUS_LABEL,
   activityActionLabel,
@@ -25,7 +24,7 @@ import {
   toDateInputValue,
 } from "@/lib/crm/labels"
 import { AddNoteForm, CreateTaskForm, EditNoteForm, EditTaskForm, RecalculateScoreButton, TaskRowActions } from "../../crm-forms"
-import { EmptyState, MetricCard, Pill, SectionTitle } from "../../crm-ui"
+import { EmptyState, MetricCard, Pill, SectionTitle, StatusPill } from "../../crm-ui"
 import { ContactLinks } from "../contact-links"
 
 export const dynamic = "force-dynamic"
@@ -95,9 +94,7 @@ export default async function LeadDetailPage({ params }: { params: Promise<{ id:
                       >
                         {request.subject ?? eventTypeLabel(request.eventType)}
                       </Link>
-                      <Pill tone={request.status === "LOST" ? "alert" : request.status === "WON" ? "accent" : "neutral"}>
-                        {REQUEST_STATUS_LABEL[request.status]}
-                      </Pill>
+                      <StatusPill status={request.status} />
                     </div>
                     <dl className="mt-2 grid gap-x-6 gap-y-1 text-xs text-muted-foreground sm:grid-cols-2">
                       <Field label="Tipo" value={eventTypeLabel(request.eventType)} />

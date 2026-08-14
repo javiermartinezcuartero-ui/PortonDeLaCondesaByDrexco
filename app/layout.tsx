@@ -5,7 +5,9 @@ import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { WhatsAppButton } from '@/components/whatsapp-button'
 import { CookieConsent } from '@/components/cookie-consent'
+import { VipInvitePopup } from '@/components/vip/vip-invite-popup'
 import { PublicChrome } from '@/components/public-chrome'
+import { SitePreloader } from '@/components/site-preloader'
 import { LocaleProvider } from '@/lib/i18n'
 import { LocalBusinessJsonLd } from '@/components/structured-data'
 import { brand } from '@/data/site-content'
@@ -119,6 +121,13 @@ export default function RootLayout({
       <body className={`${dmSans.variable} ${cormorant.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
         <LocalBusinessJsonLd />
         <LocaleProvider>
+          {/* Cortina de carga. Va **antes de todo lo demás** para que su marcado esté
+              en el HTML inicial y la cubra desde el primer pintado; y dentro de
+              PublicChrome, porque el panel no es un escaparate y no necesita una
+              pantalla de marca cada vez que se abre. Ver components/site-preloader.tsx. */}
+          <PublicChrome>
+            <SitePreloader />
+          </PublicChrome>
           {/* Enlace de salto al contenido: el primer elemento tabulable de la
               página. Sin él, quien navega con teclado tiene que recorrer la
               cabecera entera —logo, seis enlaces, CTA, idioma y acceso al panel—
@@ -149,6 +158,11 @@ export default function RootLayout({
                 derecha), no como botón flotante: un único punto de entrada. */}
             <WhatsAppButton />
             <CookieConsent />
+            {/* Aviso de las bibliotecas VIP a los 35 s. Se monta aquí, dentro de
+                PublicChrome, porque tiene que poder aparecer en cualquier página
+                pública; él mismo se calla en las dos bibliotecas, en las páginas
+                legales y para quien ya tiene acceso. */}
+            <VipInvitePopup />
           </PublicChrome>
         </LocaleProvider>
       </body>

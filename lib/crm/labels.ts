@@ -20,6 +20,23 @@ import type {
  */
 
 export const REQUEST_STATUS_LABEL: Record<LeadRequestStatus, string> = {
+  CONTACT: "Contacto",
+  PRESENTATION: "Presentación",
+  PROPOSAL: "Propuesta",
+  CLIENT: "Cliente",
+  LOST: "Perdida",
+}
+
+/**
+ * Vocabulario de las nueve fases anteriores.
+ *
+ * No es código muerto: el historial de cada contacto y la auditoría guardan la
+ * transición tal como se anotó en su día —`{from: "CONTACTED", to: "QUALIFIED"}`—, y
+ * esos registros **no se reescriben** en la migración a cinco fases, porque reescribir
+ * una pista de auditoría es falsearla. Sin este mapa, un movimiento antiguo se
+ * mostraría con el código en crudo.
+ */
+const LEGACY_STATUS_LABEL: Record<string, string> = {
   NEW: "Nueva",
   CONTACTED: "Contactada",
   QUALIFIED: "Cualificada",
@@ -27,22 +44,30 @@ export const REQUEST_STATUS_LABEL: Record<LeadRequestStatus, string> = {
   PROPOSAL_SENT: "Propuesta enviada",
   NEGOTIATION: "En negociación",
   WON: "Ganada",
-  LOST: "Perdida",
   NURTURING: "En seguimiento",
 }
 
 /** Orden de las columnas del tablero: el recorrido comercial de izquierda a derecha. */
 export const PIPELINE_COLUMN_ORDER: LeadRequestStatus[] = [
-  "NEW",
-  "CONTACTED",
-  "QUALIFIED",
-  "VISIT_SCHEDULED",
-  "PROPOSAL_SENT",
-  "NEGOTIATION",
-  "WON",
-  "NURTURING",
+  "CONTACT",
+  "PRESENTATION",
+  "PROPOSAL",
+  "CLIENT",
   "LOST",
 ]
+
+/**
+ * Tono de cada fase, tipo semáforo. Vive aquí y no en el tablero porque ahora lo usan
+ * tres pantallas —tablero, listado de solicitudes y gráficas de los informes— y dos
+ * copias del mismo criterio de color acaban discrepando.
+ */
+export const PIPELINE_TONE: Record<LeadRequestStatus, "gris" | "azul" | "ambar" | "verde" | "rojo"> = {
+  CONTACT: "gris",
+  PRESENTATION: "azul",
+  PROPOSAL: "ambar",
+  CLIENT: "verde",
+  LOST: "rojo",
+}
 
 export const PRIORITY_LABEL: Record<Priority, string> = {
   LOW: "Baja",
@@ -85,6 +110,32 @@ export const INTERACTION_LABEL: Record<InteractionType, string> = {
   CTA_CLICKED: "CTA pulsado",
 }
 
+/**
+ * Agrupación de las reglas de puntuación para la pantalla de Puntuación Visitantes.
+ *
+ * Es presentación, no dominio: `lib/domain/scoring.ts` no necesita saber que los hitos se
+ * enseñan en tres bloques. Vive aquí, con el resto de las etiquetas, y la pantalla trata
+ * como «Otros» cualquier clave que aparezca en la base de datos y no esté listada —así una
+ * regla nueva se ve aunque nadie haya venido a clasificarla, en vez de desaparecer—.
+ */
+export const SCORING_GROUPS: Array<{ title: string; hint: string; keys: string[] }> = [
+  {
+    title: "Lo que cuenta en el formulario",
+    hint: "Datos que la persona entrega al pedir información",
+    keys: ["FORM_SUBMITTED", "PHONE_PROVIDED", "EVENT_DATE_PROVIDED", "GUEST_COUNT_PROVIDED"],
+  },
+  {
+    title: "Lo que hace en las bibliotecas",
+    hint: "Interés demostrado navegando por bodas reales y catering",
+    keys: ["VIP_ACCESS", "CONTENT_VIEWED_3PLUS", "DOSSIER_DOWNLOAD"],
+  },
+  {
+    title: "Lo que pide expresamente",
+    hint: "Señales de intención registradas por el equipo",
+    keys: ["VISIT_REQUESTED"],
+  },
+]
+
 export const SECTION_LABEL = {
   REAL_WEDDING: "Bodas reales",
   CATERING_EVENT: "Catering",
@@ -115,7 +166,7 @@ export function budgetLabel(code: string | null): string | null {
 }
 
 export function requestStatusLabel(code: string): string {
-  return REQUEST_STATUS_LABEL[code as LeadRequestStatus] ?? code
+  return REQUEST_STATUS_LABEL[code as LeadRequestStatus] ?? LEGACY_STATUS_LABEL[code] ?? code
 }
 
 /**

@@ -477,7 +477,13 @@ export async function listContentEntriesForAdmin(filters: ContentListFilters = {
   return { entries, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) }
 }
 
-/** Cuenta por pestaña del listado, en una sola consulta agrupada. */
+/**
+ * Recuento por estado, en una sola consulta agrupada.
+ *
+ * Alimentaba los números de las pestañas del listado; al retirarse las pestañas pasó a la
+ * línea de resumen bajo el título («7 en total · 5 publicadas · …»), que dice lo mismo sin
+ * ocupar una fila de controles.
+ */
 export async function countContentEntriesByStatus(): Promise<Record<ContentStatus | "ALL", number>> {
   const grouped = await prisma.contentEntry.groupBy({ by: ["status"], _count: { _all: true } })
   const counts = { ALL: 0, DRAFT: 0, PUBLISHED: 0, ARCHIVED: 0 }

@@ -16,9 +16,9 @@ export const navigation: NavItem[] = [
   { label: "Spaces", href: "/#espacios", isRoute: false },
   { label: "Gastronomy", href: "/#gastronomia", isRoute: false },
   { label: "Celebrations", href: "/#filosofia", isRoute: false },
-  { label: "Catering", href: "/catering", isRoute: true },
-  { label: "Real weddings", href: "/bodas-reales", isRoute: true },
   { label: "Contact", href: "/#contacto", isRoute: false },
+  { label: "Catering", href: "/catering", isRoute: true, highlight: "catering" },
+  { label: "Real weddings", href: "/bodas-reales", isRoute: true, highlight: "bodas" },
 ]
 
 export const headerCta = {
@@ -211,6 +211,12 @@ export const mapContent = {
   title: "How to get here",
   description: `${brand.address.line}, ${brand.address.postalCode} ${brand.address.city}, ${brand.address.province}`,
   ctaLabel: "Open in Google Maps",
+  addressLabel: "Address",
+  coordinatesLabel: "Coordinates",
+  routeLabel: "Get directions",
+  copyLabel: "Copy coordinates",
+  copiedLabel: "Copied",
+  parkingNote: "Reachable by car, with parking on site.",
 }
 
 export const footerContent = {

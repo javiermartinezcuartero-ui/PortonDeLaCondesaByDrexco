@@ -14,7 +14,6 @@ import { BUDGET_RANGES, NO_SPACE_PREFERENCE } from "@/lib/validation/lead-reques
 import {
   ACTIVITY_LABEL,
   PRIORITY_LABEL,
-  REQUEST_STATUS_LABEL,
   activityActionLabel,
   budgetLabel,
   eventTypeLabel,
@@ -27,7 +26,7 @@ import {
 } from "@/lib/crm/labels"
 import { ArchiveRequestButton, ChangeStatusForm, RequestDetailsForm } from "../../crm-forms"
 import { ContactLinks } from "../../contactos/contact-links"
-import { EmptyState, Pill, SectionTitle } from "../../crm-ui"
+import { EmptyState, Pill, SectionTitle, StatusPill } from "../../crm-ui"
 
 export const dynamic = "force-dynamic"
 
@@ -71,9 +70,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           <h1 className="font-serif text-3xl font-light text-foreground">
             {request.subject ?? eventTypeLabel(request.eventType)}
           </h1>
-          <Pill tone={request.status === "LOST" ? "alert" : request.status === "WON" ? "accent" : "neutral"}>
-            {REQUEST_STATUS_LABEL[request.status]}
-          </Pill>
+          <StatusPill status={request.status} />
           {request.archivedAt && <Pill tone="alert">Archivada</Pill>}
         </div>
         <p className="mt-1 text-sm text-muted-foreground">

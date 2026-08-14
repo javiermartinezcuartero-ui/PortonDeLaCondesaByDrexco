@@ -88,7 +88,7 @@ export function prepareE2eEnvironment(): E2eEnvironment {
   // Ninguna prueba debe intentar enviar correo. Sin transporte, cada intento
   // queda como SKIPPED_CONFIG en NotificationLog, que es justo lo que se quiere
   // comprobar: que guardar un lead no depende del proveedor de email.
-  delete process.env.SENDGRID_API_KEY
+  delete process.env.RESEND_API_KEY
   delete process.env.LEADS_FROM_EMAIL
   delete process.env.SEND_LEAD_ACKNOWLEDGEMENT
 

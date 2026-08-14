@@ -98,7 +98,7 @@ test.describe("CONTENT no accede a datos personales", () => {
     await expect(page.getByRole("link", { name: "Nueva ficha" }).or(page.getByRole("link", { name: /Nueva/ }))).toBeVisible()
 
     // Y su punto de entrada no es un error: /admin le da la bienvenida en vez de
-    // un 404 (el Resumen es de CRM, que no es suyo).
+    // un 404 (Estatus Plataforma es de CRM, que no es suyo).
     const home = await page.goto("/admin")
     expect(home?.status()).toBe(200)
     await expect(page.getByRole("heading", { name: /Bienvenido/ })).toBeVisible()

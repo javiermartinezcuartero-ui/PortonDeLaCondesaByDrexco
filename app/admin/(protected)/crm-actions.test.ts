@@ -83,11 +83,11 @@ describe("acceso al CRM sin sesión", () => {
     const lead = await createLead()
     const request = await createRequest(lead.id)
 
-    const result = await changeRequestStatusAction({ requestId: request.id, nextStatus: "CONTACTED" })
+    const result = await changeRequestStatusAction({ requestId: request.id, nextStatus: "PRESENTATION" })
 
     expect(result.ok).toBe(false)
     const unchanged = await prisma.leadRequest.findUniqueOrThrow({ where: { id: request.id } })
-    expect(unchanged.status).toBe("NEW")
+    expect(unchanged.status).toBe("CONTACT")
   })
 })
 
@@ -108,10 +108,10 @@ describe("acceso al CRM con el rol equivocado", () => {
     const request = await createRequest(lead.id)
     await signInAs("CONTENT")
 
-    const result = await changeRequestStatusAction({ requestId: request.id, nextStatus: "CONTACTED" })
+    const result = await changeRequestStatusAction({ requestId: request.id, nextStatus: "PRESENTATION" })
 
     expect(result.ok).toBe(false)
-    expect((await prisma.leadRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("NEW")
+    expect((await prisma.leadRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("CONTACT")
   })
 
   itDb("CONTENT no puede crear tareas", async () => {
@@ -154,10 +154,10 @@ describe("acceso al CRM con permiso", () => {
     const request = await createRequest(lead.id)
     const actorId = await signInAs("SALES")
 
-    const result = await changeRequestStatusAction({ requestId: request.id, nextStatus: "CONTACTED" })
+    const result = await changeRequestStatusAction({ requestId: request.id, nextStatus: "PRESENTATION" })
 
     expect(result.ok).toBe(true)
-    expect((await prisma.leadRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("CONTACTED")
+    expect((await prisma.leadRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("PRESENTATION")
 
     const audit = await prisma.auditEvent.findFirstOrThrow({
       where: { entityId: request.id, action: "request.status" },
@@ -170,11 +170,11 @@ describe("acceso al CRM con permiso", () => {
     const request = await createRequest(lead.id)
     await signInAs("ADMIN")
 
-    // El desplegable no ofrece WON desde NEW, pero la acción no se fía de eso.
-    const result = await changeRequestStatusAction({ requestId: request.id, nextStatus: "WON" })
+    // El tablero no ofrece Cliente desde Contacto, pero la acción no se fía de eso.
+    const result = await changeRequestStatusAction({ requestId: request.id, nextStatus: "CLIENT" })
 
     expect(result.ok).toBe(false)
-    expect((await prisma.leadRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("NEW")
+    expect((await prisma.leadRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("CONTACT")
   })
 
   itDb("perder sin motivo se rechaza en la acción, no solo en el formulario", async () => {
@@ -186,7 +186,7 @@ describe("acceso al CRM con permiso", () => {
 
     expect(result.ok).toBe(false)
     if (!result.ok) expect(result.errors.join(" ").toLowerCase()).toContain("motivo")
-    expect((await prisma.leadRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("NEW")
+    expect((await prisma.leadRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("CONTACT")
   })
 
   itDb("ADMIN puede cambiar un peso de scoring y queda auditado", async () => {

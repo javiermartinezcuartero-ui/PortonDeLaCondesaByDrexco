@@ -14,7 +14,7 @@ const createdEmails: string[] = []
 let fetchMock: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
-  fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 202 }))
+  fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "id-de-prueba" }), { status: 200 }))
   vi.stubGlobal("fetch", fetchMock)
   vi.spyOn(console, "info").mockImplementation(() => {})
 })
@@ -151,7 +151,7 @@ describe("notifyOverdueTasks", () => {
     await notifyOverdueTasks(new Date(), config({ siteUrl: "https://porton.test" }))
 
     const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body))
-    const html = body.content.find((part: { type: string }) => part.type === "text/html").value
+    const html = body.html as string
     expect(html).toContain("https://porton.test/admin/tareas?vista=vencidas")
     expect(html).not.toContain("token")
   })

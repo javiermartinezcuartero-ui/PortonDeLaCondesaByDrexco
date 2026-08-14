@@ -11,7 +11,7 @@ import { ERROR_CODES, logError, resolveRequestId } from "@/lib/observability/log
  *   Prisma 6.19.3" es un catálogo gratis de vulnerabilidades conocidas para quien
  *   lo lea. Tampoco el commit ni el entorno.
  * - **Ni secretos ni configuración.** No se lista qué variables hay puestas: saber
- *   que SendGrid está configurado ya es información sobre el sistema.
+ *   que el proveedor de correo está configurado ya es información sobre el sistema.
  * - **Ni excepciones internas.** Si la base de datos no responde, la respuesta es un
  *   503 con un código operativo estable. El motivo real va al log del servidor con
  *   su `requestId`, no al cuerpo.

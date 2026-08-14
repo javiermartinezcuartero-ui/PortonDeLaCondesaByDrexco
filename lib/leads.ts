@@ -1,5 +1,6 @@
 import { getAttribution } from "@/lib/attribution"
 import { PRIVACY_POLICY_VERSION } from "@/lib/legal"
+import { NO_SPACE_PREFERENCE, splitFullName } from "@/lib/validation/lead-request"
 import type { LeadRequestFormValues, LeadRequestResponse, SourceFormCode } from "@/lib/validation/lead-request"
 
 /** Endpoint propio que sustituye al envío directo del navegador a Web3Forms. */
@@ -13,6 +14,15 @@ export type SubmitLeadRequestContext = {
   submissionId: string
   /** Milisegundos desde que se pintó el formulario hasta el envío. */
   formElapsedMs: number
+  /**
+   * Asunto con el que se envía la solicitud cuando el formulario no lo trae.
+   *
+   * Lo calcula quien llama y no este módulo porque el asunto derivado es el tipo de
+   * evento **en el idioma de la persona**, y las etiquetas traducidas viven en
+   * `data/site-content*.ts`, que es capa de presentación: importarla desde aquí
+   * invertiría las capas para obtener un texto que la pantalla ya tiene a mano.
+   */
+  fallbackSubject: string
 }
 
 /**
@@ -45,8 +55,24 @@ export async function submitLeadRequest(
 ): Promise<LeadRequestResponse> {
   const attribution = getAttribution()
 
+  const { fullName, ...rest } = values
+
   const body = {
-    ...values,
+    ...rest,
+    // El formulario pide un solo campo de nombre; el endpoint y el CRM siguen
+    // trabajando con nombre y apellidos separados. La traducción entre ambos ocurre
+    // aquí y en ningún otro sitio.
+    ...splitFullName(fullName),
+    // El espacio preferido salió del formulario. Quien no lo pregunta declara «sin
+    // preferencia», que es lo que significa: el endpoint sigue exigiendo un valor
+    // válido y este lo es.
+    preferredSpace: values.preferredSpace || NO_SPACE_PREFERENCE,
+    // El asunto también salió del formulario. Si viene relleno es porque el CTA de
+    // una ficha VIP lo puso («Quiero una boda así»), y ese texto describe la
+    // solicitud mejor que nada que se pueda derivar; si no, se usa el tipo de evento.
+    // El endpoint lo sigue exigiendo, y con razón: el panel lista las solicitudes por
+    // su asunto.
+    subject: values.subject || context.fallbackSubject,
     // El servidor exige una ruta interna; sin `window` (que no debería ocurrir
     // en un formulario) se envía la raíz.
     sourcePage: attribution.path ?? "/",

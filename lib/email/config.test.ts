@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { hasTransport, maskEmail, maskEmails, readEmailConfig } from "@/lib/email/config"
 import { DevelopmentEmailProvider } from "@/lib/email/development"
-import { SendGridEmailProvider } from "@/lib/email/sendgrid"
+import { ResendEmailProvider } from "@/lib/email/resend"
 import { resolveEmailProvider } from "@/lib/email"
 
 const VARS = [
-  "SENDGRID_API_KEY",
+  "RESEND_API_KEY",
   "LEADS_FROM_EMAIL",
   "LEADS_NOTIFICATION_TO",
   "SEND_LEAD_ACKNOWLEDGEMENT",
@@ -90,7 +90,7 @@ describe("readEmailConfig", () => {
   })
 
   it("exige clave y remitente para considerar que hay transporte", () => {
-    process.env.SENDGRID_API_KEY = "SG.clave"
+    process.env.RESEND_API_KEY = "SG.clave"
     expect(hasTransport(readEmailConfig())).toBe(false)
 
     process.env.LEADS_FROM_EMAIL = "avisos@porton.test"
@@ -99,13 +99,13 @@ describe("readEmailConfig", () => {
 })
 
 describe("resolveEmailProvider", () => {
-  it("elige SendGrid cuando hay clave y remitente", () => {
-    process.env.SENDGRID_API_KEY = "SG.clave"
+  it("elige Resend cuando hay clave y remitente", () => {
+    process.env.RESEND_API_KEY = "SG.clave"
     process.env.LEADS_FROM_EMAIL = "avisos@porton.test"
 
     const provider = resolveEmailProvider()
-    expect(provider).toBeInstanceOf(SendGridEmailProvider)
-    expect(provider.name).toBe("sendgrid")
+    expect(provider).toBeInstanceOf(ResendEmailProvider)
+    expect(provider.name).toBe("resend")
   })
 
   it("elige el adaptador de desarrollo cuando falta cualquiera de las dos", () => {
@@ -113,10 +113,10 @@ describe("resolveEmailProvider", () => {
     expect(withoutAnything).toBeInstanceOf(DevelopmentEmailProvider)
     expect(withoutAnything.name).toBe("development")
 
-    process.env.SENDGRID_API_KEY = "SG.clave"
+    process.env.RESEND_API_KEY = "SG.clave"
     expect(resolveEmailProvider()).toBeInstanceOf(DevelopmentEmailProvider)
 
-    delete process.env.SENDGRID_API_KEY
+    delete process.env.RESEND_API_KEY
     process.env.LEADS_FROM_EMAIL = "avisos@porton.test"
     expect(resolveEmailProvider()).toBeInstanceOf(DevelopmentEmailProvider)
   })

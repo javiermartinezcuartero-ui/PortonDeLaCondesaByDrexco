@@ -1,6 +1,11 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { format, isValid, parse, startOfToday } from "date-fns"
+import { enGB, es } from "date-fns/locale"
+import { CalendarDays, Check, Compass, Copy, ExternalLink, MapPin, Navigation } from "lucide-react"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { InstagramIcon } from "@/components/icons/instagram-icon"
 import { FacebookIcon } from "@/components/icons/facebook-icon"
 import { BodasNetIcon } from "@/components/icons/bodas-net-icon"
@@ -30,57 +35,50 @@ import {
   contactContent as contactContentEs,
   mapContent as mapContentEs,
   eventTypeLabels as eventTypeLabelsEs,
-  budgetRangeLabels as budgetRangeLabelsEs,
-  spacesContent,
 } from "@/data/site-content"
 import {
   contactContent as contactContentEn,
   mapContent as mapContentEn,
   eventTypeLabels as eventTypeLabelsEn,
-  budgetRangeLabels as budgetRangeLabelsEn,
 } from "@/data/site-content.en"
 import { useLocale } from "@/lib/i18n"
 import { PRIVACY_POLICY_PATH } from "@/lib/legal"
 import { newSubmissionId, submitLeadRequest } from "@/lib/leads"
 import {
-  BUDGET_RANGES,
   EVENT_TYPES,
-  NO_SPACE_PREFERENCE,
   isCorporateEventType,
   isEventTypeCode,
   leadRequestFormSchema,
+  type EventTypeCode,
   type LeadRequestErrorCode,
   type LeadRequestFormValues,
 } from "@/lib/validation/lead-request"
 
 const formCopy = {
   es: {
-    firstName: "Nombre", firstNamePh: "Tu nombre",
-    lastName: "Apellidos", lastNamePh: "Tus apellidos",
-    email: "Email", emailPh: "tu@email.com",
-    phone: "Teléfono (opcional)", phonePh: "+34 ___ ___ ___",
-    eventType: "Tipo de evento", eventTypePh: "Selecciona una opción",
-    eventDate: "Fecha prevista (opcional)",
-    guestCount: "Invitados aproximados (opcional)", guestCountPh: "Ej. 120",
+    fullName: "Nombre y apellidos", fullNamePh: "Nombre y Apellidos",
+    email: "Email", emailPh: "Email",
+    phone: "Teléfono (opcional)", phonePh: "Teléfono (opcional)",
+    eventType: "Tipo de evento", eventTypePh: "Tipo de evento",
+    eventDate: "Fecha prevista (opcional)", eventDatePh: "Fecha prevista",
+    guestCount: "Invitados aproximados (opcional)", guestCountPh: "Invitados aproximados (opcional)",
     budgetRange: "Presupuesto orientativo (opcional)", budgetRangePh: "Selecciona un tramo",
     preferredSpace: "Espacio que te interesa", preferredSpacePh: "Selecciona un espacio",
     noSpacePreference: "Sin preferencia, aconsejadme",
-    company: "Empresa u organización", companyPh: "Nombre de la empresa",
-    jobTitle: "Cargo (opcional)", jobTitlePh: "Tu puesto",
-    audiovisualNeeds: "Necesidades audiovisuales (opcional)", audiovisualNeedsPh: "Proyector, sonido, streaming…",
+    company: "Empresa u organización", companyPh: "Empresa u organización",
+    jobTitle: "Cargo (opcional)", jobTitlePh: "Cargo (opcional)",
+    audiovisualNeeds: "Necesidades audiovisuales (opcional)", audiovisualNeedsPh: "Necesidades audiovisuales (opcional)",
     corporateNote: "Al ser un evento de empresa, estos datos nos ayudan a preparar una propuesta ajustada.",
-    subject: "Asunto", subjectPh: "Ej. Boda en septiembre para 120 invitados",
-    message: "Mensaje", messagePh: "Cuéntanos más sobre tu celebración...",
+    message: "Mensaje", messagePh: "Mensaje",
     privacyPrefix: "He leído y acepto la", privacyLink: "política de privacidad", privacySuffix: "*",
     marketingLabel: "Acepto recibir comunicaciones comerciales (opcional)",
-    submit: "Solicitar información", submitting: "Enviando…",
+    submit: "Enviar mensaje", submitting: "Enviando…",
     successTitle: "Solicitud recibida",
     successBody: "Gracias por escribirnos. Hemos registrado tu solicitud y nos pondremos en contacto contigo para hablar de tu celebración.",
     finca: "Finca", emailLabel: "Email", phoneLabel: "Teléfono",
     subjectFromStory: { WEDDING: "Quiero una boda así", EXTERNAL_CATERING: "Quiero un catering así" },
     fieldErrors: {
-      firstName: "Introduce tu nombre",
-      lastName: "Introduce tus apellidos",
+      fullName: "Escribe tu nombre y tus apellidos",
       email: "Introduce un email válido",
       phone: "Introduce un teléfono válido",
       eventType: "Selecciona el tipo de evento",
@@ -106,32 +104,29 @@ const formCopy = {
     } satisfies Record<LeadRequestErrorCode, string>,
   },
   en: {
-    firstName: "First name", firstNamePh: "Your first name",
-    lastName: "Last name", lastNamePh: "Your last name",
-    email: "Email", emailPh: "you@email.com",
-    phone: "Phone (optional)", phonePh: "+34 ___ ___ ___",
-    eventType: "Event type", eventTypePh: "Select an option",
-    eventDate: "Planned date (optional)",
-    guestCount: "Approximate guests (optional)", guestCountPh: "E.g. 120",
+    fullName: "Full name", fullNamePh: "Full name",
+    email: "Email", emailPh: "Email",
+    phone: "Phone (optional)", phonePh: "Phone (optional)",
+    eventType: "Event type", eventTypePh: "Event type",
+    eventDate: "Planned date (optional)", eventDatePh: "Planned date",
+    guestCount: "Approximate guests (optional)", guestCountPh: "Approximate guests (optional)",
     budgetRange: "Indicative budget (optional)", budgetRangePh: "Select a range",
     preferredSpace: "Space you're interested in", preferredSpacePh: "Select a space",
     noSpacePreference: "No preference, please advise",
-    company: "Company or organisation", companyPh: "Company name",
-    jobTitle: "Job title (optional)", jobTitlePh: "Your role",
-    audiovisualNeeds: "Audiovisual needs (optional)", audiovisualNeedsPh: "Projector, sound, streaming…",
+    company: "Company or organisation", companyPh: "Company or organisation",
+    jobTitle: "Job title (optional)", jobTitlePh: "Job title (optional)",
+    audiovisualNeeds: "Audiovisual needs (optional)", audiovisualNeedsPh: "Audiovisual needs (optional)",
     corporateNote: "As this is a corporate event, these details help us prepare a tailored proposal.",
-    subject: "Subject", subjectPh: "E.g. September wedding for 120 guests",
-    message: "Message", messagePh: "Tell us more about your celebration...",
+    message: "Message", messagePh: "Message",
     privacyPrefix: "I have read and accept the", privacyLink: "privacy policy", privacySuffix: "*",
     marketingLabel: "I agree to receive marketing communications (optional)",
-    submit: "Request information", submitting: "Sending…",
+    submit: "Send message", submitting: "Sending…",
     successTitle: "Request received",
     successBody: "Thank you for writing to us. Your request has been registered and we'll get in touch to talk about your celebration.",
     finca: "Venue", emailLabel: "Email", phoneLabel: "Phone",
     subjectFromStory: { WEDDING: "I want a wedding like this", EXTERNAL_CATERING: "I want catering like this" },
     fieldErrors: {
-      firstName: "Please enter your first name",
-      lastName: "Please enter your last name",
+      fullName: "Please enter your first name and surname",
       email: "Please enter a valid email",
       phone: "Please enter a valid phone number",
       eventType: "Please select the event type",
@@ -158,20 +153,69 @@ const formCopy = {
   },
 } as const
 
-const underlineFieldClass =
-  // `placeholder:text-muted-foreground` a opacidad plena, no `/50`.
-  //
-  // El token ya está medido para cumplir contraste (~6,9:1 sobre el fondo); al
-  // rebajarlo al 50 % quedaba en torno a 2:1, por debajo del 4,5:1 que exige WCAG
-  // para texto normal. Y aquí importa más que en un placeholder decorativo, porque
-  // estos llevan información que no está en la etiqueta: el formato del teléfono,
-  // el orden de magnitud de los invitados y un ejemplo de asunto. Con brillo bajo o
-  // a la luz del sol no se leían, en el único formulario de conversión del sitio.
-  "rounded-none border-0 border-b border-border bg-transparent px-0 py-3 h-auto shadow-none text-foreground placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:border-foreground"
+// Campos con relleno y esquina redondeada, en lugar de la línea inferior que
+// tenían antes. Es el mismo lenguaje que la pantalla de acceso y el panel —caja
+// definida, fondo propio, foco con anillo—, traducido a la paleta clara del sitio:
+// el relleno es la piedra cálida de la marca, no el vidrio azul del panel.
+//
+// El cambio no es solo estético. Un campo subrayado no dice dónde acaba la zona
+// pulsable, y en móvil eso se nota: se toca al lado de la línea y no pasa nada. Con
+// caja, el objetivo es todo el rectángulo.
+//
+// `placeholder:text-muted-foreground` a opacidad plena, no `/50`. El token ya está
+// medido para cumplir contraste (~6,9:1 sobre el fondo); al rebajarlo al 50 %
+// quedaba en torno a 2:1, por debajo del 4,5:1 que exige WCAG para texto normal. Y
+// aquí importa más que en un placeholder decorativo, porque estos llevan
+// información que no está en la etiqueta: el formato del teléfono, el orden de
+// magnitud de los invitados y un ejemplo de asunto. Con brillo bajo o a la luz del
+// sol no se leían, en el único formulario de conversión del sitio.
+/**
+ * Etiquetas de campo sin rótulo visible, a petición del titular: el formulario tenía
+ * un título en mayúsculas sobre cada campo y eso es la mitad de su altura.
+ *
+ * `sr-only` y no borrarlas: la etiqueta sigue en el HTML, unida a su campo, así que
+ * un lector de pantalla anuncia «Email, campo de texto» igual que antes y el `for`
+ * sigue llevando el foco al campo al pulsar. Borrarlas habría dejado diez campos sin
+ * nombre accesible, que es una barrera de verdad, no una decisión estética.
+ *
+ * Lo que sí se pierde es la pista visual cuando el campo ya tiene texto escrito: el
+ * marcador de posición desaparece al escribir. Se acepta porque los campos son
+ * reconocibles por su contenido, pero conviene saberlo.
+ */
+const labelClass = "sr-only"
+
+/**
+ * El formulario guarda la fecha como `yyyy-MM-dd` —lo que valida el esquema— y la
+ * muestra escrita. Las dos conversiones viven aquí para que el JSX no las repita.
+ *
+ * `parse` con formato explícito y no `new Date(cadena)`: el constructor interpreta
+ * `2026-09-12` como UTC y, según la zona horaria, devuelve el día anterior. Es el
+ * error clásico de las fechas sin hora, y en un formulario de bodas significaría
+ * mostrar un día distinto del que se eligió.
+ */
+function parseEventDate(value: string | undefined): Date | undefined {
+  if (!value) return undefined
+  const parsed = parse(value, "yyyy-MM-dd", new Date())
+  return isValid(parsed) ? parsed : undefined
+}
+
+function formatISO(date: Date): string {
+  return format(date, "yyyy-MM-dd")
+}
+
+function formatEventDate(value: string, locale: "es" | "en"): string {
+  const parsed = parseEventDate(value)
+  if (!parsed) return value
+  return locale === "en"
+    ? format(parsed, "d MMMM yyyy", { locale: enGB })
+    : format(parsed, "d 'de' MMMM 'de' yyyy", { locale: es })
+}
+
+const softFieldClass =
+  "h-12 rounded-xl border border-border/80 bg-secondary/40 px-4 shadow-none text-foreground placeholder:text-muted-foreground transition-colors duration-300 hover:bg-secondary/60 focus-visible:bg-background focus-visible:border-foreground/40 focus-visible:ring-2 focus-visible:ring-ring/25"
 
 const EMPTY_VALUES: LeadRequestFormValues = {
-  firstName: "",
-  lastName: "",
+  fullName: "",
   email: "",
   phone: "",
   eventType: "",
@@ -221,7 +265,6 @@ export function ContactSection() {
   const contactContent = locale === "en" ? contactContentEn : contactContentEs
   const mapContent = locale === "en" ? mapContentEn : mapContentEs
   const eventTypeLabels = locale === "en" ? eventTypeLabelsEn : eventTypeLabelsEs
-  const budgetRangeLabels = locale === "en" ? budgetRangeLabelsEn : budgetRangeLabelsEs
   const t = formCopy[locale]
 
   const [isVisible, setIsVisible] = useState(false)
@@ -229,8 +272,11 @@ export function ContactSection() {
   const [errorCode, setErrorCode] = useState<LeadRequestErrorCode | null>(null)
   /** Cambia en cada respuesta del servidor, para mover el foco también cuando el resultado se repite. */
   const [resultNonce, setResultNonce] = useState(0)
+  /** Acuse de recibo del botón de copiar coordenadas; vuelve solo a los 2 s. */
+  const [coordinatesCopied, setCoordinatesCopied] = useState(false)
 
   const sectionRef = useRef<HTMLElement>(null)
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const resultRef = useRef<HTMLDivElement>(null)
   /** Momento en que el formulario quedó listo, para el tiempo mínimo de envío. */
   const readyAtRef = useRef<number>(0)
@@ -284,6 +330,15 @@ export function ContactSection() {
     return () => observer.disconnect()
   }, [])
 
+  // El temporizador del acuse de «Copiado» tiene que morir con el componente: si
+  // se desmonta antes de los 2 s, el `setState` caería sobre un componente que ya
+  // no existe.
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+    }
+  }, [])
+
   /**
    * Precarga desde un CTA de ficha VIP ("Quiero una boda así"): el enlace llega
    * como `/?ficha=<id>&tipo=<CÓDIGO>#contacto`. Se lee de `window` en vez de con
@@ -332,6 +387,10 @@ export function ContactSection() {
       sourceContentId,
       submissionId: submissionIdRef.current,
       formElapsedMs: readyAtRef.current ? Date.now() - readyAtRef.current : 0,
+      // Asunto de reserva, ya en el idioma de la persona: el tipo de evento elegido.
+      // El desplegable es obligatorio, así que siempre hay etiqueta; el respaldo
+      // cubre únicamente el caso imposible de un código sin traducir.
+      fallbackSubject: eventTypeLabels[values.eventType as EventTypeCode] ?? t.eventType,
     })
 
     if (result.ok) {
@@ -360,13 +419,34 @@ export function ContactSection() {
     void form.handleSubmit(onSubmit)(event)
   }
 
+  /**
+   * Copia las coordenadas decimales, no la etiqueta en grados y minutos: es el
+   * formato que aceptan Google Maps, un navegador GPS o un mensaje de WhatsApp
+   * pegándolo tal cual. La etiqueta con símbolos es para leer, no para pegar.
+   *
+   * Si el navegador no da permiso al portapapeles —o la página no está en un
+   * contexto seguro— no pasa nada visible: las coordenadas siguen en pantalla y a
+   * la vista, que es el camino que ya existía antes de este botón.
+   */
+  const handleCopyCoordinates = () => {
+    const decimales = `${brand.coordinates.lat}, ${brand.coordinates.lng}`
+    void navigator.clipboard
+      ?.writeText(decimales)
+      .then(() => {
+        setCoordinatesCopied(true)
+        if (copyTimerRef.current) clearTimeout(copyTimerRef.current)
+        copyTimerRef.current = setTimeout(() => setCoordinatesCopied(false), 2000)
+      })
+      .catch(() => undefined)
+  }
+
   const isSubmitting = form.formState.isSubmitting
 
   return (
     <section
       ref={sectionRef}
       id="contacto"
-      className="relative py-32 md:py-48 overflow-hidden"
+      className="relative py-20 md:py-28 overflow-hidden"
     >
       {/* Background Pattern */}
       <div className="absolute inset-0 pointer-events-none">
@@ -381,7 +461,7 @@ export function ContactSection() {
       </div>
 
       <div className="max-w-[1800px] mx-auto px-6 md:px-12 lg:px-20">
-        <div className="grid lg:grid-cols-12 gap-16 lg:gap-20">
+        <div className="grid lg:grid-cols-12 gap-10 lg:gap-14">
           {/* Section Label */}
           <div className="lg:col-span-2">
             <div
@@ -400,11 +480,11 @@ export function ContactSection() {
 
           {/* Content */}
           <div className="lg:col-span-10">
-            <div className="grid lg:grid-cols-2 gap-16 lg:gap-24">
+            <div className="grid lg:grid-cols-2 gap-10 lg:gap-16">
               {/* Left Column - Text */}
               <div className="space-y-8">
                 <h2
-                  className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light leading-[1.1] tracking-[-0.01em] text-foreground text-pretty"
+                  className="font-serif text-3xl sm:text-4xl md:text-[2.75rem] lg:text-5xl font-light leading-[1.1] tracking-[-0.01em] text-foreground text-pretty"
                 style={{
                   opacity: isVisible ? 1 : 0,
                   transform: isVisible ? "translateY(0)" : "translateY(40px)",
@@ -520,11 +600,15 @@ export function ContactSection() {
               </div>
 
               {/* Right Column - Form */}
+              {/* La tarjeta es lo que da al formulario el aire de la pantalla de
+                  acceso: una superficie propia con borde, esquinas redondeadas y
+                  una sombra baja y muy difusa. Sin ella, los campos con relleno
+                  flotaban sobre el crema del fondo sin nada que los agrupara. */}
               <Form {...form}>
                 <form
                   onSubmit={handleFormSubmit}
                   noValidate
-                  className="space-y-8"
+                  className="space-y-4 rounded-3xl border border-border bg-card/70 p-5 md:p-7 shadow-[0_30px_70px_-45px_rgba(24,38,5,0.45)] backdrop-blur-sm"
                   style={{
                     opacity: isVisible ? 1 : 0,
                     transform: isVisible ? "translateY(0)" : "translateY(40px)",
@@ -534,46 +618,33 @@ export function ContactSection() {
                     transitionDelay: "0.3s"
                   }}
                 >
-                  {/* Name & Last name */}
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="firstName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.firstName}</FormLabel>
-                          <FormControl>
-                            <Input placeholder={t.firstNamePh} autoComplete="given-name" className={underlineFieldClass} {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="lastName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.lastName}</FormLabel>
-                          <FormControl>
-                            <Input placeholder={t.lastNamePh} autoComplete="family-name" className={underlineFieldClass} {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
+                  {/* Nombre y apellidos, en un campo.
+                      `autoComplete="name"` y no `given-name`: es el nombre completo, y
+                      con la pista correcta el navegador lo rellena de una vez. */}
+                  <FormField
+                    control={form.control}
+                    name="fullName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className={labelClass}>{t.fullName}</FormLabel>
+                        <FormControl>
+                          <Input placeholder={t.fullNamePh} autoComplete="name" className={softFieldClass} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   {/* Email & Phone */}
-                  <div className="grid md:grid-cols-2 gap-6">
+                  <div className="grid md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.email}</FormLabel>
+                          <FormLabel className={labelClass}>{t.email}</FormLabel>
                           <FormControl>
-                            <Input type="email" placeholder={t.emailPh} autoComplete="email" className={underlineFieldClass} {...field} />
+                            <Input type="email" placeholder={t.emailPh} autoComplete="email" className={softFieldClass} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -584,9 +655,9 @@ export function ContactSection() {
                       name="phone"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.phone}</FormLabel>
+                          <FormLabel className={labelClass}>{t.phone}</FormLabel>
                           <FormControl>
-                            <Input type="tel" placeholder={t.phonePh} autoComplete="tel" className={underlineFieldClass} {...field} />
+                            <Input type="tel" placeholder={t.phonePh} autoComplete="tel" className={softFieldClass} {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -595,16 +666,16 @@ export function ContactSection() {
                   </div>
 
                   {/* Event type & Date */}
-                  <div className="grid md:grid-cols-2 gap-6">
+                  <div className="grid md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="eventType"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.eventType}</FormLabel>
+                          <FormLabel className={labelClass}>{t.eventType}</FormLabel>
                           <Select onValueChange={ignoreEmptySelection(field.onChange)} value={field.value}>
                             <FormControl>
-                              <SelectTrigger className={`${underlineFieldClass} w-full`}>
+                              <SelectTrigger className={`${softFieldClass} w-full data-[size=default]:h-12`}>
                                 <SelectValue placeholder={t.eventTypePh} />
                               </SelectTrigger>
                             </FormControl>
@@ -625,79 +696,75 @@ export function ContactSection() {
                       name="eventDate"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.eventDate}</FormLabel>
-                          <FormControl>
-                            <Input type="date" className={underlineFieldClass} {...field} />
-                          </FormControl>
+                          <FormLabel className={labelClass}>{t.eventDate}</FormLabel>
+                          {/*
+                            Selector propio en lugar de `<input type="date">`, por dos
+                            razones que el nativo no permite resolver:
+
+                            - **El idioma.** El calendario nativo se pinta en el idioma
+                              de la interfaz del navegador, no en el de la página, así
+                              que en un Chrome en inglés salía en inglés y no hay
+                              atributo que lo cambie. Aquí el idioma lo decide la web,
+                              con el mismo `locale` que el resto de la sección.
+                            - **La altura.** El control nativo trae su propia caja y
+                              medía distinto que el desplegable de tipo de evento, que
+                              está justo al lado.
+
+                            El valor del formulario sigue siendo `yyyy-MM-dd`, que es lo
+                            que valida el esquema y lo que espera el endpoint: lo que
+                            cambia es cómo se elige y cómo se muestra.
+                          */}
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                className={`${softFieldClass} flex w-full items-center justify-between gap-2 text-left`}
+                              >
+                                <span className={`truncate ${field.value ? "text-foreground" : "text-muted-foreground"}`}>
+                                  {field.value ? formatEventDate(field.value, locale) : t.eventDatePh}
+                                </span>
+                                <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                locale={locale === "en" ? enGB : es}
+                                selected={parseEventDate(field.value)}
+                                defaultMonth={parseEventDate(field.value)}
+                                // El esquema rechaza fechas pasadas; el calendario no
+                                // las ofrece, así que el error no llega a producirse.
+                                //
+                                // Como función y no como `{ before: startOfToday() }`:
+                                // esa forma llama al reloj en **cada render** del
+                                // formulario, también en el del servidor, y un valor
+                                // que depende de la hora no debe entrar en el árbol
+                                // que se hidrata. Así solo se evalúa al abrir el
+                                // calendario y al pintar cada día.
+                                disabled={(date) => date < startOfToday()}
+                                onSelect={(date) => field.onChange(date ? formatISO(date) : "")}
+                                autoFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
 
-                  {/* Guests & Budget */}
-                  <div className="grid md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="guestCount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.guestCount}</FormLabel>
-                          <FormControl>
-                            <Input type="number" min={1} placeholder={t.guestCountPh} className={underlineFieldClass} {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="budgetRange"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.budgetRange}</FormLabel>
-                          <Select onValueChange={ignoreEmptySelection(field.onChange)} value={field.value ?? ""}>
-                            <FormControl>
-                              <SelectTrigger className={`${underlineFieldClass} w-full`}>
-                                <SelectValue placeholder={t.budgetRangePh} />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {BUDGET_RANGES.map((code) => (
-                                <SelectItem key={code} value={code}>
-                                  {budgetRangeLabels[code]}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {/* Preferred space */}
+                  {/* Invitados. El presupuesto orientativo se retiró del
+                      formulario a petición del titular: era el campo que más
+                      abandono provoca y el dato se acaba hablando por teléfono. */}
                   <FormField
                     control={form.control}
-                    name="preferredSpace"
+                    name="guestCount"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.preferredSpace}</FormLabel>
-                        <Select onValueChange={ignoreEmptySelection(field.onChange)} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger className={`${underlineFieldClass} w-full`}>
-                              <SelectValue placeholder={t.preferredSpacePh} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {spacesContent.map((space) => (
-                              <SelectItem key={space.slug} value={space.slug}>
-                                {space.name}
-                              </SelectItem>
-                            ))}
-                            <SelectItem value={NO_SPACE_PREFERENCE}>{t.noSpacePreference}</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormLabel className={labelClass}>{t.guestCount}</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={1} placeholder={t.guestCountPh} className={softFieldClass} {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -709,15 +776,15 @@ export function ContactSection() {
                   {isCorporate && (
                     <div className="space-y-6 border-l border-border pl-6">
                       <p className="text-sm text-muted-foreground leading-relaxed">{t.corporateNote}</p>
-                      <div className="grid md:grid-cols-2 gap-6">
+                      <div className="grid md:grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
                           name="company"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.company}</FormLabel>
+                              <FormLabel className={labelClass}>{t.company}</FormLabel>
                               <FormControl>
-                                <Input placeholder={t.companyPh} autoComplete="organization" className={underlineFieldClass} {...field} />
+                                <Input placeholder={t.companyPh} autoComplete="organization" className={softFieldClass} {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -728,9 +795,9 @@ export function ContactSection() {
                           name="jobTitle"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.jobTitle}</FormLabel>
+                              <FormLabel className={labelClass}>{t.jobTitle}</FormLabel>
                               <FormControl>
-                                <Input placeholder={t.jobTitlePh} autoComplete="organization-title" className={underlineFieldClass} {...field} />
+                                <Input placeholder={t.jobTitlePh} autoComplete="organization-title" className={softFieldClass} {...field} />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -742,12 +809,12 @@ export function ContactSection() {
                         name="audiovisualNeeds"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.audiovisualNeeds}</FormLabel>
+                            <FormLabel className={labelClass}>{t.audiovisualNeeds}</FormLabel>
                             <FormControl>
                               <Textarea
                                 rows={2}
                                 placeholder={t.audiovisualNeedsPh}
-                                className={`${underlineFieldClass} resize-none min-h-0`}
+                                className={`${softFieldClass} h-auto py-3 resize-none min-h-0`}
                                 {...field}
                               />
                             </FormControl>
@@ -758,20 +825,10 @@ export function ContactSection() {
                     </div>
                   )}
 
-                  {/* Subject */}
-                  <FormField
-                    control={form.control}
-                    name="subject"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.subject}</FormLabel>
-                        <FormControl>
-                          <Input placeholder={t.subjectPh} className={underlineFieldClass} {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {/* El campo de asunto se retiró: dos cajas de texto seguidas para
+                      decir una sola cosa. Sigue existiendo en el envío —el panel
+                      ordena por él—, relleno con el tipo de evento, o con el texto
+                      del CTA cuando la solicitud viene de una ficha VIP. */}
 
                   {/* Message */}
                   <FormField
@@ -779,12 +836,12 @@ export function ContactSection() {
                     name="message"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{t.message}</FormLabel>
+                        <FormLabel className={labelClass}>{t.message}</FormLabel>
                         <FormControl>
                           <Textarea
                             rows={4}
                             placeholder={t.messagePh}
-                            className={`${underlineFieldClass} resize-none min-h-0`}
+                            className={`${softFieldClass} h-auto py-3 resize-none min-h-0`}
                             {...field}
                           />
                         </FormControl>
@@ -806,18 +863,32 @@ export function ContactSection() {
                     />
                   </div>
 
-                  {/* Consents */}
-                  <div className="space-y-4 pt-2">
+                  {/* Consentimientos, más discretos: casilla de 14 px en lugar de 16 y
+                      texto de 12 px atenuado, con menos aire entre los dos.
+                      Son obligaciones legales que hay que poder leer, no la parte del
+                      formulario que se mira primero; con el tamaño anterior competían
+                      con los propios campos.
+
+                      El área de pulsación **no se reduce**: `<FormLabel>` es un
+                      `<label>` asociado a la casilla, así que todo el texto sigue
+                      siendo pulsable y el objetivo real mide varias líneas de alto,
+                      no 14 px. Es lo que permite empequeñecer la casilla sin
+                      empeorar el uso en móvil. */}
+                  <div className="space-y-2.5 pt-1">
                     <FormField
                       control={form.control}
                       name="privacyConsent"
                       render={({ field }) => (
-                        <FormItem className="flex flex-row items-start gap-3 space-y-0">
+                        <FormItem className="flex flex-row items-start gap-2.5 space-y-0">
                           <FormControl>
-                            <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              className="mt-px size-3.5"
+                            />
                           </FormControl>
                           <div className="space-y-1">
-                            <FormLabel className="text-sm font-normal leading-relaxed text-foreground/80">
+                            <FormLabel className="text-xs font-normal leading-snug text-foreground/70">
                               {t.privacyPrefix}{" "}
                               <Link href={PRIVACY_POLICY_PATH} className="underline hover:text-foreground transition-colors duration-300">
                                 {t.privacyLink}
@@ -833,12 +904,16 @@ export function ContactSection() {
                       control={form.control}
                       name="marketingConsent"
                       render={({ field }) => (
-                        <FormItem className="flex flex-row items-start gap-3 space-y-0">
+                        <FormItem className="flex flex-row items-start gap-2.5 space-y-0">
                           <FormControl>
-                            <Checkbox checked={field.value ?? false} onCheckedChange={field.onChange} />
+                            <Checkbox
+                              checked={field.value ?? false}
+                              onCheckedChange={field.onChange}
+                              className="mt-px size-3.5"
+                            />
                           </FormControl>
                           <div className="space-y-1">
-                            <FormLabel className="text-sm font-normal leading-relaxed text-foreground/80">
+                            <FormLabel className="text-xs font-normal leading-snug text-foreground/70">
                               {t.marketingLabel}
                             </FormLabel>
                           </div>
@@ -853,7 +928,7 @@ export function ContactSection() {
                       type="submit"
                       disabled={isSubmitting}
                       aria-busy={isSubmitting}
-                      className="group inline-flex items-center gap-4 px-8 py-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300 disabled:opacity-60"
+                      className="group inline-flex items-center gap-4 rounded-full px-8 py-4 bg-primary text-primary-foreground shadow-[0_10px_24px_-10px_rgba(24,38,5,0.60)] hover:bg-primary/90 hover:shadow-[0_14px_30px_-10px_rgba(24,38,5,0.70)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all duration-300 disabled:opacity-60"
                     >
                       <span className="text-sm tracking-[0.15em] uppercase">{isSubmitting ? t.submitting : t.submit}</span>
                       <svg
@@ -892,50 +967,107 @@ export function ContactSection() {
           </div>
         </div>
 
-        {/* Map */}
-        <div id="mapa" className="grid lg:grid-cols-12 gap-16 lg:gap-20 mt-24 md:mt-32">
+        {/* Ubicación */}
+        <div id="mapa" className="grid lg:grid-cols-12 gap-10 lg:gap-14 mt-16 md:mt-20">
           <div className="lg:col-span-2" />
           <div className="lg:col-span-10">
-            <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-stretch">
-              <div className="p-2 border border-border">
-                <div className="relative aspect-[4/3] lg:aspect-auto lg:h-full overflow-hidden bg-secondary">
+            {/* Una sola tarjeta con el mapa y los datos dentro, en vez de dos
+                bloques suELtos separados por un hueco. El mapa deja de ser una
+                ilustración al lado de un texto y pasa a ser la mitad de un módulo
+                de ubicación. Mismo lenguaje que el formulario y el panel: borde,
+                esquina grande, sombra baja. */}
+            <div className="overflow-hidden rounded-3xl border border-border bg-card/70 shadow-[0_30px_70px_-45px_rgba(24,38,5,0.45)] backdrop-blur-sm">
+              <div className="grid lg:grid-cols-2">
+                <div className="relative min-h-[300px] lg:min-h-[420px] bg-secondary">
+                  {/*
+                    El filtro anterior era `grayscale(0.55) sepia(0.35)
+                    hue-rotate(45deg) saturate(2.2)`, y dejaba el mapa teñido de un
+                    verde irreal donde costaba distinguir una carretera de un río.
+                    Un mapa es información, no decoración: si hay que entornar los
+                    ojos para leer una calle, el filtro está de más. Se deja una
+                    corrección mínima, la justa para que no choque con la paleta
+                    cálida del sitio.
+                  */}
                   <iframe
                     src={brand.coordinates.embedUrl}
                     title={`Mapa de ubicación de ${brand.name}`}
                     loading="lazy"
                     referrerPolicy="no-referrer-when-downgrade"
                     className="absolute inset-0 h-full w-full border-0"
-                    style={{ filter: "grayscale(0.55) sepia(0.35) hue-rotate(45deg) saturate(2.2) brightness(0.97) contrast(1.05)" }}
+                    style={{ filter: "saturate(0.92) contrast(1.03) sepia(0.06)" }}
                   />
+                  {/* Chip con el nombre: dice qué es ese punto del mapa sin tener
+                      que cruzar la vista al panel de al lado. `pointer-events-none`
+                      para no robarle el arrastre al mapa. */}
+                  <div className="pointer-events-none absolute bottom-4 left-4 flex items-center gap-2 rounded-full bg-background/90 px-3 py-1.5 shadow-sm backdrop-blur-md">
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
+                    <span className="text-xs tracking-[0.08em] uppercase text-foreground">{brand.name}</span>
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-col justify-center space-y-6">
-                <h3 className="font-serif text-2xl md:text-3xl font-light text-foreground">
-                  {mapContent.title}
-                </h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  {mapContent.description}
-                </p>
-                <a
-                  href={brand.coordinates.externalUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-sm text-muted-foreground tracking-[0.05em] hover:text-accent transition-colors duration-300 underline"
-                >
-                  {brand.coordinates.label}
-                </a>
-                <div>
-                  <a
-                    href={brand.coordinates.externalUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group inline-flex items-center gap-3 px-6 py-3 text-sm tracking-[0.1em] uppercase text-primary-foreground bg-primary hover:bg-primary/90 transition-all duration-300"
-                  >
-                    <span>{mapContent.ctaLabel}</span>
-                    <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                    </svg>
-                  </a>
+
+                <div className="flex flex-col justify-center gap-6 p-6 md:p-10 lg:border-l lg:border-border">
+                  <h3 className="font-serif text-2xl md:text-3xl font-light text-foreground">
+                    {mapContent.title}
+                  </h3>
+
+                  {/* Dirección y coordenadas como lista de definiciones: son un
+                      dato con su nombre, y así lo anuncia también un lector de
+                      pantalla. */}
+                  <dl className="space-y-4">
+                    <div className="flex items-start gap-3">
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden />
+                      <div>
+                        <dt className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{mapContent.addressLabel}</dt>
+                        <dd className="text-foreground leading-relaxed">{mapContent.description}</dd>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Compass className="mt-0.5 h-4 w-4 shrink-0 text-accent" aria-hidden />
+                      <div className="min-w-0">
+                        <dt className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{mapContent.coordinatesLabel}</dt>
+                        <dd className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          {/* En monoespaciada: son cifras, y con la tipografía de
+                              texto los grados y los minutos bailaban. */}
+                          <span className="font-mono text-sm text-foreground">{brand.coordinates.label}</span>
+                          <button
+                            type="button"
+                            onClick={handleCopyCoordinates}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground transition-colors duration-300 hover:border-foreground/30 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            {coordinatesCopied ? <Check className="h-3.5 w-3.5" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
+                            <span>{coordinatesCopied ? mapContent.copiedLabel : mapContent.copyLabel}</span>
+                          </button>
+                        </dd>
+                      </div>
+                    </div>
+                  </dl>
+
+                  <p className="text-sm text-muted-foreground leading-relaxed">{mapContent.parkingNote}</p>
+
+                  {/* Dos acciones, no una: quien ya sabe dónde está esto quiere la
+                      ruta, y quien no lo sabe quiere mirar el mapa entero. Antes
+                      solo había un botón que decía «Abrir en Google Maps» pero
+                      llevaba a las indicaciones. */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <a
+                      href={brand.coordinates.externalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group inline-flex items-center gap-3 rounded-full bg-primary px-6 py-3 text-sm tracking-[0.1em] uppercase text-primary-foreground shadow-[0_10px_24px_-10px_rgba(24,38,5,0.60)] transition-all duration-300 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    >
+                      <Navigation className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" aria-hidden />
+                      <span>{mapContent.routeLabel}</span>
+                    </a>
+                    <a
+                      href={`https://www.google.com/maps?q=${brand.coordinates.lat},${brand.coordinates.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-full border border-border px-5 py-3 text-sm tracking-[0.1em] uppercase text-foreground transition-colors duration-300 hover:border-foreground/40 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <ExternalLink className="h-4 w-4" aria-hidden />
+                      <span>{mapContent.ctaLabel}</span>
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>

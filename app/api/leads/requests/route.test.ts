@@ -124,7 +124,7 @@ describe("POST /api/leads/requests — solicitud válida", () => {
     expect(request.preferredSpace).toBe("salon-porton")
     expect(request.budgetRange).toBe("20000-35000")
     expect(request.subject).toBe("Boda en septiembre")
-    expect(request.status).toBe("NEW")
+    expect(request.status).toBe("CONTACT")
 
     expect(lead!.consents.filter((consent) => consent.purpose === "PRIVACY")).toHaveLength(1)
     expect(lead!.consents[0].policyVersion).toBe(PRIVACY_POLICY_VERSION)
@@ -437,7 +437,7 @@ describe("POST /api/leads/requests — atribución", () => {
 
 describe("POST /api/leads/requests — aviso por email", () => {
   const EMAIL_VARS = [
-    "SENDGRID_API_KEY",
+    "RESEND_API_KEY",
     "LEADS_FROM_EMAIL",
     "LEADS_NOTIFICATION_TO",
     "SEND_LEAD_ACKNOWLEDGEMENT",
@@ -467,7 +467,7 @@ describe("POST /api/leads/requests — aviso por email", () => {
 
   itDb("un fallo del envío de correo no afecta a lo que ya está guardado", async () => {
     // Proveedor configurado y respondiendo 500: el aviso falla de verdad.
-    process.env.SENDGRID_API_KEY = "SG.clave-de-prueba"
+    process.env.RESEND_API_KEY = "re_clave-de-prueba"
     process.env.LEADS_FROM_EMAIL = "avisos@example.test"
     process.env.LEADS_NOTIFICATION_TO = "equipo@example.test"
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 500 }))

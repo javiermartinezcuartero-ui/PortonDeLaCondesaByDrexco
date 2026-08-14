@@ -33,7 +33,7 @@ export function PhilosophySection() {
     <section
       ref={sectionRef}
       id="filosofia"
-      className="relative py-32 md:py-48 bg-primary text-primary-foreground overflow-hidden"
+      className="relative py-20 md:py-28 bg-primary text-primary-foreground overflow-hidden"
     >
       {/* Architectural Background Lines */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
@@ -81,7 +81,7 @@ export function PhilosophySection() {
       </div>
 
       <div className="max-w-[1800px] mx-auto px-6 md:px-12 lg:px-20 relative">
-        <div className="grid lg:grid-cols-12 gap-16 lg:gap-20">
+        <div className="grid lg:grid-cols-12 gap-10 lg:gap-14">
           {/* Section Label */}
           <div className="lg:col-span-2">
             <div
@@ -101,9 +101,9 @@ export function PhilosophySection() {
           {/* Content */}
           <div className="lg:col-span-10">
             {/* Section Header */}
-            <div className="mb-20 md:mb-32">
+            <div className="mb-12 md:mb-32">
               <h2
-                className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light leading-[1.1] tracking-[-0.01em] max-w-3xl text-pretty"
+                className="font-serif text-3xl sm:text-4xl md:text-[2.75rem] lg:text-5xl font-light leading-[1.1] tracking-[-0.01em] max-w-3xl text-pretty"
               style={{
                 opacity: isVisible ? 1 : 0,
                 transform: isVisible ? "translateY(0)" : "translateY(40px)",
@@ -153,7 +153,7 @@ export function PhilosophySection() {
 
         {/* Floating Image */}
         <div
-          className="mt-32 md:mt-48 relative"
+          className="mt-14 md:mt-20 relative"
           style={{
             opacity: isVisible ? 1 : 0,
             transform: isVisible ? "translateY(0)" : "translateY(60px)",
@@ -163,7 +163,7 @@ export function PhilosophySection() {
             transitionDelay: "0.6s"
           }}
         >
-          <div className="relative aspect-[21/15.35] overflow-hidden">
+          <div className="relative aspect-[21/10.5] overflow-hidden">
             <ImageReveal
               src={philosophyContent.image.src}
               alt={philosophyContent.image.alt}

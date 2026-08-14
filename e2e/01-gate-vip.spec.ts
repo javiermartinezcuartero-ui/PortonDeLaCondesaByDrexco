@@ -18,7 +18,11 @@ test.describe("Bibliotecas VIP", () => {
     const response = await page.goto("/bodas-reales")
 
     expect(response?.status()).toBe(200)
-    await expect(page.getByRole("heading", { name: /Accede a la biblioteca de bodas reales/i })).toBeVisible()
+    // El gate se identifica por su formulario —campo de email y botón—, no por el
+    // titular: ese pasó a ser el mismo que el de la biblioteca abierta, así que no
+    // distinguía los dos estados.
+    await expect(page.locator("#vip-email")).toBeVisible()
+    await expect(page.getByRole("button", { name: "Acceder" })).toBeVisible()
 
     // Lo que de verdad importa: sin sesión, el contenido protegido no está en la
     // respuesta. No es que esté oculto por CSS ni difuminado; no se ha
@@ -43,7 +47,7 @@ test.describe("Bibliotecas VIP", () => {
     await expect(uiAlert(page)).toHaveText(/Debes aceptar la política de privacidad/i)
 
     // Sigue viéndose el gate y el email escrito no se ha perdido.
-    await expect(page.getByRole("heading", { name: /Accede a la biblioteca/i })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Acceder" })).toBeVisible()
     await expect(page.locator("#vip-email")).toHaveValue(email)
 
     // Y no se ha creado ni contacto ni sesión de acceso para ese email.
@@ -100,7 +104,7 @@ test.describe("Bibliotecas VIP", () => {
     // que el propio gate anuncia ("acceso completo a las dos bibliotecas").
     await page.goto("/catering")
     await expect(page.getByRole("heading", { name: FIXTURES.catering.title })).toBeVisible()
-    await expect(page.getByRole("heading", { name: /Accede a la biblioteca/i })).toHaveCount(0)
+    await expect(page.locator("#vip-email")).toHaveCount(0)
 
     // Una sola sesión de acceso, no una por biblioteca.
     const lead = await db.lead.findUniqueOrThrow({ where: { emailNormalized: email }, include: { vipSessions: true } })

@@ -16,7 +16,7 @@ pero vacío, y un CRM vacío no demuestra nada.
 | Usuarios del equipo | 3 | ADMIN, SALES y CONTENT, **sin contraseña**: no pueden iniciar sesión |
 | Cuenta de evaluación | 1 | ADMIN con contraseña. Es la única que entra al panel |
 | Contactos | 8 | Con teléfono, tipo de evento, invitados, fecha y atribución |
-| Solicitudes | 8 | Repartidas por **todo** el pipeline: NEW, CONTACTED, QUALIFIED, VISIT_SCHEDULED, PROPOSAL_SENT, NEGOTIATION, WON y LOST con su motivo |
+| Solicitudes | 8 | Repartidas por **todas** las fases: Contacto, Presentación, Propuesta, Cliente y Perdida con su motivo |
 | Tareas | 4 | Una vencida, una de hoy, dos futuras; prioridades distintas |
 | Notas internas | 4 | Con autor y fecha |
 | Consentimientos | 8+ | Privacidad en todas; marketing solo donde se concedió |
@@ -33,7 +33,7 @@ llevaron ahí, cada uno con su autor.
 Todos los emails de la demo terminan en **`@demo.portondelacondesa.test`**. `.test`
 es un TLD reservado por la RFC 2606: no resuelve y nunca resolverá. Ninguna
 dirección de la demo puede recibir un correo por error, ni siquiera si alguien
-activase SendGrid por accidente.
+activase el proveedor de correo por accidente.
 
 Ese dominio es además la marca que usa `demo:clean` para saber qué borrar, así que
 un contacto real nunca puede confundirse con uno de demostración.
@@ -120,7 +120,7 @@ importa: cada paso deja preparado el siguiente.
     Abrir la ruta pública en otra pestaña: ya aparece.
 15. **Informes** y **Configuración** (los pesos del scoring, editables solo por
     ADMIN).
-16. **Exportar CSV** desde Contactos y abrirlo: cabeceras en español, separador `;`,
+16. **Exportar a Excel** desde Captaciones y abrirlo: cabeceras en español en negrita,
     acentos correctos en Excel.
 
 ### Lo que conviene enseñar aunque no se pida

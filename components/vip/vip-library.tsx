@@ -25,7 +25,11 @@ export async function VipLibrary({ type }: { type: ContentType }) {
 
   if (!lead) {
     return (
-      <main id="contenido" className="min-h-screen bg-background px-6 pt-32 pb-24 md:px-12 md:pt-40 lg:px-20">
+      <main
+        id="contenido"
+        data-biblioteca={kind}
+        className="vip-shell relative min-h-screen bg-background px-6 pt-32 pb-24 md:px-12 md:pt-40 lg:px-20"
+      >
         <VipGate section={type} returnPath={basePath} />
       </main>
     )
@@ -42,9 +46,16 @@ export async function VipLibrary({ type }: { type: ContentType }) {
   })
 
   return (
-    <main id="contenido" className="min-h-screen bg-background pt-32 md:pt-40 pb-24 md:pb-32">
+    // `vip-shell` cambia la paleta de todo el subárbol a la gama del panel, y
+    // `data-biblioteca` elige la fotografía de fondo de esta sección (ver
+    // app/globals.css).
+    <main
+      id="contenido"
+      data-biblioteca={kind}
+      className="vip-shell relative min-h-screen bg-background pt-32 md:pt-40 pb-24 md:pb-32"
+    >
       <TrackVipView section={type} />
-      <div className="max-w-[1800px] mx-auto px-6 md:px-12 lg:px-20">
+      <div className="relative max-w-[1800px] mx-auto px-6 md:px-12 lg:px-20">
         <VipListHeader kind={kind} />
 
         {cards.length === 0 ? (

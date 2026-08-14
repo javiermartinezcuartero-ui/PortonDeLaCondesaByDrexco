@@ -50,10 +50,16 @@ afterEach(() => {
   window.history.replaceState({}, "", "/")
 })
 
+/**
+ * El desplegable, localizado por su nombre accesible.
+ *
+ * Antes se buscaba por texto visible y se subía al padre. Dejó de funcionar al ocultar
+ * las etiquetas del formulario con `sr-only`: el mismo texto aparece en la etiqueta y
+ * como marcador de posición dentro del control, así que la búsqueda encuentra dos
+ * elementos. La asociación etiqueta→control devuelve uno solo, y es el correcto.
+ */
 function trigger(label: string) {
-  const element = screen.getByText(label).parentElement?.querySelector("[role='combobox']")
-  expect(element, `no se ha encontrado el desplegable "${label}"`).not.toBeNull()
-  return element as HTMLElement
+  return screen.getByLabelText(label)
 }
 
 describe("ContactSection — precarga desde el CTA de una ficha", () => {
@@ -74,17 +80,16 @@ describe("ContactSection — precarga desde el CTA de una ficha", () => {
     const user = userEvent.setup()
     render(<ContactSection />)
 
-    await user.type(screen.getByLabelText("Nombre"), "Ana")
-    await user.type(screen.getByLabelText("Apellidos"), "García")
+    await user.type(screen.getByLabelText("Nombre y apellidos"), "Ana García")
     await user.type(screen.getByLabelText("Email"), "ana@ejemplo.test")
     await user.type(screen.getByLabelText("Mensaje"), "Queremos un catering así.")
 
-    // Espacio: obligatorio, y el único desplegable que hay que tocar.
-    await user.click(trigger("Espacio que te interesa"))
-    await user.click(await screen.findByRole("option", { name: "Salón Portón" }))
-
+    // Ya no hay que tocar ningún desplegable: el tipo de evento viene del enlace y el
+    // espacio preferido se retiró del formulario. Es exactamente lo que esta prueba
+    // vigila —que se pueda enviar sin repetir lo que ya venía puesto—, y ahora se
+    // cumple con más motivo.
     await user.click(screen.getByRole("checkbox", { name: /acepto la política de privacidad/i }))
-    await user.click(screen.getByRole("button", { name: /Solicitar información/ }))
+    await user.click(screen.getByRole("button", { name: /Enviar mensaje/ }))
 
     await waitFor(() => expect(submitLeadRequest).toHaveBeenCalled())
     // El tipo que viaja es el que traía el enlace, sin que nadie lo repita.
@@ -96,8 +101,7 @@ describe("ContactSection — precarga desde el CTA de una ficha", () => {
 
     render(<ContactSection />)
 
-    expect(trigger("Tipo de evento")).toHaveTextContent("Selecciona una opción")
-    // Y el asunto tampoco se inventa a partir de un tipo que no existe.
-    expect(screen.getByLabelText("Asunto")).toHaveValue("")
+    expect(trigger("Tipo de evento")).toHaveTextContent("Tipo de evento")
+    expect(trigger("Tipo de evento")).toHaveAttribute("data-placeholder")
   })
 })

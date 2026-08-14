@@ -75,9 +75,9 @@ export default function PoliticaPrivacidadPage() {
               <li className="flex items-start gap-3">
                 <span className="w-1 h-1 mt-2 bg-accent shrink-0" />
                 <span>
-                  <strong>SendGrid</strong> — envío de los correos de aviso y de confirmación,{" "}
-                  <em>únicamente si el envío de correo está activado</em>. A fecha de esta versión no lo está y ningún
-                  dato tuyo se envía a este proveedor.
+                  <strong>Resend</strong> — envío de los correos de aviso interno y, si procede, del acuse de
+                  recibo. Recibe tu dirección de correo y el contenido del mensaje que nos escribes, que es lo
+                  que hace falta para entregarlo.
                 </span>
               </li>
             </ul>

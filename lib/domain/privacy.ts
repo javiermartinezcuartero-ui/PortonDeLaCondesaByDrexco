@@ -60,7 +60,7 @@ export async function findLeadsBeyondRetention(now: Date = new Date(), limit = 1
       requests: {
         none: {
           archivedAt: null,
-          status: { notIn: ["WON", "LOST"] },
+          status: { notIn: ["CLIENT", "LOST"] },
         },
       },
     },

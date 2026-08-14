@@ -37,11 +37,11 @@ export function DishesSection() {
     <section
       ref={sectionRef}
       id="gastronomia"
-      className="relative py-32 md:py-48 overflow-hidden bg-secondary"
+      className="relative py-20 md:py-28 overflow-hidden bg-secondary"
     >
       <div className="max-w-[1800px] mx-auto px-6 md:px-12 lg:px-20">
         {/* Section Header */}
-        <div className="grid lg:grid-cols-12 gap-16 lg:gap-20 mb-20 md:mb-32">
+        <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 mb-12 md:mb-32">
           <div className="lg:col-span-2">
             <div
               className="flex items-center gap-4"
@@ -59,7 +59,7 @@ export function DishesSection() {
 
           <div className="lg:col-span-10">
             <h2
-              className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light leading-[1.1] tracking-[-0.01em] text-foreground max-w-4xl text-pretty"
+              className="font-serif text-3xl sm:text-4xl md:text-[2.75rem] lg:text-5xl font-light leading-[1.1] tracking-[-0.01em] text-foreground max-w-4xl text-pretty"
               style={{
                 opacity: isVisible ? 1 : 0,
                 transform: isVisible ? "translateY(0)" : "translateY(40px)",
@@ -173,7 +173,7 @@ export function DishesSection() {
 
         {/* Bottom Note */}
         <div
-          className="mt-16 md:mt-24 text-center"
+          className="mt-10 md:mt-14 text-center"
           style={{
             opacity: isVisible ? 1 : 0,
             transform: isVisible ? "translateY(0)" : "translateY(20px)",

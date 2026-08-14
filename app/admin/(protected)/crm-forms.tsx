@@ -13,7 +13,6 @@ import {
   recalculateLeadScoreAction,
   updateLeadNoteAction,
   updateRequestAction,
-  updateScoringRuleAction,
   updateTaskAction,
   type CrmActionResult,
 } from "./crm-actions"
@@ -660,61 +659,7 @@ export function RecalculateScoreButton({ leadId }: { leadId: string }) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Configuración de scoring
-// ---------------------------------------------------------------------------
-
-export function ScoringRuleForm({
-  ruleKey,
-  label,
-  initialPoints,
-  initialActive,
-}: {
-  ruleKey: string
-  label: string
-  initialPoints: number
-  initialActive: boolean
-}) {
-  const { run, isPending, errors } = useCrmAction()
-  const [points, setPoints] = useState(String(initialPoints))
-  const [active, setActive] = useState(initialActive)
-
-  return (
-    <form
-      onSubmit={(event) => {
-        event.preventDefault()
-        run(() => updateScoringRuleAction({ key: ruleKey, points, active }))
-      }}
-      className="flex flex-wrap items-end gap-3 border-b border-border/60 py-3"
-    >
-      <div className="min-w-[240px] flex-1">
-        <span className="block text-sm text-foreground">{label}</span>
-        <span className="font-mono text-xs text-muted-foreground">{ruleKey}</span>
-      </div>
-      <div className="w-24">
-        <label htmlFor={`puntos-${ruleKey}`} className={labelClass}>
-          Puntos
-        </label>
-        <input
-          id={`puntos-${ruleKey}`}
-          type="number"
-          min={0}
-          max={100}
-          value={points}
-          onChange={(event) => setPoints(event.target.value)}
-          className={inputClass}
-        />
-      </div>
-      <label className="flex items-center gap-2 text-sm text-muted-foreground">
-        <input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />
-        Activa
-      </label>
-      <button type="submit" disabled={isPending} className={subtleClass}>
-        {isPending ? "Guardando…" : "Guardar"}
-      </button>
-      <div className="w-full">
-        <ErrorList errors={errors} />
-      </div>
-    </form>
-  )
-}
+// La configuración de scoring ya no vive en un formulario por regla: la pantalla de
+// Puntuación Visitantes es una tabla editable en línea
+// (app/admin/(protected)/configuracion/scoring-table.tsx). `ScoringRuleForm` se retira con
+// ella; la Server Action que usaba, `updateScoringRuleAction`, sigue siendo la misma.

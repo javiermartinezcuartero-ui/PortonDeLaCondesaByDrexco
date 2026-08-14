@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import type { InteractionType } from "@prisma/client"
 import { ForbiddenError, UnauthenticatedError, requirePermission } from "@/lib/auth/session"
-import { exportLeadsCsv, exportRequestsCsv } from "@/lib/domain/crm-export"
+import { exportLeadsTable, exportRequestsTable, type ExportTable } from "@/lib/domain/crm-export"
+import { buildWorkbook } from "@/lib/domain/crm-workbook"
 import { REQUEST_SORTS, type RequestSortKey } from "@/lib/domain/crm-requests"
 import {
   LEAD_REQUEST_STATUS_VALUES,
@@ -13,14 +14,18 @@ import {
 } from "@/lib/validation/crm"
 
 /**
- * Descarga CSV de contactos y solicitudes.
+ * Descarga en Excel (`.xlsx`) de contactos y solicitudes.
  *
- * Es un Route Handler y no una Server Action porque tiene que devolver un archivo
- * con sus cabeceras, no un valor a un componente.
+ * Antes se servía un CSV. El cambio a Excel lo pidió el titular; qué aporta —tipos
+ * reales en las celdas y el fin de la inyección de fórmulas— está en
+ * `lib/domain/crm-workbook.ts`.
+ *
+ * Es un Route Handler y no una Server Action porque tiene que devolver un archivo con
+ * sus cabeceras, no un valor a un componente.
  *
  * Tres cosas que lo protegen:
  *
- * - **`crm:export` = solo ADMIN.** Un CSV con datos personales sobrevive a
+ * - **`crm:export` = solo ADMIN.** Un archivo con datos personales sobrevive a
  *   cualquier control de acceso posterior: quien puede consultar el CRM no puede
  *   necesariamente sacárselo.
  * - **Los mismos filtros que la pantalla.** Se parsean con los mismos validadores
@@ -32,10 +37,13 @@ export const dynamic = "force-dynamic"
 
 const INTERACTION_VALUES: InteractionType[] = ["GATE_GRANTED", "SECTION_VIEWED", "CONTENT_VIEWED", "CTA_CLICKED"]
 
+/** Tipo MIME de un `.xlsx`. Es largo, y escribirlo mal hace que el navegador lo trate como binario anónimo. */
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
 function fileName(prefix: string): string {
   // Sin `Date.now()` en el nombre para que sea estable dentro del mismo día y no
   // llene la carpeta de descargas de variantes idénticas.
-  return `${prefix}-${new Date().toISOString().slice(0, 10)}.csv`
+  return `${prefix}-${new Date().toISOString().slice(0, 10)}.xlsx`
 }
 
 export async function GET(request: Request) {
@@ -49,11 +57,12 @@ export async function GET(request: Request) {
     const params = url.searchParams
     const dataset = params.get("conjunto")
 
-    let csv: string
+    let table: ExportTable
     let name: string
+    let sheet: string
 
     if (dataset === "contactos") {
-      csv = await exportLeadsCsv(
+      table = await exportLeadsTable(
         {
           search: params.get("q") ?? undefined,
           source: params.get("origen") ?? undefined,
@@ -73,9 +82,10 @@ export async function GET(request: Request) {
         }
       )
       name = fileName("contactos")
+      sheet = "Contactos"
     } else if (dataset === "solicitudes") {
       const sortKeys = Object.keys(REQUEST_SORTS) as RequestSortKey[]
-      csv = await exportRequestsCsv(
+      table = await exportRequestsTable(
         {
           search: params.get("q") ?? undefined,
           status: parseEnumParam(params.get("estado") ?? undefined, LEAD_REQUEST_STATUS_VALUES),
@@ -99,15 +109,21 @@ export async function GET(request: Request) {
         { actorId: user.id }
       )
       name = fileName("solicitudes")
+      sheet = "Solicitudes"
     } else {
       return NextResponse.json({ error: "Conjunto no válido. Usa conjunto=contactos o conjunto=solicitudes." }, { status: 400 })
     }
 
-    return new NextResponse(csv, {
+    const workbook = await buildWorkbook(sheet, table.headers, table.rows)
+
+    // `Uint8Array` y no el `Buffer` tal cual: es lo que espera el cuerpo de una
+    // respuesta web estándar, y evita depender de que el runtime tenga Buffer.
+    return new NextResponse(new Uint8Array(workbook), {
       status: 200,
       headers: {
-        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Type": XLSX_MIME,
         "Content-Disposition": `attachment; filename="${name}"`,
+        "Content-Length": String(workbook.byteLength),
         "Cache-Control": "no-store",
       },
     })

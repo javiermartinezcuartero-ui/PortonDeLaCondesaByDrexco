@@ -20,7 +20,9 @@ export function LogoutButton() {
       type="button"
       onClick={handleLogout}
       disabled={isLoading}
-      className="rounded-full bg-white/10 px-5 py-2 text-xs font-medium uppercase tracking-[0.12em] text-foreground ring-1 ring-white/15 transition-all duration-300 hover:bg-white/20 hover:ring-white/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 disabled:opacity-60"
+      // `h-9` para que quede a la misma altura que el conmutador de tema, que al quedarse
+      // solo con el icono pasó a ser un cuadrado de 36 px.
+      className="admin-pill admin-pill--danger inline-flex h-9 items-center rounded-full px-5 text-xs font-medium uppercase tracking-[0.12em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--admin-danger)] focus-visible:ring-offset-2 disabled:opacity-60"
     >
       {isLoading ? "Saliendo…" : "Salir"}
     </button>

@@ -262,10 +262,10 @@ describe("manipulación de rol", () => {
     })
     requestHeaders = await sessionFor("CONTENT")
 
-    const result = await changeRequestStatusAction({ requestId: request.id, nextStatus: "CONTACTED" })
+    const result = await changeRequestStatusAction({ requestId: request.id, nextStatus: "PRESENTATION" })
 
     expect(result.ok).toBe(false)
-    expect((await prisma.leadRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("NEW")
+    expect((await prisma.leadRequest.findUniqueOrThrow({ where: { id: request.id } })).status).toBe("CONTACT")
   })
 })
 

@@ -1,7 +1,7 @@
 /**
  * Contrato del envío de correo.
  *
- * La aplicación habla con esta interfaz y nunca con SendGrid directamente. Eso es
+ * La aplicación habla con esta interfaz y nunca con Resend directamente. Eso es
  * lo que permite que la base de datos siga siendo la fuente de verdad: cambiar de
  * proveedor, o quedarse sin ninguno, no toca ni el dominio ni la captación.
  *
@@ -40,7 +40,7 @@ export type EmailSendResult =
   | { status: "SKIPPED_CONFIG"; reason: string }
 
 export interface EmailProvider {
-  /** Identificador corto para el registro ("sendgrid", "development"). */
+  /** Identificador corto para el registro ("resend", "development"). */
   readonly name: string
   send(message: EmailMessage): Promise<EmailSendResult>
 }

@@ -15,11 +15,11 @@ const copy = {
   es: {
     bodas: {
       label: "Bodas reales",
-      title: "Accede a la biblioteca de bodas reales",
+      title: "Bodas reales celebradas aquí",
     },
     catering: {
       label: "Catering",
-      title: "Accede a la biblioteca de eventos de catering",
+      title: "Caterings servidos por nosotros",
     },
     intro:
       "Déjanos tu email una sola vez y tendrás acceso completo a las dos bibliotecas: bodas reales y eventos de catering.",
@@ -45,11 +45,11 @@ const copy = {
   en: {
     bodas: {
       label: "Real weddings",
-      title: "Access the real weddings library",
+      title: "Real weddings held here",
     },
     catering: {
       label: "Catering",
-      title: "Access the catering events library",
+      title: "Catering events we have served",
     },
     intro:
       "Leave us your email once and you'll get full access to both libraries: real weddings and catering events.",
@@ -142,15 +142,16 @@ export function VipGate({ section, returnPath }: { section: ContentType; returnP
 
   return (
     <div className="mx-auto max-w-md">
-      <div className="mb-6 flex items-center gap-4">
+      <div className="mb-6 flex items-center justify-center gap-4">
+        <div className="h-px w-8 bg-border" />
         <span className="text-xs tracking-[0.3em] uppercase text-muted-foreground">{sectionCopy.label}</span>
         <div className="h-px w-8 bg-border" />
       </div>
 
-      <h1 className="font-serif text-3xl md:text-4xl font-light text-foreground">{sectionCopy.title}</h1>
+      <h1 className="text-3xl md:text-[2.5rem] font-semibold leading-tight tracking-[-0.03em] text-foreground">{sectionCopy.title}</h1>
       <p className="mt-4 text-muted-foreground leading-relaxed">{t.intro}</p>
 
-      <form onSubmit={onSubmit} noValidate className="mt-10 space-y-6">
+      <form onSubmit={onSubmit} noValidate className="mt-8 space-y-5 text-left">
         <div className="space-y-1.5">
           <label htmlFor="vip-email" className="text-xs tracking-[0.2em] uppercase text-muted-foreground">
             {t.emailLabel}

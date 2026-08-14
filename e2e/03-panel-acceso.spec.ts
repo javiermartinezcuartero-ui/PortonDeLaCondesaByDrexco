@@ -13,11 +13,25 @@ test.describe("Acceso al panel", () => {
     await loginAs(page, "admin")
 
     await expect(page).toHaveURL(/\/admin$/)
-    await expect(page.getByText(`${"ADMIN"}`, { exact: false }).first()).toBeVisible()
+    // Que hay sesión se comprueba por el encabezado de la pantalla, no buscando el
+    // texto "ADMIN". Aquello funcionaba por accidente: coincidía con la palabra
+    // "administración" del rótulo del panel, y dejó de encontrarse en cuanto el rótulo
+    // cambió. Lo que confirma el rol es la lista de apartados de más abajo: solo un
+    // ADMIN ve Puntuación Visitantes.
+    await expect(page.getByRole("heading", { name: "Estatus Plataforma", level: 1 })).toBeVisible()
 
     // ADMIN ve todos los apartados, incluidos los que otros roles no ven.
     const nav = page.getByRole("navigation", { name: "Secciones del panel" })
-    for (const label of ["Resumen", "Contactos", "Solicitudes", "Pipeline", "Tareas", "Contenidos", "Informes", "Configuración"]) {
+    for (const label of [
+      "Estatus Plataforma",
+      "Captaciones",
+      "Solicitudes Formulario",
+      "Seguimiento clientes",
+      "Acciones",
+      "Contenidos Biblioteca",
+      "Informes captación",
+      "Puntuación Visitantes",
+    ]) {
       await expect(nav.getByRole("link", { name: label })).toBeVisible()
     }
 
@@ -91,7 +105,8 @@ test.describe("Acceso al panel", () => {
     const before = await db.session.count()
     expect(before).toBeGreaterThan(0)
 
-    await page.getByRole("button", { name: "Cerrar sesión" }).click()
+    // El botón se llama «Salir» desde el rediseño del panel, no «Cerrar sesión».
+    await page.getByRole("button", { name: "Salir" }).click()
     await expect(page).toHaveURL(/\/admin\/login/)
 
     // La fila de sesión ya no existe: no es solo que se haya borrado la cookie
@@ -117,10 +132,10 @@ test.describe("Acceso con sesión de comercial", () => {
     await page.goto("/admin")
 
     const nav = page.getByRole("navigation", { name: "Secciones del panel" })
-    await expect(nav.getByRole("link", { name: "Contactos" })).toBeVisible()
-    // Contenidos y Configuración no son suyos.
-    await expect(nav.getByRole("link", { name: "Contenidos" })).toHaveCount(0)
-    await expect(nav.getByRole("link", { name: "Configuración" })).toHaveCount(0)
+    await expect(nav.getByRole("link", { name: "Captaciones" })).toBeVisible()
+    // Contenidos Biblioteca y Puntuación Visitantes no son suyos.
+    await expect(nav.getByRole("link", { name: "Contenidos Biblioteca" })).toHaveCount(0)
+    await expect(nav.getByRole("link", { name: "Puntuación Visitantes" })).toHaveCount(0)
 
     // Y ocultar el enlace no es la protección: escribiendo la ruta a mano
     // tampoco entra.

@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DevelopmentEmailProvider } from "@/lib/email/development"
-import { SendGridEmailProvider } from "@/lib/email/sendgrid"
+import { ResendEmailProvider } from "@/lib/email/resend"
 import { EMAIL_TIMEOUT_MS } from "@/lib/email/config"
 import type { EmailMessage } from "@/lib/email/provider"
 
-const API_KEY = "SG.clave-de-prueba-que-no-debe-aparecer"
+const API_KEY = "re_clave-de-prueba-que-no-debe-aparecer"
 
 function message(overrides: Partial<EmailMessage> = {}): EmailMessage {
   return {
@@ -29,23 +29,42 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function respondWith(status: number, headers: Record<string, string> = {}) {
-  fetchMock.mockResolvedValue(new Response(null, { status, headers }))
+/**
+ * Resend devuelve el identificador en el **cuerpo** (`{ "id": ... }`), no en una
+ * cabecera como el proveedor anterior, así que el doble tiene que servir JSON.
+ */
+function respondWith(status: number, body: unknown = null) {
+  fetchMock.mockResolvedValue(
+    new Response(body === null ? null : JSON.stringify(body), {
+      status,
+      headers: body === null ? {} : { "content-type": "application/json" },
+    })
+  )
 }
 
-describe("SendGridEmailProvider — clasificación del resultado", () => {
-  it("202 es SENT y guarda el identificador del proveedor", async () => {
-    respondWith(202, { "x-message-id": "abc123" })
+describe("ResendEmailProvider — clasificación del resultado", () => {
+  it("200 es SENT y guarda el identificador que viene en el cuerpo", async () => {
+    respondWith(200, { id: "4ef9a417-02e9-4d39-ad75-9611e0fcc33c" })
 
-    const result = await new SendGridEmailProvider(API_KEY, "avisos@porton.test").send(message())
+    const result = await new ResendEmailProvider(API_KEY, "avisos@porton.test").send(message())
 
-    expect(result).toEqual({ status: "SENT", providerMessageId: "abc123" })
+    expect(result).toEqual({ status: "SENT", providerMessageId: "4ef9a417-02e9-4d39-ad75-9611e0fcc33c" })
+  })
+
+  it("un 200 con cuerpo ilegible sigue siendo SENT, sin identificador", async () => {
+    // El proveedor ya aceptó el mensaje: que su respuesta cambie de formato no puede
+    // convertir un envío correcto en una excepción ni en un fallo registrado.
+    fetchMock.mockResolvedValue(new Response("no es json", { status: 200 }))
+
+    const result = await new ResendEmailProvider(API_KEY, "avisos@porton.test").send(message())
+
+    expect(result).toEqual({ status: "SENT", providerMessageId: undefined })
   })
 
   it("429 y 5xx son RETRY_PENDING: el mensaje era válido y el problema es del momento", async () => {
     for (const status of [429, 500, 502, 503]) {
       respondWith(status)
-      const result = await new SendGridEmailProvider(API_KEY, "avisos@porton.test").send(message())
+      const result = await new ResendEmailProvider(API_KEY, "avisos@porton.test").send(message())
       expect(result.status).toBe("RETRY_PENDING")
     }
   })
@@ -53,7 +72,7 @@ describe("SendGridEmailProvider — clasificación del resultado", () => {
   it("otros 4xx son FAILED: reintentar daría lo mismo", async () => {
     for (const status of [400, 401, 403, 413]) {
       respondWith(status)
-      const result = await new SendGridEmailProvider(API_KEY, "avisos@porton.test").send(message())
+      const result = await new ResendEmailProvider(API_KEY, "avisos@porton.test").send(message())
       expect(result.status).toBe("FAILED")
     }
   })
@@ -63,7 +82,7 @@ describe("SendGridEmailProvider — clasificación del resultado", () => {
     timeout.name = "TimeoutError"
     fetchMock.mockRejectedValue(timeout)
 
-    const result = await new SendGridEmailProvider(API_KEY, "avisos@porton.test").send(message())
+    const result = await new ResendEmailProvider(API_KEY, "avisos@porton.test").send(message())
 
     expect(result.status).toBe("RETRY_PENDING")
     if (result.status === "RETRY_PENDING") {
@@ -74,50 +93,64 @@ describe("SendGridEmailProvider — clasificación del resultado", () => {
   it("un error de red es RETRY_PENDING", async () => {
     fetchMock.mockRejectedValue(new TypeError("fetch failed"))
 
-    const result = await new SendGridEmailProvider(API_KEY, "avisos@porton.test").send(message())
+    const result = await new ResendEmailProvider(API_KEY, "avisos@porton.test").send(message())
 
     expect(result.status).toBe("RETRY_PENDING")
   })
 
   it("sin destinatarios no llama al proveedor", async () => {
-    const result = await new SendGridEmailProvider(API_KEY, "avisos@porton.test").send(message({ to: [] }))
+    const result = await new ResendEmailProvider(API_KEY, "avisos@porton.test").send(message({ to: [] }))
 
     expect(result.status).toBe("SKIPPED_CONFIG")
     expect(fetchMock).not.toHaveBeenCalled()
   })
 })
 
-describe("SendGridEmailProvider — petición enviada", () => {
-  it("envía con timeout y con el texto plano antes del HTML", async () => {
-    respondWith(202)
-    await new SendGridEmailProvider(API_KEY, "avisos@porton.test").send(message())
+describe("ResendEmailProvider — petición enviada", () => {
+  it("llama al endpoint de Resend, con timeout y con las dos alternativas del cuerpo", async () => {
+    respondWith(200, { id: "abc" })
+    await new ResendEmailProvider(API_KEY, "avisos@porton.test").send(message())
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe("https://api.sendgrid.com/v3/mail/send")
+    expect(url).toBe("https://api.resend.com/emails")
     // Sin timeout, un proveedor lento mantendría viva la función serverless.
     expect(init.signal).toBeInstanceOf(AbortSignal)
 
-    const body = JSON.parse(String(init.body)) as { content: Array<{ type: string }> }
-    // El cliente de correo elige la última alternativa que sabe pintar.
-    expect(body.content.map((part) => part.type)).toEqual(["text/plain", "text/html"])
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>
+    expect(body.from).toBe("avisos@porton.test")
+    expect(body.to).toEqual(["equipo@porton.test"])
+    // Las dos alternativas van en el mismo envío: no todos los clientes pintan HTML.
+    expect(body.html).toBeTruthy()
+    expect(body.text).toBeTruthy()
   })
 
-  it("incluye replyTo solo cuando se pasa", async () => {
-    respondWith(202)
-    const provider = new SendGridEmailProvider(API_KEY, "avisos@porton.test")
+  it("manda la clave como Bearer y nunca en la URL", async () => {
+    respondWith(200, { id: "abc" })
+    await new ResendEmailProvider(API_KEY, "avisos@porton.test").send(message())
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).not.toContain(API_KEY)
+    expect((init.headers as Record<string, string>).Authorization).toBe(`Bearer ${API_KEY}`)
+  })
+
+  it("incluye reply_to solo cuando se pasa, y como cadena", async () => {
+    // El SDK de Resend expone `replyTo`; su API HTTP espera `reply_to`, y con una
+    // dirección plana, no con el objeto `{ email }` que exigía el proveedor anterior.
+    respondWith(200, { id: "abc" })
+    const provider = new ResendEmailProvider(API_KEY, "avisos@porton.test")
 
     await provider.send(message())
     expect(JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body))).not.toHaveProperty("reply_to")
 
     await provider.send(message({ replyTo: "ana@example.test" }))
     const withReply = JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body))
-    expect(withReply.reply_to).toEqual({ email: "ana@example.test" })
+    expect(withReply.reply_to).toBe("ana@example.test")
   })
 })
 
-describe("SendGridEmailProvider — nada de secretos en el resultado", () => {
+describe("ResendEmailProvider — nada de secretos en el resultado", () => {
   it("ningún motivo de fallo contiene la clave de API", async () => {
-    const provider = new SendGridEmailProvider(API_KEY, "avisos@porton.test")
+    const provider = new ResendEmailProvider(API_KEY, "avisos@porton.test")
 
     respondWith(401)
     const failed = await provider.send(message())
@@ -128,13 +161,13 @@ describe("SendGridEmailProvider — nada de secretos en el resultado", () => {
     for (const result of [failed, network]) {
       const serialized = JSON.stringify(result)
       expect(serialized).not.toContain(API_KEY)
-      expect(serialized).not.toContain("SG.")
+      expect(serialized).not.toContain("re_")
     }
   })
 
   it("el resultado no arrastra el cuerpo del mensaje", async () => {
     respondWith(400)
-    const result = await new SendGridEmailProvider(API_KEY, "avisos@porton.test").send(message())
+    const result = await new ResendEmailProvider(API_KEY, "avisos@porton.test").send(message())
 
     expect(JSON.stringify(result)).not.toContain("mensaje de una persona")
   })
@@ -167,7 +200,7 @@ describe("DevelopmentEmailProvider", () => {
     // aviso interno se compone con el texto libre del formulario
     // (`Nueva solicitud: ${request.subject}` en templates.ts). Como
     // `resolveEmailProvider` devuelve este adaptador SIEMPRE que falte
-    // SENDGRID_API_KEY —incluido en producción, donde es opcional—, cada solicitud
+    // RESEND_API_KEY —incluido en producción, donde es opcional—, cada solicitud
     // escribía en el log de producción lo que la persona hubiera teclead
     // ("Boda de Ana, llámame al 600...").
     const info = vi.spyOn(console, "info").mockImplementation(() => {})

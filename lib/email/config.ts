@@ -27,7 +27,7 @@ const DEFAULT_SITE_URL = "http://localhost:3000"
 
 export function readEmailConfig(): EmailConfig {
   return {
-    apiKey: process.env.SENDGRID_API_KEY?.trim() || undefined,
+    apiKey: process.env.RESEND_API_KEY?.trim() || undefined,
     from: process.env.LEADS_FROM_EMAIL?.trim() || undefined,
     notificationTo: parseRecipients(process.env.LEADS_NOTIFICATION_TO),
     // Solo `"true"` activa el acuse. Cualquier otro valor —o la variable ausente—
@@ -50,8 +50,8 @@ function parseRecipients(raw: string | undefined): string[] {
 }
 
 /**
- * ¿Hay transporte real disponible? Hacen falta clave y remitente: sin remitente
- * verificado SendGrid rechaza el envío, así que tener solo la clave no sirve.
+ * ¿Hay transporte real disponible? Hacen falta clave y remitente: sin un remitente
+ * de dominio verificado Resend rechaza el envío, así que tener solo la clave no sirve.
  */
 export function hasTransport(config: EmailConfig = readEmailConfig()): boolean {
   return Boolean(config.apiKey && config.from)

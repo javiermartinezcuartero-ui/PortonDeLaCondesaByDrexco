@@ -179,11 +179,11 @@ export async function listRequestsForAdmin(filters: RequestListFilters = {}) {
  */
 export async function listRequestsForPipeline(limitPerColumn = 25) {
   const requests = await prisma.leadRequest.findMany({
-    where: { archivedAt: null, status: { not: "WON" } },
+    where: { archivedAt: null, status: { not: "CLIENT" } },
     orderBy: [{ priority: "desc" }, { createdAt: "desc" }],
     // Se acota el conjunto para que el tablero no crezca sin límite; el listado
     // paginado de Solicitudes es la vista completa.
-    take: limitPerColumn * 9,
+    take: limitPerColumn * 4,
     select: {
       id: true,
       status: true,
@@ -198,7 +198,7 @@ export async function listRequestsForPipeline(limitPerColumn = 25) {
   })
 
   const wonRecent = await prisma.leadRequest.findMany({
-    where: { archivedAt: null, status: "WON" },
+    where: { archivedAt: null, status: "CLIENT" },
     orderBy: { updatedAt: "desc" },
     take: limitPerColumn,
     select: {

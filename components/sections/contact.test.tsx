@@ -62,13 +62,20 @@ describe("ContactSection — interfaz", () => {
   it("pinta los campos de la solicitud", () => {
     render(<ContactSection />)
 
-    expect(screen.getByLabelText("Nombre")).toBeInTheDocument()
-    expect(screen.getByLabelText("Apellidos")).toBeInTheDocument()
+    // El formulario se simplificó a petición del titular: un solo campo de nombre,
+    // sin espacio preferido, sin presupuesto y sin asunto. Las etiquetas siguen
+    // existiendo aunque no se vean —van con `sr-only`—, que es lo que permite
+    // seguir localizando cada campo por su nombre accesible.
+    expect(screen.getByLabelText("Nombre y apellidos")).toBeInTheDocument()
     expect(screen.getByLabelText("Email")).toBeInTheDocument()
-    expect(screen.getByLabelText("Asunto")).toBeInTheDocument()
+    expect(screen.getByLabelText("Teléfono (opcional)")).toBeInTheDocument()
+    expect(screen.getByLabelText("Tipo de evento")).toBeInTheDocument()
     expect(screen.getByLabelText("Mensaje")).toBeInTheDocument()
-    expect(screen.getByText("Espacio que te interesa")).toBeInTheDocument()
-    expect(screen.getByText("Presupuesto orientativo (opcional)")).toBeInTheDocument()
+
+    expect(screen.queryByLabelText("Apellidos")).not.toBeInTheDocument()
+    expect(screen.queryByLabelText("Asunto")).not.toBeInTheDocument()
+    expect(screen.queryByText("Espacio que te interesa")).not.toBeInTheDocument()
+    expect(screen.queryByText("Presupuesto orientativo (opcional)")).not.toBeInTheDocument()
   })
 
   it("enlaza la casilla de privacidad con la política", () => {
@@ -93,10 +100,10 @@ describe("ContactSection — interfaz", () => {
     const user = userEvent.setup()
     render(<ContactSection />)
 
-    await user.click(screen.getByRole("button", { name: /Solicitar información/ }))
+    await user.click(screen.getByRole("button", { name: /Enviar mensaje/ }))
 
-    expect(await screen.findByText("Introduce tu nombre")).toBeInTheDocument()
-    expect(screen.getByText("Escribe un asunto")).toBeInTheDocument()
+    expect(await screen.findByText("Escribe tu nombre y tus apellidos")).toBeInTheDocument()
+    expect(screen.getByText("Escribe tu mensaje")).toBeInTheDocument()
     expect(screen.getByText("Debes aceptar la política de privacidad")).toBeInTheDocument()
     expect(submitLeadRequest).not.toHaveBeenCalled()
   })
@@ -121,7 +128,7 @@ describe("ContactSection — campos de evento corporativo", () => {
     render(<ContactSection />)
 
     await fillRequiredFields(user, "Evento corporativo")
-    await user.click(screen.getByRole("button", { name: /Solicitar información/ }))
+    await user.click(screen.getByRole("button", { name: /Enviar mensaje/ }))
 
     expect(await screen.findByText("Indica la empresa u organización")).toBeInTheDocument()
     expect(submitLeadRequest).not.toHaveBeenCalled()
@@ -134,7 +141,7 @@ describe("ContactSection — resultado del envío", () => {
     render(<ContactSection />)
 
     await fillRequiredFields(user)
-    await user.click(screen.getByRole("button", { name: /Solicitar información/ }))
+    await user.click(screen.getByRole("button", { name: /Enviar mensaje/ }))
 
     const heading = await screen.findByText("Solicitud recibida")
     const region = heading.closest("[aria-live]")
@@ -148,14 +155,14 @@ describe("ContactSection — resultado del envío", () => {
     render(<ContactSection />)
 
     await fillRequiredFields(user)
-    await user.click(screen.getByRole("button", { name: /Solicitar información/ }))
+    await user.click(screen.getByRole("button", { name: /Enviar mensaje/ }))
 
     expect(
       await screen.findByText("No hemos podido registrar tu solicitud. Escríbenos por WhatsApp o llámanos, por favor.")
     ).toBeInTheDocument()
 
     // Nada se ha limpiado: la persona puede reintentar sin volver a escribirlo.
-    expect(screen.getByLabelText("Nombre")).toHaveValue("Ana")
+    expect(screen.getByLabelText("Nombre y apellidos")).toHaveValue("Ana García")
     expect(screen.getByLabelText("Email")).toHaveValue("ana@example.test")
     expect(screen.getByLabelText("Mensaje")).toHaveValue("Queremos visitar la finca.")
   })
@@ -165,10 +172,10 @@ describe("ContactSection — resultado del envío", () => {
     render(<ContactSection />)
 
     await fillRequiredFields(user)
-    await user.click(screen.getByRole("button", { name: /Solicitar información/ }))
+    await user.click(screen.getByRole("button", { name: /Enviar mensaje/ }))
 
     await screen.findByText("Solicitud recibida")
-    expect(screen.getByLabelText("Nombre")).toHaveValue("")
+    expect(screen.getByLabelText("Nombre y apellidos")).toHaveValue("")
   })
 
   it("reutiliza la clave de idempotencia tras un error y la renueva tras un éxito", async () => {
@@ -177,7 +184,7 @@ describe("ContactSection — resultado del envío", () => {
     render(<ContactSection />)
 
     await fillRequiredFields(user)
-    const submit = screen.getByRole("button", { name: /Solicitar información/ })
+    const submit = screen.getByRole("button", { name: /Enviar mensaje/ })
 
     await user.click(submit)
     await waitFor(() => expect(submitLeadRequest).toHaveBeenCalledTimes(1))
@@ -212,41 +219,43 @@ describe("ContactSection — resultado del envío", () => {
     const user = userEvent.setup()
     render(<ContactSection />)
 
-    // El asunto llega precargado con el texto del propio botón que se pulsó.
-    expect(screen.getByLabelText("Asunto")).toHaveValue("Quiero una boda así")
-
-    await fillRequiredFields(user, undefined, { skipSubject: true })
-    await user.click(screen.getByRole("button", { name: /Solicitar información/ }))
+    await fillRequiredFields(user)
+    await user.click(screen.getByRole("button", { name: /Enviar mensaje/ }))
 
     await waitFor(() => expect(submitLeadRequest).toHaveBeenCalled())
-    const context = submitLeadRequest.mock.calls[0][1]
+    const [values, context] = submitLeadRequest.mock.calls[0]
     expect(context.sourceForm).toBe("vip-story-cta")
     expect(context.sourceContentId).toBe("ckz0000000000000000000000")
+
+    // El asunto ya no tiene campo en pantalla, pero **sigue viajando**: lo rellena el
+    // CTA de la ficha con el texto de su propio botón, y es lo que el panel usa para
+    // listar la solicitud. Se comprueba en el envío porque es donde ahora vive.
+    expect(values.subject).toBe("Quiero una boda así")
   })
 })
 
-/** Abre un desplegable de Radix por el texto de su etiqueta y elige una opción. */
+/**
+ * Abre un desplegable de Radix y elige una opción.
+ *
+ * Se localiza por el nombre accesible y no por el texto visible: al ocultar las
+ * etiquetas con `sr-only`, el mismo texto aparece dos veces —en la etiqueta y como
+ * marcador de posición dentro del propio control— y una búsqueda por texto encuentra
+ * dos elementos. `getByLabelText` resuelve la asociación etiqueta→control y devuelve
+ * uno solo, que además es el que hay que pulsar.
+ */
 async function selectOption(user: ReturnType<typeof userEvent.setup>, label: string, option: string) {
-  const trigger = screen.getByText(label).parentElement?.querySelector("[role='combobox']")
-  expect(trigger).not.toBeNull()
-
-  await user.click(trigger as Element)
+  await user.click(screen.getByLabelText(label))
   await user.click(await screen.findByRole("option", { name: option }))
 }
 
-async function fillRequiredFields(
-  user: ReturnType<typeof userEvent.setup>,
-  eventType = "Boda",
-  options: { skipSubject?: boolean } = {}
-) {
-  await user.type(screen.getByLabelText("Nombre"), "Ana")
-  await user.type(screen.getByLabelText("Apellidos"), "García")
+async function fillRequiredFields(user: ReturnType<typeof userEvent.setup>, eventType = "Boda") {
+  // Dos palabras, no una: el esquema exige nombre y apellidos en el mismo campo,
+  // porque el CRM los guarda separados y `splitFullName` es quien los parte.
+  await user.type(screen.getByLabelText("Nombre y apellidos"), "Ana García")
   await user.type(screen.getByLabelText("Email"), "ana@example.test")
-  if (!options.skipSubject) await user.type(screen.getByLabelText("Asunto"), "Boda en septiembre")
   await user.type(screen.getByLabelText("Mensaje"), "Queremos visitar la finca.")
 
   await selectOption(user, "Tipo de evento", eventType)
-  await selectOption(user, "Espacio que te interesa", "Salón Portón")
 
   await user.click(screen.getByLabelText(/política de privacidad/))
 }

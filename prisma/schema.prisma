@@ -133,16 +133,28 @@ enum LeadLifecycle {
   ANONYMIZED
 }
 
+/// Fases del pipeline comercial. Son cinco, y **antes fueron nueve**: el titular
+/// pidió reducirlas a Contacto, Presentación, Propuesta, Cliente y Perdida.
+///
+/// Se reduce el enum en lugar de agrupar nueve estados en cinco columnas al pintar,
+/// que era la alternativa barata. El motivo: los informes, la exportación a Excel y
+/// el historial de cada contacto leen este mismo campo, así que un tablero de cinco
+/// columnas sobre nueve estados guardados habría enseñado nueve fases en los
+/// informes y cinco en el tablero. El pipeline es dominio, no presentación.
+///
+/// Correspondencia aplicada en la migración: NEW y NURTURING → CONTACT;
+/// CONTACTED, QUALIFIED y VISIT_SCHEDULED → PRESENTATION; PROPOSAL_SENT y
+/// NEGOTIATION → PROPOSAL; WON → CLIENT; LOST se queda.
+///
+/// CONTACT es la fase de entrada —la solicitud está sin trabajar— y por eso el
+/// tiempo hasta el primer contacto sigue midiéndose: es lo que tarda en salir de
+/// aquí.
 enum LeadRequestStatus {
-  NEW
-  CONTACTED
-  QUALIFIED
-  VISIT_SCHEDULED
-  PROPOSAL_SENT
-  NEGOTIATION
-  WON
+  CONTACT
+  PRESENTATION
+  PROPOSAL
+  CLIENT
   LOST
-  NURTURING
 }
 
 enum Priority {
@@ -261,7 +273,7 @@ model LeadRequest {
   budgetRange      String?
   subject          String?
   message          String?
-  status           LeadRequestStatus @default(NEW)
+  status           LeadRequestStatus @default(CONTACT)
   priority         Priority          @default(NORMAL)
   ownerId          String?
   nextActionAt     DateTime?

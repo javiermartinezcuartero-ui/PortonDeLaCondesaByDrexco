@@ -194,6 +194,21 @@ export function buildTaskWhere(view: TaskView, viewerId: string, now: Date): Pri
   }
 }
 
+/**
+ * Orden de cada vista.
+ *
+ * `todas` es la vista que usa la pantalla de Acciones, y ordena **primero por estado**:
+ * el enum `FollowUpStatus` está declarado PENDING, COMPLETED, CANCELLED, y PostgreSQL
+ * ordena un enum por su orden de declaración, así que ascendente deja lo pendiente arriba.
+ * Sin eso, una tabla con todo mezclado y ordenada por fecha empieza por las tareas
+ * cerradas hace meses, que es exactamente lo que nadie va a mirar.
+ */
+function taskOrderBy(view: TaskView): Prisma.FollowUpTaskOrderByWithRelationInput[] {
+  if (view === "completadas") return [{ updatedAt: "desc" }]
+  if (view === "todas") return [{ status: "asc" }, { dueAt: "asc" }, { priority: "desc" }]
+  return [{ dueAt: "asc" }, { priority: "desc" }]
+}
+
 export async function listTasks(view: TaskView, viewerId: string, now: Date, page = 1) {
   const where = buildTaskWhere(view, viewerId, now)
   const pageSize = TASK_LIST_PAGE_SIZE
@@ -202,7 +217,7 @@ export async function listTasks(view: TaskView, viewerId: string, now: Date, pag
     prisma.followUpTask.count({ where }),
     prisma.followUpTask.findMany({
       where,
-      orderBy: view === "completadas" ? [{ updatedAt: "desc" }] : [{ dueAt: "asc" }, { priority: "desc" }],
+      orderBy: taskOrderBy(view),
       skip: (Math.max(1, page) - 1) * pageSize,
       take: pageSize,
       include: {
@@ -217,15 +232,9 @@ export async function listTasks(view: TaskView, viewerId: string, now: Date, pag
 
 export type TaskRow = Awaited<ReturnType<typeof listTasks>>["tasks"][number]
 
-export async function countTasksByView(viewerId: string, now: Date): Promise<Record<TaskView, number>> {
-  const entries = await Promise.all(
-    TASK_VIEWS.map(async (view) => {
-      const count = await prisma.followUpTask.count({ where: buildTaskWhere(view, viewerId, now) })
-      return [view, count] as const
-    })
-  )
-  return Object.fromEntries(entries) as Record<TaskView, number>
-}
+// `countTasksByView` se retiró al quitar las seis pestañas de la pantalla de Acciones:
+// contaba una consulta por vista para poner el número entre paréntesis en cada pestaña, y
+// sin pestañas nadie lo llamaba. Eran seis `count` por carga de pantalla.
 
 // ---------------------------------------------------------------------------
 // Comprobaciones

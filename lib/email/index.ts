@@ -2,7 +2,7 @@ import "server-only"
 
 import { hasTransport, readEmailConfig, type EmailConfig } from "@/lib/email/config"
 import { DevelopmentEmailProvider } from "@/lib/email/development"
-import { SendGridEmailProvider } from "@/lib/email/sendgrid"
+import { ResendEmailProvider } from "@/lib/email/resend"
 import type { EmailProvider } from "@/lib/email/provider"
 
 /**
@@ -11,17 +11,22 @@ import type { EmailProvider } from "@/lib/email/provider"
  * `import "server-only"` hace que el build falle si alguien importa esto desde un
  * componente cliente: la clave de API no puede acabar en el paquete del navegador.
  *
- * No hay una tercera vía. Con clave y remitente se usa SendGrid; sin ellos, el
+ * No hay una tercera vía. Con clave y remitente se usa Resend; sin ellos, el
  * adaptador de desarrollo, que registra y no envía. Un modo intermedio ("simular
  * envío") solo serviría para confundir el registro.
+ *
+ * **Un solo proveedor a la vez.** Al pasar a Resend se retiró el adaptador de
+ * SendGrid en lugar de dejar los dos y elegir por variable de entorno: con dos
+ * proveedores instalados, un despliegue con la variable equivocada envía por un canal
+ * que nadie está mirando, y `NotificationLog` acaba con dos historias distintas.
  */
 export function resolveEmailProvider(config: EmailConfig = readEmailConfig()): EmailProvider {
   if (hasTransport(config) && config.apiKey && config.from) {
-    return new SendGridEmailProvider(config.apiKey, config.from)
+    return new ResendEmailProvider(config.apiKey, config.from)
   }
 
   const missing = [
-    !config.apiKey ? "SENDGRID_API_KEY" : null,
+    !config.apiKey ? "RESEND_API_KEY" : null,
     !config.from ? "LEADS_FROM_EMAIL" : null,
   ].filter((name): name is string => name !== null)
 

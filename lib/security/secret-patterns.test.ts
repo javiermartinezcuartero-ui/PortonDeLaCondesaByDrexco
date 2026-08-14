@@ -83,9 +83,12 @@ describe("contraseñas y secretos en claro", () => {
     // seis excepciones permanentes en la lista, y una lista de excepciones larga
     // deja de leerse.
     const fixtures = [
-      'const API_KEY = "SG.clave-de-prueba-que-no-debe-aparecer"',
+      // Los guiones medios son deliberados: una clave real de Resend no los lleva, así
+      // que un valor con guiones no puede confundirse con una credencial. Es lo que
+      // permite que estas constantes vivan en los tests sin una excepción permanente.
+      'const API_KEY = "re_clave-de-prueba-que-no-debe-aparecer"',
       'const TEST_PASSWORD = "un-password-de-prueba-123"',
-      'process.env.SENDGRID_API_KEY = "SG.no-debe-aparecer"',
+      'process.env.RESEND_API_KEY = "re_ficticia-que-no-debe-aparecer"',
     ].join("\n")
 
     expect(matchingPatterns(fixtures)).toEqual([])

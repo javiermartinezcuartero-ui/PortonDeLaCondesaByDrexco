@@ -9,7 +9,7 @@ import {
   listRequestsForAdmin,
   updateRequestDetails,
 } from "@/lib/domain/crm-requests"
-import { exportLeadsCsv, exportRequestsCsv } from "@/lib/domain/crm-export"
+import { exportLeadsTable, exportRequestsTable, type ExportTable } from "@/lib/domain/crm-export"
 import { changeLeadRequestStatus } from "@/lib/domain/lead-requests"
 import { InvalidTransitionError, DomainError } from "@/lib/domain/errors"
 import { addLeadNote, updateLeadNote } from "@/lib/domain/notes"
@@ -153,14 +153,14 @@ describe("listRequestsForAdmin — filtros", () => {
     // quedar fuera de la primera página por culpa de datos de otro test.
     const marker = uniqueSlug("filtro")
     const target = await createRequest(lead.id, {
-      status: "QUALIFIED",
+      status: "PRESENTATION",
       priority: "HIGH",
       ownerId: user.id,
       subject: `${marker}-asignada`,
     })
-    const other = await createRequest(lead.id, { status: "NEW", priority: "LOW", subject: `${marker}-libre` })
+    const other = await createRequest(lead.id, { status: "CONTACT", priority: "LOW", subject: `${marker}-libre` })
 
-    const byStatus = await listRequestsForAdmin({ status: "QUALIFIED", search: marker })
+    const byStatus = await listRequestsForAdmin({ status: "PRESENTATION", search: marker })
     expect(byStatus.requests.map((row) => row.id)).toEqual([target.id])
 
     const byPriority = await listRequestsForAdmin({ priority: "HIGH", search: marker })
@@ -169,7 +169,7 @@ describe("listRequestsForAdmin — filtros", () => {
     const byOwner = await listRequestsForAdmin({ ownerId: user.id })
     expect(byOwner.requests.map((row) => row.id)).toEqual([target.id])
 
-    const unassigned = await listRequestsForAdmin({ unassigned: true, status: "NEW", search: marker })
+    const unassigned = await listRequestsForAdmin({ unassigned: true, status: "CONTACT", search: marker })
     expect(unassigned.requests.map((row) => row.id)).toEqual([other.id])
   })
 
@@ -224,13 +224,13 @@ describe("changeLeadRequestStatus", () => {
     const user = await createUser()
     const request = await createRequest(lead.id)
 
-    await changeLeadRequestStatus({ leadRequestId: request.id, nextStatus: "CONTACTED", actorId: user.id })
+    await changeLeadRequestStatus({ leadRequestId: request.id, nextStatus: "PRESENTATION", actorId: user.id })
 
     const activity = await prisma.leadActivity.findFirst({
       where: { leadRequestId: request.id, type: "STATUS_CHANGED" },
     })
     expect(activity).not.toBeNull()
-    expect((activity?.metadata as { to?: string })?.to).toBe("CONTACTED")
+    expect((activity?.metadata as { to?: string })?.to).toBe("PRESENTATION")
 
     const audit = await prisma.auditEvent.findFirst({
       where: { entityType: "LeadRequest", entityId: request.id, action: "request.status" },
@@ -241,21 +241,21 @@ describe("changeLeadRequestStatus", () => {
 
   itDb("rechaza una transición que la máquina de estados no permite", async () => {
     const lead = await createLead()
-    const request = await createRequest(lead.id, { status: "NEW" })
+    const request = await createRequest(lead.id, { status: "CONTACT" })
 
-    // NEW solo puede ir a CONTACTED o LOST.
+    // Contacto solo puede ir a Presentación o Perdida: Cliente está a dos fases.
     await expect(
-      changeLeadRequestStatus({ leadRequestId: request.id, nextStatus: "WON" })
+      changeLeadRequestStatus({ leadRequestId: request.id, nextStatus: "CLIENT" })
     ).rejects.toThrow(InvalidTransitionError)
 
     const unchanged = await prisma.leadRequest.findUniqueOrThrow({ where: { id: request.id } })
-    expect(unchanged.status).toBe("NEW")
+    expect(unchanged.status).toBe("CONTACT")
   })
 
-  itDb("WON es terminal: no admite ningún movimiento posterior", async () => {
+  itDb("Cliente es terminal: no admite ningún movimiento posterior", async () => {
     const lead = await createLead()
-    const request = await createRequest(lead.id, { status: "NEGOTIATION" })
-    await changeLeadRequestStatus({ leadRequestId: request.id, nextStatus: "WON" })
+    const request = await createRequest(lead.id, { status: "PROPOSAL" })
+    await changeLeadRequestStatus({ leadRequestId: request.id, nextStatus: "CLIENT" })
 
     await expect(changeLeadRequestStatus({ leadRequestId: request.id, nextStatus: "LOST", lostReason: "x" })).rejects.toThrow(
       InvalidTransitionError
@@ -272,7 +272,7 @@ describe("changeLeadRequestStatus", () => {
     ).rejects.toThrow(DomainError)
 
     const unchanged = await prisma.leadRequest.findUniqueOrThrow({ where: { id: request.id } })
-    expect(unchanged.status).toBe("NEW")
+    expect(unchanged.status).toBe("CONTACT")
     expect(unchanged.lostReason).toBeNull()
   })
 
@@ -300,9 +300,9 @@ describe("changeLeadRequestStatus", () => {
 
   itDb("mover al mismo estado no crea ruido en el historial", async () => {
     const lead = await createLead()
-    const request = await createRequest(lead.id, { status: "CONTACTED" })
+    const request = await createRequest(lead.id, { status: "PRESENTATION" })
 
-    await changeLeadRequestStatus({ leadRequestId: request.id, nextStatus: "CONTACTED" })
+    await changeLeadRequestStatus({ leadRequestId: request.id, nextStatus: "PRESENTATION" })
 
     expect(await prisma.leadActivity.count({ where: { leadRequestId: request.id, type: "STATUS_CHANGED" } })).toBe(0)
   })
@@ -552,30 +552,22 @@ describe("notas", () => {
 describe("métricas", () => {
   itDb("la conversión no inventa un porcentaje sin cerradas", () => {
     const empty = conversionOverClosed({
-      NEW: 3,
-      CONTACTED: 1,
-      QUALIFIED: 0,
-      VISIT_SCHEDULED: 0,
-      PROPOSAL_SENT: 0,
-      NEGOTIATION: 0,
-      WON: 0,
+      CONTACT: 3,
+      PRESENTATION: 1,
+      PROPOSAL: 0,
+      CLIENT: 0,
       LOST: 0,
-      NURTURING: 0,
     })
     // Con 0 cerradas no hay 0 %: no hay dato.
     expect(empty.percentage).toBeNull()
     expect(empty.denominator).toBe(0)
 
     const withData = conversionOverClosed({
-      NEW: 10,
-      CONTACTED: 0,
-      QUALIFIED: 0,
-      VISIT_SCHEDULED: 0,
-      PROPOSAL_SENT: 0,
-      NEGOTIATION: 0,
-      WON: 3,
+      CONTACT: 10,
+      PRESENTATION: 0,
+      PROPOSAL: 0,
+      CLIENT: 3,
       LOST: 1,
-      NURTURING: 0,
     })
     // Sobre cerradas (4), no sobre el total (14).
     expect(withData.percentage).toBe(75)
@@ -589,7 +581,7 @@ describe("métricas", () => {
     // Las filas de este test se colocan en una ventana histórica propia y se
     // cuenta solo ese rango. Comparar el total de la tabla antes y después sería
     // intermitente: Vitest ejecuta los archivos en paralelo y otro test puede
-    // crear o borrar una solicitud NEW entre las dos lecturas.
+    // crear o borrar una solicitud en Contacto entre las dos lecturas.
     const day = 1 + (randomBytes(1)[0] % 27)
     const stamp = new Date(Date.UTC(2001, 0, day, 12, 0, 0))
     const range = { from: new Date(stamp.getTime() - 60_000), to: new Date(stamp.getTime() + 60_000) }
@@ -597,16 +589,16 @@ describe("métricas", () => {
     const first = await createRequest(lead.id, { createdAt: stamp })
     await createRequest(lead.id, { createdAt: stamp })
 
-    expect((await countRequestsByStatus(range)).NEW).toBe(2)
+    expect((await countRequestsByStatus(range)).CONTACT).toBe(2)
 
     await archiveRequest(first.id, actor.id)
-    expect((await countRequestsByStatus(range)).NEW).toBe(1)
+    expect((await countRequestsByStatus(range)).CONTACT).toBe(1)
   })
 
   itDb("el tiempo al primer contacto se lee del historial real", async () => {
     const lead = await createLead()
     const request = await createRequest(lead.id)
-    await changeLeadRequestStatus({ leadRequestId: request.id, nextStatus: "CONTACTED" })
+    await changeLeadRequestStatus({ leadRequestId: request.id, nextStatus: "PRESENTATION" })
 
     const average = await averageHoursToFirstContact({ from: new Date(Date.now() - 60 * 60 * 1000) })
     expect(average.sampleSize).toBeGreaterThan(0)
@@ -669,16 +661,26 @@ describe("findPossibleDuplicates", () => {
 // Exportación
 // ---------------------------------------------------------------------------
 
-describe("exportación CSV", () => {
+/**
+ * Todo el contenido de una tabla como una sola cadena, para poder afirmar «esto sale»
+ * y «esto no sale» sin recorrer filas y columnas en cada prueba.
+ *
+ * Se afirma sobre los datos y no sobre el archivo generado porque son dos preguntas
+ * distintas: aquí importa QUÉ se exporta —qué columnas, qué filas, qué se omite—, y que
+ * el `.xlsx` resultante sea válido se comprueba en `crm-workbook.test.ts`.
+ */
+const contenido = (table: ExportTable) => JSON.stringify([table.headers, ...table.rows])
+
+describe("exportación a Excel", () => {
   itDb("respeta los filtros y registra un evento de auditoría", async () => {
     const included = await createLead({ score: 90 })
     const excluded = await createLead({ score: 1 })
     const actor = await createUser("ADMIN")
 
-    const csv = await exportLeadsCsv({ minScore: 50 }, { actorId: actor.id })
+    const table = await exportLeadsTable({ minScore: 50 }, { actorId: actor.id })
 
-    expect(csv).toContain(included.email)
-    expect(csv).not.toContain(excluded.email)
+    expect(contenido(table)).toContain(included.email)
+    expect(contenido(table)).not.toContain(excluded.email)
 
     const audit = await prisma.auditEvent.findFirstOrThrow({
       where: { action: "crm.export.leads", actorId: actor.id },
@@ -692,12 +694,13 @@ describe("exportación CSV", () => {
     const actor = await createUser("ADMIN")
     await addLeadNote({ leadId: lead.id, body: "Nota reservada del equipo" })
 
-    const withoutNotes = await exportLeadsCsv({ minScore: 90 }, { actorId: actor.id })
-    expect(withoutNotes).not.toContain("Nota reservada del equipo")
-    expect(withoutNotes).not.toContain("Notas internas")
+    const withoutNotes = await exportLeadsTable({ minScore: 90 }, { actorId: actor.id })
+    expect(contenido(withoutNotes)).not.toContain("Nota reservada del equipo")
+    expect(withoutNotes.headers).not.toContain("Notas internas")
 
-    const withNotes = await exportLeadsCsv({ minScore: 90 }, { actorId: actor.id, includeNotes: true })
-    expect(withNotes).toContain("Nota reservada del equipo")
+    const withNotes = await exportLeadsTable({ minScore: 90 }, { actorId: actor.id, includeNotes: true })
+    expect(contenido(withNotes)).toContain("Nota reservada del equipo")
+    expect(withNotes.headers).toContain("Notas internas")
 
     const audit = await prisma.auditEvent.findFirstOrThrow({
       where: { action: "crm.export.leads", actorId: actor.id },
@@ -710,7 +713,7 @@ describe("exportación CSV", () => {
     const lead = await createLead()
     const actor = await createUser("ADMIN")
 
-    await exportLeadsCsv({ search: lead.email }, { actorId: actor.id })
+    await exportLeadsTable({ search: lead.email }, { actorId: actor.id })
 
     const audit = await prisma.auditEvent.findFirstOrThrow({
       where: { action: "crm.export.leads", actorId: actor.id },
@@ -721,20 +724,21 @@ describe("exportación CSV", () => {
     expect(JSON.stringify(audit.metadata)).toContain("término omitido")
   })
 
-  itDb("neutraliza una fórmula que llegó desde el formulario público", async () => {
+  itDb("una fórmula llegada del formulario público se exporta íntegra, sin retocarla", async () => {
+    // Antes esta prueba comprobaba lo contrario: que el valor se prefijaba con un
+    // apóstrofo para que Excel no ejecutara la fórmula al abrir el CSV. Con `.xlsx` la
+    // celda declara su tipo y una cadena es una cadena, así que ya no hay que estropear
+    // el dato para que sea seguro. Que la celda no acabe siendo una fórmula se verifica
+    // releyendo el archivo generado, en `crm-workbook.test.ts`.
     const lead = await createLead({ score: 97 })
     const actor = await createUser("ADMIN")
-    await createRequest(lead.id, { subject: "=HYPERLINK(\"http://malo\",\"pulsa\")", guestCount: 10 })
+    const peligroso = "=HYPERLINK(\"http://malo\",\"pulsa\")"
+    await createRequest(lead.id, { subject: peligroso, guestCount: 10 })
 
-    const csv = await exportRequestsCsv({ minGuests: 10, maxGuests: 10 }, { actorId: actor.id })
+    const table = await exportRequestsTable({ minGuests: 10, maxGuests: 10 }, { actorId: actor.id })
 
-    expect(csv).toContain("'=HYPERLINK")
-    // La celda no puede empezar por `=` en ningún caso.
-    for (const line of csv.split("\r\n")) {
-      for (const cell of line.split(";")) {
-        expect(cell.startsWith("=")).toBe(false)
-      }
-    }
+    expect(table.rows.map((row) => row[table.headers.indexOf("Asunto")])).toContain(peligroso)
+    expect(contenido(table)).not.toContain("'=HYPERLINK")
   })
 
   itDb("no exporta columnas internas ni identificadores técnicos", async () => {
@@ -742,12 +746,12 @@ describe("exportación CSV", () => {
     const actor = await createUser("ADMIN")
     await createRequest(lead.id, { submissionId: `secreto-${randomBytes(6).toString("hex")}`, guestCount: 11 })
 
-    const csv = await exportRequestsCsv({ minGuests: 11, maxGuests: 11 }, { actorId: actor.id })
+    const table = await exportRequestsTable({ minGuests: 11, maxGuests: 11 }, { actorId: actor.id })
 
     // `submissionId` es una clave de idempotencia interna: no tiene por qué salir.
-    expect(csv).not.toContain("submissionId")
-    expect(csv).not.toContain("secreto-")
-    expect(csv).not.toContain("leadId")
+    expect(contenido(table)).not.toContain("submissionId")
+    expect(contenido(table)).not.toContain("secreto-")
+    expect(contenido(table)).not.toContain("leadId")
   })
 })
 
@@ -848,7 +852,7 @@ describe("listRequestsForAdmin — resistente a un contacto que desaparece", () 
   })
 })
 
-describe("exportRequestsCsv — resistente a un contacto que desaparece", () => {
+describe("exportRequestsTable — resistente a un contacto que desaparece", () => {
   itDb("una solicitud huérfana se omite en vez de tumbar la descarga entera", async () => {
     // Regresión de un fallo INTERMITENTE que apareció en la suite completa:
     //
@@ -882,11 +886,11 @@ describe("exportRequestsCsv — resistente a un contacto que desaparece", () => 
 
       // Antes de la corrección esto lanzaba y la descarga entera fallaba.
       const actor = await createUser("ADMIN")
-      const csv = await exportRequestsCsv({ search: marker }, { actorId: actor.id })
+      const table = await exportRequestsTable({ search: marker }, { actorId: actor.id })
 
-      expect(typeof csv).toBe("string")
-      // La fila huérfana no aparece —no se sabe de quién era— pero el CSV existe.
-      expect(csv).not.toContain(marker)
+      expect(table.headers.length).toBeGreaterThan(0)
+      // La fila huérfana no aparece —no se sabe de quién era— pero la tabla existe.
+      expect(contenido(table)).not.toContain(marker)
     } finally {
       await prisma.leadRequest.deleteMany({ where: { id: request.id } })
       await prisma.lead.deleteMany({ where: { id: lead.id } })

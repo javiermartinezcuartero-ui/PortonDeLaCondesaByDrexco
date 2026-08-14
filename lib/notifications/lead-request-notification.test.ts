@@ -22,7 +22,7 @@ const createdEmails: string[] = []
 let fetchMock: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
-  fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 202 }))
+  fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "id-de-prueba" }), { status: 200 }))
   vi.stubGlobal("fetch", fetchMock)
   vi.spyOn(console, "info").mockImplementation(() => {})
   vi.spyOn(console, "error").mockImplementation(() => {})
@@ -102,7 +102,7 @@ describe("aviso interno", () => {
     const [log] = await logsFor(lead.id)
     expect(log.template).toBe(TEMPLATE_INTERNAL)
     expect(log.status).toBe("SENT")
-    expect(log.provider).toBe("sendgrid")
+    expect(log.provider).toBe("resend")
     expect(log.sentAt).not.toBeNull()
     expect(log.error).toBeNull()
   })
@@ -181,8 +181,8 @@ describe("aviso interno", () => {
     await notifyNewLeadRequest(lead, request, config())
 
     const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body))
-    expect(body.reply_to).toEqual({ email: lead.email })
-    expect(body.personalizations[0].to).toEqual([{ email: "equipo@porton.test" }])
+    expect(body.reply_to).toBe(lead.email)
+    expect(body.to).toEqual(["equipo@porton.test"])
   })
 
   itDb("el enlace del correo apunta al detalle protegido y sin token", async () => {
@@ -191,7 +191,7 @@ describe("aviso interno", () => {
     await notifyNewLeadRequest(lead, request, config({ siteUrl: "https://porton.test" }))
 
     const body = JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body))
-    const html = body.content.find((part: { type: string }) => part.type === "text/html").value
+    const html = body.html as string
     expect(html).toContain(`https://porton.test/admin/solicitudes/${request.id}`)
     expect(html).not.toContain("token")
   })
@@ -230,9 +230,9 @@ describe("acuse al visitante", () => {
 
     const ackCall = fetchMock.mock.calls[1] as [string, RequestInit]
     const body = JSON.parse(String(ackCall[1].body))
-    const text = body.content.find((part: { type: string }) => part.type === "text/plain").value
+    const text = body.text as string
 
-    expect(body.personalizations[0].to).toEqual([{ email: lead.email }])
+    expect(body.to).toEqual([lead.email])
     expect(text).toContain("Hemos recibido tu solicitud")
     expect(text.toLowerCase()).not.toContain("comunicaciones comerciales")
     expect(text.toLowerCase()).not.toContain("novedades")
@@ -244,7 +244,7 @@ describe("acuse al visitante", () => {
     await notifyNewLeadRequest(lead, request, config({ sendAcknowledgement: true }))
 
     const body = JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body))
-    const text = body.content.find((part: { type: string }) => part.type === "text/plain").value
+    const text = body.text as string
     expect(text.toLowerCase()).toContain("comunicaciones comerciales")
   })
 
@@ -260,14 +260,14 @@ describe("acuse al visitante", () => {
     await notifyNewLeadRequest(lead, request, config({ sendAcknowledgement: true }))
 
     const body = JSON.parse(String((fetchMock.mock.calls[1] as [string, RequestInit])[1].body))
-    const text = body.content.find((part: { type: string }) => part.type === "text/plain").value
+    const text = body.text as string
     expect(text.toLowerCase()).not.toContain("comunicaciones comerciales")
   })
 
   itDb("si falla el acuse, el aviso interno sigue registrado como enviado", async () => {
     const { lead, request } = await createLeadWithRequest()
     fetchMock
-      .mockResolvedValueOnce(new Response(null, { status: 202 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "id-de-prueba" }), { status: 200 }))
       .mockResolvedValueOnce(new Response(null, { status: 500 }))
 
     const outcome = await notifyNewLeadRequest(lead, request, config({ sendAcknowledgement: true }))

@@ -4,71 +4,43 @@ import { buildLeadWhere, type LeadListFilters } from "@/lib/domain/crm-leads"
 import { buildRequestWhere, type RequestListFilters } from "@/lib/domain/crm-requests"
 
 /**
- * Exportación CSV del CRM.
+ * Qué se exporta del CRM. **Cómo** se serializa está en `crm-workbook.ts`.
  *
- * Un CSV es la salida más peligrosa de todo el proyecto: sale del control de
- * acceso de la aplicación, se reenvía y se abre en Excel. De ahí las tres reglas
- * que gobiernan este módulo:
+ * La separación es deliberada y se hizo al pasar de CSV a Excel: este módulo consulta
+ * y decide columnas, el otro da forma al archivo. Antes estaban juntos, y el resultado
+ * fue que la decisión de seguridad más importante del proyecto —qué columnas salen—
+ * compartía archivo con el escapado de comillas.
  *
- * 1. **Lista blanca de columnas.** No se serializa una fila de Prisma tal cual;
- *    cada columna se declara aquí. Así una columna nueva en el esquema (un hash,
- *    un token, un campo interno) no aparece en el CSV por descuido: para
- *    exportarla hay que añadirla a mano, que es exactamente la fricción que se
- *    quiere. Nunca salen credenciales, tokens, hashes, metadata interna ni claves.
- * 2. **Neutralización de fórmulas.** Un valor que empiece por `=`, `+`, `-` o `@`
- *    lo interpreta Excel/Sheets como fórmula. Un contacto puede escribir
- *    `=HYPERLINK(...)` en el asunto y convertirlo en un ataque contra quien abra
- *    el archivo (CSV injection). Se prefija con un apóstrofo, que anula la
- *    interpretación sin alterar lo que se lee.
- * 3. **Toda exportación deja un AuditEvent**: quién, qué conjunto y cuántas filas.
+ * Una exportación es la salida más peligrosa de todo el proyecto: sale del control de
+ * acceso de la aplicación, se reenvía y se abre en el equipo de alguien. De ahí las dos
+ * reglas que gobiernan este módulo:
+ *
+ * 1. **Lista blanca de columnas.** No se serializa una fila de Prisma tal cual; cada
+ *    columna se declara aquí. Así una columna nueva en el esquema (un hash, un token,
+ *    un campo interno) no aparece en el archivo por descuido: para exportarla hay que
+ *    añadirla a mano, que es exactamente la fricción que se quiere. Nunca salen
+ *    credenciales, tokens, hashes, metadata interna ni claves.
+ * 2. **Toda exportación deja un AuditEvent**: quién, qué conjunto y cuántas filas.
+ *
+ * La tercera regla que había aquí —neutralizar fórmulas para evitar que Excel ejecute
+ * un `=HYPERLINK(...)` escrito por un visitante— ya no hace falta: en `.xlsx` cada
+ * celda declara su tipo y una cadena es una cadena. Ver `crm-workbook.ts`.
  */
-
-/** Caracteres que convierten una celda en fórmula al abrirla en una hoja de cálculo. */
-const FORMULA_PREFIXES = ["=", "+", "-", "@"]
-
-/**
- * Prepara un valor para una celda: neutraliza fórmulas, escapa las comillas y
- * entrecomilla cuando hace falta.
- *
- * También se neutralizan el tabulador y el retorno de carro al inicio, porque
- * algunas versiones de Excel los ignoran y acaban interpretando el `=` que va
- * detrás.
- */
-export function toCsvCell(value: unknown): string {
-  if (value === null || value === undefined) return ""
-
-  let text: string
-  if (value instanceof Date) text = value.toISOString()
-  else if (typeof value === "boolean") text = value ? "sí" : "no"
-  else text = String(value)
-
-  const leading = text.replace(/^[\t\r ]+/, "")
-  if (FORMULA_PREFIXES.some((prefix) => leading.startsWith(prefix))) {
-    text = `'${text}`
-  }
-
-  if (/["\n\r;,]/.test(text)) {
-    return `"${text.replace(/"/g, '""')}"`
-  }
-  return text
-}
-
-/**
- * Serializa filas a CSV con `;` como separador y BOM UTF-8.
- *
- * El punto y coma es el separador que espera Excel en configuración regional
- * española, y el BOM es lo que hace que Excel reconozca el UTF-8 y no destroce
- * los acentos. Sin el BOM, "Celebración" se abre como "CelebraciÃ³n".
- */
-export const UTF8_BOM = String.fromCharCode(0xfeff)
-
-export function buildCsv(headers: string[], rows: unknown[][]): string {
-  const lines = [headers.map(toCsvCell).join(";"), ...rows.map((row) => row.map(toCsvCell).join(";"))]
-  return `${UTF8_BOM}${lines.join("\r\n")}\r\n`
-}
 
 /** Tope de filas por exportación. Evita que un clic tumbe el servidor. */
 export const EXPORT_MAX_ROWS = 5_000
+
+/**
+ * Una tabla lista para serializar: cabeceras y filas, sin formato.
+ *
+ * Se devuelve esto y no un archivo para que la decisión de formato viva en un solo
+ * sitio —la ruta— y para que las pruebas puedan comprobar **qué datos** salen sin
+ * tener que abrir un libro de Excel para leerlos.
+ */
+export type ExportTable = {
+  headers: string[]
+  rows: unknown[][]
+}
 
 // ---------------------------------------------------------------------------
 // Contactos
@@ -99,7 +71,7 @@ export type ExportOptions = {
   includeNotes?: boolean
 }
 
-export async function exportLeadsCsv(filters: LeadListFilters, options: ExportOptions): Promise<string> {
+export async function exportLeadsTable(filters: LeadListFilters, options: ExportOptions): Promise<ExportTable> {
   const where = buildLeadWhere(filters)
 
   const leads = await prisma.lead.findMany({
@@ -178,7 +150,7 @@ export async function exportLeadsCsv(filters: LeadListFilters, options: ExportOp
     metadata: { filas: rows.length, incluyeNotas: Boolean(options.includeNotes), filtros: describeFilters(filters) },
   })
 
-  return buildCsv(headers, rows)
+  return { headers, rows }
 }
 
 // ---------------------------------------------------------------------------
@@ -217,7 +189,7 @@ const REQUEST_HEADERS = [
   "utm_term",
 ]
 
-export async function exportRequestsCsv(filters: RequestListFilters, options: ExportOptions): Promise<string> {
+export async function exportRequestsTable(filters: RequestListFilters, options: ExportOptions): Promise<ExportTable> {
   const where = buildRequestWhere(filters)
 
   const requests = await prisma.leadRequest.findMany({
@@ -322,7 +294,7 @@ export async function exportRequestsCsv(filters: RequestListFilters, options: Ex
     metadata: { filas: rows.length, filtros: describeFilters(filters) },
   })
 
-  return buildCsv(REQUEST_HEADERS, rows)
+  return { headers: REQUEST_HEADERS, rows }
 }
 
 /**

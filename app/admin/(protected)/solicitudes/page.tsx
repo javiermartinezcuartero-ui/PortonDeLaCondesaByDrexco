@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { roleHasPermission } from "@/lib/auth/session"
 import { requireCrmAccess } from "../guards"
+import { ExportButton } from "../export-button"
 import {
   REQUEST_LIST_PAGE_SIZE,
   REQUEST_SORTS,
@@ -27,20 +28,12 @@ import {
   parsePageParam,
   parsePositiveIntParam,
 } from "@/lib/validation/crm"
-import {
-  EmptyState,
-  Pagination,
-  Pill,
-  buttonClass,
-  filterFieldClass,
-  filterLabelClass,
-  secondaryButtonClass,
-} from "../crm-ui"
+import { EmptyState, FilterPanel, Pagination, StatusPill, filterFieldClass, filterLabelClass } from "../crm-ui"
 
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: "Solicitudes",
+  title: "Solicitudes Formulario",
   robots: { index: false, follow: false, nocache: true, googleBot: { index: false, follow: false } },
 }
 
@@ -106,6 +99,13 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
 
   const canExport = roleHasPermission(user.role, "crm:export")
 
+  // Cuántos filtros hay puestos. Se descuentan `pagina` y `orden`: la primera es
+  // paginación y la segunda es ordenación —siempre trae un valor—, así que contarlas
+  // dejaría el bloque abierto siempre y el recuento no significaría nada.
+  const activeFilters = (Object.keys(params) as Array<keyof SearchParams>).filter(
+    (key) => key !== "pagina" && key !== "orden" && params[key]
+  ).length
+
   const query = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) if (value) query.set(key, value)
   const buildHref = (nextPage: number) => {
@@ -121,20 +121,22 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl font-light text-foreground">Solicitudes</h1>
+          <h1 className="font-serif text-3xl font-light text-foreground">Solicitudes Formulario</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Cada envío de formulario es una solicitud propia. Nunca se sobrescribe una anterior.
+            Peticiones de información llegadas por el formulario de la web. Cada envío es una solicitud propia:
+            nunca se sobrescribe una anterior.
           </p>
         </div>
         {canExport && (
-          <a href={`/api/admin/crm/export?conjunto=solicitudes&${exportQuery.toString()}`} className={secondaryButtonClass}>
-            Exportar CSV
-          </a>
+          <ExportButton
+            href={`/api/admin/crm/export?conjunto=solicitudes&${exportQuery.toString()}`}
+            label="Descargar las solicitudes en Excel"
+          />
         )}
       </div>
 
-      <form method="get" className="space-y-4 border border-border p-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <FilterPanel activeCount={activeFilters} clearHref="/admin/solicitudes">
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2">
             <label htmlFor="q" className={filterLabelClass}>
               Buscar por asunto, nombre o email
@@ -287,15 +289,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
           </div>
         </div>
         {params.ficha && <input type="hidden" name="ficha" value={params.ficha} />}
-        <div className="flex gap-2">
-          <button type="submit" className={buttonClass}>
-            Filtrar
-          </button>
-          <Link href="/admin/solicitudes" className={secondaryButtonClass}>
-            Limpiar
-          </Link>
-        </div>
-      </form>
+      </FilterPanel>
 
       {requests.length === 0 ? (
         <EmptyState>No hay solicitudes que coincidan con estos filtros.</EmptyState>
@@ -341,9 +335,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                     <p className="mt-0.5 font-mono text-xs text-muted-foreground">{request.lead.email}</p>
                   </td>
                   <td className="py-3 pr-4">
-                    <Pill tone={request.status === "LOST" ? "alert" : request.status === "WON" ? "accent" : "neutral"}>
-                      {REQUEST_STATUS_LABEL[request.status]}
-                    </Pill>
+                    <StatusPill status={request.status} />
                   </td>
                   <td className="py-3 pr-4 text-muted-foreground">{PRIORITY_LABEL[request.priority]}</td>
                   <td className="py-3 pr-4 text-muted-foreground">

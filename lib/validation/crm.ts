@@ -8,17 +8,7 @@ import { MAX_RULE_POINTS } from "@/lib/domain/scoring"
  * `FormData`, así que estos esquemas parten de cadenas y las convierten.
  */
 
-const LEAD_REQUEST_STATUSES = [
-  "NEW",
-  "CONTACTED",
-  "QUALIFIED",
-  "VISIT_SCHEDULED",
-  "PROPOSAL_SENT",
-  "NEGOTIATION",
-  "WON",
-  "LOST",
-  "NURTURING",
-] as const
+const LEAD_REQUEST_STATUSES = ["CONTACT", "PRESENTATION", "PROPOSAL", "CLIENT", "LOST"] as const
 
 const PRIORITIES = ["LOW", "NORMAL", "HIGH", "URGENT"] as const
 

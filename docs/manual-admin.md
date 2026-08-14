@@ -47,7 +47,7 @@ ocultos: es que no puede entrar en ellos ni escribiendo la dirección a mano.
 | Informes | Sí | Sí | — |
 | Configuración | Sí | — | — |
 | Usuarios | Sí | — | — |
-| Exportar a CSV | Sí | — | — |
+| Exportar a Excel | Sí | — | — |
 | Anonimizar un contacto | Sí | — | — |
 
 **Quien edita reportajes no ve datos personales.** El perfil CONTENT no puede
@@ -59,24 +59,30 @@ Resumen son métricas comerciales y no le corresponden.
 
 ---
 
-## 3. Resumen
+## 3. Estatus Plataforma
 
-La pantalla de inicio. De un vistazo:
+La pantalla de inicio, en gráficas. De un vistazo:
 
-- **Solicitudes nuevas** sin atender.
-- **Tareas vencidas** y tareas de hoy.
-- **Conversión**: solicitudes ganadas sobre el total de cerradas (ganadas +
-  perdidas). Cada ratio muestra su denominador, y si no hay datos suficientes **no
-  se inventa un porcentaje**: dice que no se puede calcular.
+- **Solicitudes sin trabajar**, las que siguen en la fase Contacto.
+- **Reparto por fase** en un anillo. Pulsando una fase se abre su listado.
+- **Acciones pendientes** repartidas por plazo: vencidas, próximos 7 días y más
+  adelante. Pulsando un tramo se abre esa selección.
+- **Conversión**: solicitudes que acabaron en Cliente sobre el total de cerradas
+  (Cliente + Perdida). Cada porcentaje muestra su denominador, y si no hay datos
+  suficientes **no se inventa un porcentaje**: dice que no se puede calcular.
 - **Tiempo medio hasta el primer contacto**, con el número de casos sobre el que se
   ha calculado.
-- **Embudo de captación**: de visitantes con acceso VIP a solicitudes, y de ahí a
-  ganadas.
+- **Embudo**: de quien accede a las bibliotecas a quien consulta una ficha, y de ahí
+  a quien envía una solicitud.
+- **Origen y campaña** y **contenido más consultado**, en barras.
 - **Últimos movimientos** del equipo.
+
+Debajo de cada gráfica hay una leyenda con la cifra y el porcentaje de cada parte: el
+dibujo acompaña al dato, no lo sustituye.
 
 ---
 
-## 4. Contactos
+## 4. Captaciones
 
 La lista de todas las personas que han dejado sus datos, ordenada por actividad
 reciente.
@@ -123,7 +129,7 @@ pesos.
 
 ---
 
-## 5. Solicitudes
+## 5. Solicitudes Formulario
 
 Cada petición de información que llega por la web. Una persona puede tener varias: no
 se sobrescriben nunca, se acumulan como historial.
@@ -169,44 +175,55 @@ Cada movimiento queda en el historial con quién lo hizo y cuándo.
 
 ---
 
-## 6. Pipeline
+## 6. Seguimiento clientes
 
-El mismo trabajo, visto como tablero: una columna por estado, con las solicitudes
-dentro.
+El mismo trabajo, visto como tablero: **una columna por fase**, con las solicitudes
+dentro. Las cinco fases son:
 
-Hay dos vistas y el enlace de arriba a la derecha alterna entre ellas:
+1. **Contacto** — la solicitud acaba de entrar y nadie la ha trabajado.
+2. **Presentación** — ya se ha hablado con la persona y se le está mostrando la finca.
+3. **Propuesta** — hay presupuesto sobre la mesa.
+4. **Cliente** — cerrado a favor. Es la última: de aquí no se mueve.
+5. **Perdida** — se puede reabrir, y vuelve a Contacto.
 
-- **Tablero**: columnas, para ver de un golpe dónde está todo.
-- **Tabla**: la misma información en filas, recorrible con teclado y con lector de
-  pantalla.
+**Para mover una solicitud, arrastra su tarjeta a otra columna.** Mientras arrastras
+solo se resaltan las columnas válidas desde donde está, porque no se puede saltar una
+fase. Sí se permite volver un paso atrás, por si te equivocas de columna.
 
-La vista de tabla **no es un premio de consolación**: es el mismo dato y las mismas
-acciones. Se optó por eso en lugar de arrastrar tarjetas porque arrastrar y soltar
-excluye a quien no usa ratón, y una función que no todo el equipo puede usar no está
-terminada.
+Al soltar en **Perdida** se pide el motivo, y es obligatorio: una oportunidad perdida
+sin motivo no sirve para aprender nada.
+
+**Si no puedes o no quieres arrastrar**, el tablero también se maneja con el teclado:
+pulsa Tab hasta la tarjeta y luego Control (o Comando en Mac) más la flecha izquierda
+o derecha. Cada movimiento se anuncia, así que también funciona con lector de
+pantalla.
 
 ---
 
-## 7. Tareas
+## 7. Acciones
 
 Recordatorios atados a un contacto, y opcionalmente a una solicitud concreta.
 
 Se crean **desde la ficha del contacto**, para que nazcan siempre ligadas a alguien.
 Una tarea suelta que nadie sabe de quién es no se hace nunca.
 
-Cada tarea tiene título, fecha de vencimiento, prioridad y responsable. **Conviene
-asignarlas**: la vista que se abre por defecto es "Mías", y una tarea sin responsable
-no aparece ahí.
+Cada acción tiene título, fecha de vencimiento, prioridad y responsable, y **se edita
+en la propia tabla**: cambia el desplegable o la fecha y se guarda solo; en el título,
+escribe y pulsa Intro o sal del campo. A la derecha de cada fila aparece una marca
+mientras guarda y otra cuando ha guardado.
 
-Vistas: **Mías**, **Vencidas**, **Hoy**, **Esta semana**, **Completadas** y
-**Todas**.
+La pantalla muestra **todas** las acciones, las pendientes primero. Si llegas desde
+una cifra de Estatus Plataforma —«vencidas», «próximos 7 días»— verás solo esas, con
+un enlace «Ver todas» para volver.
 
-Una tarea se puede **completar** o **cancelar**. Cancelar no la borra: se queda con
-su estado, porque saber que algo se decidió no hacer también es información.
+Una acción se **completa** o se **cancela** desde el desplegable de estado. Cancelar
+no la borra: se queda con su estado, porque saber que algo se decidió no hacer también
+es información. Y una vez cerrada **ya no se edita**: sus campos se muestran como
+texto.
 
 ---
 
-## 8. Contenidos
+## 8. Contenidos Biblioteca
 
 Los reportajes de las bibliotecas VIP: bodas reales y eventos de catering. Solo los
 perfiles CONTENT y ADMIN.
@@ -264,7 +281,7 @@ del original.
 
 ---
 
-## 9. Informes
+## 9. Informes captación
 
 Las mismas métricas del Resumen, con **rango de fechas** y más desglose: embudo,
 solicitudes por estado, por tipo de evento, por origen, y evolución.
@@ -275,10 +292,19 @@ decidir nada.
 
 ---
 
-## 10. Configuración (solo ADMIN)
+## 10. Puntuación Visitantes (solo ADMIN)
 
-Los **pesos de la puntuación**. Cambiar uno afecta a partir de ese momento; para
-recalcular contactos ya existentes está el botón **Recalcular** de cada ficha.
+Los **pesos de la puntuación**: cuántos puntos vale cada cosa que hace un visitante.
+Están agrupados en tres bloques —lo que cuenta en el formulario, lo que hace en las
+bibliotecas y lo que pide expresamente— con la suma de cada bloque y el máximo
+alcanzable al pie, que se actualizan mientras escribes.
+
+Se edita en la propia tabla: escribe los puntos y sal del campo, o marca y desmarca la
+casilla «Cuenta». Desactivar una regla la deja fuera del cálculo **sin perder su
+peso**, para poder volver a activarla tal como estaba.
+
+Cambiar un peso afecta a partir de ese momento; para recalcular una persona ya
+existente está el botón **Recalcular** de su ficha.
 
 Cada cambio queda registrado con quién lo hizo.
 
@@ -320,7 +346,7 @@ Que el alta no tenga pantalla está anotado en README §Limitaciones conocidas.
 
 ---
 
-## 12. Exportar a CSV (solo ADMIN)
+## 12. Exportar a Excel (solo ADMIN)
 
 En Contactos y en Solicitudes, el botón **Exportar**. Descarga lo que la vista está
 mostrando: **respeta los filtros aplicados**.
@@ -329,7 +355,7 @@ El archivo se abre directamente en Excel con los acentos correctos y las cabecer
 español.
 
 Lo que el archivo **no** contiene, por diseño: contraseñas, tokens, identificadores
-internos, ni las notas del equipo. Un CSV se reenvía, se sube a sitios y se olvida en
+internos, ni las notas del equipo. Una hoja de cálculo se reenvía, se sube a sitios y se olvida en
 carpetas compartidas; cuanto menos lleve, mejor.
 
 Cada exportación queda registrada: quién, cuándo y con qué filtros.

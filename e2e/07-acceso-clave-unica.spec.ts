@@ -41,8 +41,8 @@ test.describe("Acceso al panel con clave única", () => {
     // redirección: se localiza por su nombre accesible porque la página incluye
     // también la navegación pública y la del pie.
     await expect(page.getByRole("navigation", { name: "Secciones del panel" })).toBeVisible()
-    // Entra como ADMIN, así que están los ocho apartados, incluida Configuración.
-    await expect(page.getByRole("link", { name: "Configuración" })).toBeVisible()
+    // Entra como ADMIN, así que están los ocho apartados, incluida Puntuación Visitantes.
+    await expect(page.getByRole("link", { name: "Puntuación Visitantes" })).toBeVisible()
   })
 
   test("14c. no hay más puertas: el acceso por credenciales solo existe si se activa", async ({ page, baseURL }) => {

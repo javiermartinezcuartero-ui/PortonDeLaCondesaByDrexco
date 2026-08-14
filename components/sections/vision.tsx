@@ -32,7 +32,7 @@ export function VisionSection() {
     <section
       ref={sectionRef}
       id="vision"
-      className="relative py-32 md:py-48 lg:py-64 overflow-hidden"
+      className="relative py-20 md:py-28 lg:py-64 overflow-hidden"
     >
       {/* Background Pattern */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden text-foreground">
@@ -84,7 +84,7 @@ export function VisionSection() {
       </div>
 
       <div className="max-w-[1800px] mx-auto px-6 md:px-12 lg:px-20">
-        <div className="grid lg:grid-cols-12 gap-16 lg:gap-20">
+        <div className="grid lg:grid-cols-12 gap-10 lg:gap-14">
           {/* Section Label */}
           <div className="lg:col-span-2">
             <div
@@ -103,11 +103,11 @@ export function VisionSection() {
 
           {/* Main Content */}
           <div className="lg:col-span-10">
-            <div className="space-y-16 md:space-y-24">
+            <div className="space-y-10 md:space-y-24">
               {/* Large Statement */}
               <div className="overflow-hidden">
                 <h2
-                  className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-light leading-[1.1] tracking-[-0.01em] text-foreground max-w-5xl text-pretty"
+                  className="font-serif text-3xl sm:text-4xl md:text-[2.75rem] lg:text-5xl xl:text-7xl font-light leading-[1.1] tracking-[-0.01em] text-foreground max-w-5xl text-pretty"
                   style={{
                     opacity: isVisible ? 1 : 0,
                     transform: isVisible ? "translateY(0)" : "translateY(60px)",
@@ -122,7 +122,7 @@ export function VisionSection() {
               </div>
 
               {/* Supporting Content */}
-              <div className="grid md:grid-cols-2 gap-12 md:gap-20">
+              <div className="grid md:grid-cols-2 gap-8 md:gap-12">
                 {visionContent.paragraphs.map((paragraph, index) => (
                   <div
                     key={paragraph}
@@ -145,7 +145,7 @@ export function VisionSection() {
 
               {/* Highlights */}
               <div
-                className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-12 pt-8 border-t border-border"
+                className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8 pt-6 border-t border-border"
                 style={{
                   opacity: isVisible ? 1 : 0,
                   transform: isVisible ? "translateY(0)" : "translateY(30px)",

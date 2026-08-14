@@ -2,27 +2,27 @@ import type { Metadata } from "next"
 import Link from "next/link"
 import { getSessionUser, roleHasPermission } from "@/lib/auth/session"
 import { getDashboardMetrics } from "@/lib/domain/metrics"
-import { ACTIVITY_LABEL, formatDateTime, statusTransitionLabel } from "@/lib/crm/labels"
 import {
-  AverageValue,
-  EmptyState,
-  MetricCard,
-  Pill,
-  RatioHint,
-  RatioValue,
-  SectionTitle,
-} from "./crm-ui"
+  ACTIVITY_LABEL,
+  PIPELINE_COLUMN_ORDER,
+  PIPELINE_TONE,
+  REQUEST_STATUS_LABEL,
+  formatDateTime,
+  statusTransitionLabel,
+} from "@/lib/crm/labels"
+import { BarChart, ChartCard, DonutChart, FunnelChart, type Segmento } from "./crm-charts"
+import { AverageValue, MetricCard, Pill, RatioHint, RatioValue, SectionTitle } from "./crm-ui"
 
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: "Resumen",
+  title: "Estatus Plataforma",
   robots: { index: false, follow: false, nocache: true, googleBot: { index: false, follow: false } },
 }
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
-  ADMIN: "Acceso completo: CRM, contenidos, exportación y configuración.",
-  SALES: "CRM comercial: contactos, solicitudes, pipeline y tareas.",
+  ADMIN: "Acceso completo: seguimiento comercial, contenidos, exportación y puntuación.",
+  SALES: "Seguimiento comercial: interesados, solicitudes, fases y acciones.",
   CONTENT: "Contenido de bodas reales y catering: edición, media y publicación.",
 }
 
@@ -32,8 +32,8 @@ export default async function AdminHomePage() {
   // alcanzarse nunca, pero evita un `user.name` sobre `null` si lo hiciera.
   if (!user) return null
 
-  // El Resumen son métricas de CRM. Quien no tiene ese permiso (CONTENT) no ve
-  // una pantalla vacía ni un error: ve su propio punto de partida.
+  // El estado de la plataforma son métricas comerciales. Quien no tiene ese permiso
+  // (CONTENT) no ve una pantalla vacía ni un error: ve su propio punto de partida.
   if (!roleHasPermission(user.role, "crm:access")) {
     return (
       <div className="max-w-2xl space-y-4">
@@ -43,211 +43,192 @@ export default async function AdminHomePage() {
           href="/admin/contenidos"
           className="inline-block text-sm text-muted-foreground underline transition-colors duration-300 hover:text-foreground"
         >
-          Ir a Contenidos
+          Ir a Contenidos Biblioteca
         </Link>
       </div>
     )
   }
 
   const metrics = await getDashboardMetrics(new Date())
-  const { pipeline, funnel } = metrics
+  const { pipeline, funnel, tasks } = metrics
+
+  // Un anillo por fase. El orden es el del recorrido comercial y el color, el mismo
+  // que el de las pastillas del tablero: quien mire las dos pantallas reconoce la fase
+  // por el color sin volver a leer la leyenda.
+  const fases: Segmento[] = PIPELINE_COLUMN_ORDER.map((status) => ({
+    label: REQUEST_STATUS_LABEL[status],
+    value: pipeline[status],
+    tono: PIPELINE_TONE[status],
+    href: `/admin/solicitudes?estado=${status}`,
+  }))
+
+  // Las tres cifras de acciones **no** son un anillo, y esto es una decisión, no un
+  // descuido: «pendientes en total» incluye a las vencidas y a las de esta semana, así
+  // que un anillo con las tres sumaría lo mismo dos y tres veces y mentiría sobre el
+  // total. Aquí se convierten en una partición de verdad restando los tramos.
+  const masAdelante = Math.max(0, tasks.pending - tasks.overdue - tasks.upcoming)
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <div>
-        <h1 className="font-serif text-3xl font-light text-foreground">Resumen</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{ROLE_DESCRIPTIONS[user.role]}</p>
+        <h1 className="font-serif text-3xl font-light text-foreground">Estatus Plataforma</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Cómo va la captación ahora mismo: quién ha entrado, qué solicitudes hay abiertas y qué queda por hacer.
+          {" "}
+          {ROLE_DESCRIPTIONS[user.role]}
+        </p>
       </div>
 
       <section aria-labelledby="captacion">
         <SectionTitle>
           <span id="captacion">Captación</span>
         </SectionTitle>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
-            label="Contactos por el gate"
+            label="Interesados por la biblioteca"
             value={metrics.leadsFromGate}
             hint="Personas que dejaron su email para ver las bibliotecas"
             href="/admin/contactos?interaccion=GATE_GRANTED"
           />
           <MetricCard
-            label="Solicitudes nuevas"
+            label="Solicitudes sin trabajar"
             value={metrics.newRequests}
-            hint="Sin trabajar todavía"
-            href="/admin/solicitudes?estado=NEW"
+            hint="Siguen en la fase Contacto"
+            href="/admin/solicitudes?estado=CONTACT"
           />
           <MetricCard
-            label="Sin primer contacto"
+            label="Las más antiguas sin tocar"
             value={metrics.pendingFirstContact}
-            hint="Siguen en estado Nueva"
-            href="/admin/solicitudes?estado=NEW&orden=antiguas"
+            hint="Mismo recuento, ordenadas por antigüedad"
+            href="/admin/solicitudes?estado=CONTACT&orden=antiguas"
           />
           <MetricCard
-            label="Tiempo al primer contacto"
+            label="Tiempo hasta el primer contacto"
             value={<AverageValue average={metrics.hoursToFirstContact} unit="h" />}
             hint={
               metrics.hoursToFirstContact.sampleSize === 0
-                ? "Ninguna solicitud ha pasado a Contactada todavía"
-                : `Media de ${metrics.hoursToFirstContact.sampleSize} solicitudes contactadas`
+                ? "Ninguna solicitud ha pasado de Contacto todavía"
+                : `Media de ${metrics.hoursToFirstContact.sampleSize} solicitudes ya atendidas`
             }
           />
         </div>
       </section>
 
-      <section aria-labelledby="pipeline-resumen">
-        <SectionTitle>
-          <span id="pipeline-resumen">Pipeline</span>
-        </SectionTitle>
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            label="Visitas agendadas"
-            value={pipeline.VISIT_SCHEDULED}
-            href="/admin/solicitudes?estado=VISIT_SCHEDULED"
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ChartCard
+          title="Solicitudes por fase"
+          hint="Reparto de las solicitudes abiertas. Pulsa una fase para ver su listado."
+        >
+          <DonutChart segments={fases} totalLabel="solicitudes" emptyMessage="Todavía no hay solicitudes." />
+          <dl className="mt-5 grid grid-cols-2 gap-4 border-t border-border/50 pt-4 text-sm">
+            <div>
+              <dt className="text-xs text-muted-foreground">Cerradas a favor</dt>
+              <dd className="font-serif text-2xl text-foreground">{pipeline.CLIENT}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Conversión sobre cerradas</dt>
+              <dd className="font-serif text-2xl text-foreground">
+                <RatioValue ratio={metrics.conversion} />
+              </dd>
+              <dd className="mt-0.5 text-xs text-muted-foreground">
+                <RatioHint ratio={metrics.conversion} noun="solicitudes cerradas" />
+              </dd>
+            </div>
+          </dl>
+        </ChartCard>
+
+        <ChartCard title="Acciones pendientes" hint="Reparto por plazo. Las vencidas son las que piden atención hoy.">
+          <DonutChart
+            segments={[
+              { label: "Vencidas", value: tasks.overdue, tono: "rojo", href: "/admin/tareas?vista=vencidas" },
+              { label: "Próximos 7 días", value: tasks.upcoming, tono: "ambar", href: "/admin/tareas?vista=semana" },
+              { label: "Más adelante", value: masAdelante, tono: "gris", href: "/admin/tareas" },
+            ]}
+            totalLabel="acciones pendientes"
+            emptyMessage="No hay ninguna acción pendiente."
           />
-          <MetricCard
-            label="Propuestas enviadas"
-            value={pipeline.PROPOSAL_SENT}
-            href="/admin/solicitudes?estado=PROPOSAL_SENT"
+        </ChartCard>
+
+        <ChartCard
+          title="De la biblioteca a la solicitud"
+          hint="Cada escalón cuenta solo a quien viene del anterior."
+        >
+          <FunnelChart
+            steps={[
+              { label: "Accedieron a la biblioteca", value: funnel.gateGranted },
+              { label: "Consultaron alguna ficha", value: funnel.viewedContent },
+              { label: "Enviaron una solicitud", value: funnel.submittedRequest },
+            ]}
+            emptyMessage="Nadie ha accedido a las bibliotecas todavía."
           />
-          <MetricCard
-            label="Ganadas / perdidas"
-            value={`${pipeline.WON} / ${pipeline.LOST}`}
-            hint={`${pipeline.NEGOTIATION} en negociación · ${pipeline.NURTURING} en seguimiento`}
-            href="/admin/pipeline"
+        </ChartCard>
+
+        <ChartCard title="Origen y campaña" hint="Solicitudes según de dónde llegó la visita.">
+          <BarChart
+            rows={metrics.attribution.map((row) => ({
+              label: [row.source ?? "Directo o sin UTM", row.medium, row.campaign].filter(Boolean).join(" · "),
+              value: row.requests,
+            }))}
+            emptyMessage="Todavía no hay solicitudes con datos de origen."
           />
-          <MetricCard
-            label="Conversión sobre cerradas"
-            value={<RatioValue ratio={metrics.conversion} />}
-            hint={<RatioHint ratio={metrics.conversion} noun="solicitudes cerradas" />}
+        </ChartCard>
+
+        <ChartCard
+          title="Contenido más consultado"
+          hint="Fichas de bodas reales y catering, por número de consultas."
+          className="lg:col-span-2"
+        >
+          <BarChart
+            rows={metrics.topContent.map((row) => ({
+              label: row.title,
+              value: row.views,
+              href: `/admin/solicitudes?ficha=${row.contentEntryId}`,
+            }))}
+            emptyMessage="Ninguna ficha se ha consultado todavía."
+            unit="consultas"
           />
-        </div>
-      </section>
-
-      <section aria-labelledby="tareas-resumen">
-        <SectionTitle>
-          <span id="tareas-resumen">Tareas</span>
-        </SectionTitle>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <MetricCard label="Vencidas" value={metrics.tasks.overdue} href="/admin/tareas?vista=vencidas" />
-          <MetricCard
-            label="Próximos 7 días"
-            value={metrics.tasks.upcoming}
-            href="/admin/tareas?vista=semana"
-          />
-          <MetricCard label="Pendientes en total" value={metrics.tasks.pending} href="/admin/tareas" />
-        </div>
-      </section>
-
-      <div className="grid gap-10 lg:grid-cols-2">
-        <section aria-labelledby="embudo">
-          <SectionTitle hint="Cada escalón cuenta solo a quien viene del anterior.">
-            <span id="embudo">Del gate a la solicitud</span>
-          </SectionTitle>
-          {funnel.gateGranted === 0 ? (
-            <EmptyState>Nadie ha pasado por el gate todavía.</EmptyState>
-          ) : (
-            <ol className="space-y-2 text-sm">
-              <FunnelStep label="Accedieron por el gate" value={funnel.gateGranted} total={funnel.gateGranted} />
-              <FunnelStep label="Consultaron alguna ficha" value={funnel.viewedContent} total={funnel.gateGranted} />
-              <FunnelStep label="Enviaron una solicitud" value={funnel.submittedRequest} total={funnel.gateGranted} />
-            </ol>
-          )}
-        </section>
-
-        <section aria-labelledby="origen">
-          <SectionTitle>
-            <span id="origen">Origen y campaña</span>
-          </SectionTitle>
-          {metrics.attribution.length === 0 ? (
-            <EmptyState>Todavía no hay solicitudes con datos de origen.</EmptyState>
-          ) : (
-            <ul className="space-y-2 text-sm">
-              {metrics.attribution.map((row, index) => (
-                <li key={index} className="flex items-baseline justify-between gap-4 border-b border-border/60 pb-2">
-                  <span className="text-muted-foreground">
-                    {row.source ?? "Directo o sin UTM"}
-                    {row.medium ? ` · ${row.medium}` : ""}
-                    {row.campaign ? ` · ${row.campaign}` : ""}
-                  </span>
-                  <span className="text-foreground">{row.requests}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section aria-labelledby="contenido">
-          <SectionTitle>
-            <span id="contenido">Contenido más consultado</span>
-          </SectionTitle>
-          {metrics.topContent.length === 0 ? (
-            <EmptyState>Ninguna ficha se ha consultado todavía.</EmptyState>
-          ) : (
-            <ul className="space-y-2 text-sm">
-              {metrics.topContent.map((row) => (
-                <li key={row.contentEntryId} className="flex items-baseline justify-between gap-4 border-b border-border/60 pb-2">
-                  <Link
-                    href={`/admin/solicitudes?ficha=${row.contentEntryId}`}
-                    className="text-muted-foreground transition-colors duration-300 hover:text-foreground"
-                  >
-                    {row.title}
-                  </Link>
-                  <span className="text-foreground">{row.views}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        <section aria-labelledby="movimientos">
-          <SectionTitle>
-            <span id="movimientos">Últimos movimientos</span>
-          </SectionTitle>
-          {metrics.movements.length === 0 ? (
-            <EmptyState>Sin actividad registrada todavía.</EmptyState>
-          ) : (
-            <ul className="space-y-3 text-sm">
-              {metrics.movements.map((movement) => {
-                const transition = statusTransitionLabel(movement.metadata)
-
-                return (
-                  <li key={movement.id} className="border-b border-border/60 pb-2">
-                    <div className="flex flex-wrap items-baseline gap-2">
-                      <Pill>{ACTIVITY_LABEL[movement.type as keyof typeof ACTIVITY_LABEL] ?? movement.type}</Pill>
-                      <Link
-                        href={`/admin/contactos/${movement.leadId}`}
-                        className="text-foreground transition-colors duration-300 hover:text-accent"
-                      >
-                        {movement.leadName ?? movement.leadEmail}
-                      </Link>
-                      {transition && <span className="text-muted-foreground">{transition}</span>}
-                    </div>
-                    <span className="text-xs text-muted-foreground">{formatDateTime(movement.createdAt)}</span>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </section>
+        </ChartCard>
       </div>
+
+      <section aria-labelledby="movimientos">
+        <SectionTitle hint="Lo último que ha pasado, en orden inverso.">
+          <span id="movimientos">Últimos movimientos</span>
+        </SectionTitle>
+        {metrics.movements.length === 0 ? (
+          <p className="border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+            Sin actividad registrada todavía.
+          </p>
+        ) : (
+          <ul className="space-y-3 border border-border p-5 text-sm">
+            {metrics.movements.map((movement) => {
+              const transition = statusTransitionLabel(movement.metadata)
+
+              return (
+                <li key={movement.id} className="border-b border-border/50 pb-2 last:border-0 last:pb-0">
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <Pill>{ACTIVITY_LABEL[movement.type as keyof typeof ACTIVITY_LABEL] ?? movement.type}</Pill>
+                    {/* `overflow-wrap: anywhere` porque cuando el contacto no tiene nombre
+                        aquí cae su correo, y un correo anonimizado del CRM
+                        —`anonimizado+cmst9jnzj00147k08hjvrtqk2@…`— es una cadena de 45
+                        caracteres sin un solo punto de corte natural. A 390 px eso
+                        desbordaba la ventana entera y aparecía una barra horizontal en la
+                        página, no en la tarjeta. `break-words` no basta: no rompe dentro de
+                        una palabra, y esto es técnicamente una sola palabra. */}
+                    <Link
+                      href={`/admin/contactos/${movement.leadId}`}
+                      className="min-w-0 text-foreground transition-colors duration-300 [overflow-wrap:anywhere] hover:text-accent"
+                    >
+                      {movement.leadName ?? movement.leadEmail}
+                    </Link>
+                    {transition && <span className="text-muted-foreground">{transition}</span>}
+                  </div>
+                  <span className="text-xs text-muted-foreground">{formatDateTime(movement.createdAt)}</span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
     </div>
-  )
-}
-
-function FunnelStep({ label, value, total }: { label: string; value: number; total: number }) {
-  const width = total === 0 ? 0 : Math.round((value / total) * 100)
-  return (
-    <li>
-      <div className="flex items-baseline justify-between gap-4">
-        <span className="text-muted-foreground">{label}</span>
-        <span className="text-foreground">
-          {value}
-          {total > 0 && value !== total && <span className="ml-2 text-xs text-muted-foreground">({width} %)</span>}
-        </span>
-      </div>
-      <div className="mt-1 h-1 bg-secondary">
-        <div className="h-1 bg-primary" style={{ width: `${width}%` }} />
-      </div>
-    </li>
   )
 }

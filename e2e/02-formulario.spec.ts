@@ -74,7 +74,7 @@ test.describe("Formulario comercial", () => {
     expect(request.sourceContentId).toBe(entry.id)
     // Origen distinto del formulario de la home: la solicitud nació en una ficha.
     expect(request.sourceForm).toBe("vip-story-cta")
-    expect(request.status).toBe("NEW")
+    expect(request.status).toBe("CONTACT")
 
     // Privacidad concedida con versión de política; marketing denegado.
     const privacy = lead.consents.find((event) => event.purpose === "PRIVACY" && event.granted)

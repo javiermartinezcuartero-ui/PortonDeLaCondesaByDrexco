@@ -18,7 +18,7 @@ import { logInfo } from "@/lib/observability/log"
  * se pega en chats y acaba en sitios que nadie previó.
  *
  * "Adaptador de desarrollo" es un nombre engañoso y conviene tenerlo presente:
- * `resolveEmailProvider` lo devuelve **siempre que falte `SENDGRID_API_KEY` o
+ * `resolveEmailProvider` lo devuelve **siempre que falte `RESEND_API_KEY` o
  * `LEADS_FROM_EMAIL`**, incluido en producción, donde las dos son opcionales. Este
  * código escribe en el log de producción.
  *

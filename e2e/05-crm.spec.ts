@@ -64,22 +64,28 @@ test.describe("CRM con rol SALES", () => {
 
     expect(task.assigneeId).toBeTruthy()
 
-    // Y aparece en su vista de tareas, no solo en la ficha del contacto. La vista
-    // por defecto es "Mías": si la tarea no estuviera asignada, no saldría aquí.
+    // Y aparece en la pantalla de Acciones, no solo en la ficha del contacto. Esa
+    // pantalla es una tabla con todas las acciones, editable en la propia celda: el
+    // título vive en un campo de texto, así que se comprueba por su valor.
     await page.goto("/admin/tareas")
-    await expect(page.getByText("Llamar para concretar la visita")).toBeVisible()
+    // Por el nombre accesible exacto del campo del título. Con una expresión regular
+    // parcial se resolvían dos elementos: el propio título y el campo de fecha, cuyo
+    // nombre accesible es «Fecha de vencimiento de <título>» y contiene el título dentro.
+    await expect(page.getByRole("textbox", { name: "Acción: Llamar para concretar la visita" })).toHaveValue(
+      "Llamar para concretar la visita"
+    )
 
     // --- Cambia el estado ---------------------------------------------------
     await page.goto(`/admin/solicitudes/${requestId}`)
-    // Desde NEW, el dominio solo permite CONTACTED o LOST (ALLOWED_TRANSITIONS).
-    await page.locator(`#estado-${requestId}`).selectOption("CONTACTED")
+    // Desde Contacto, el dominio solo permite Presentación o Perdida (ALLOWED_TRANSITIONS).
+    await page.locator(`#estado-${requestId}`).selectOption("PRESENTATION")
     await page.getByRole("button", { name: "Mover" }).click()
 
     await expect
       .poll(async () => (await db.leadRequest.findUniqueOrThrow({ where: { id: requestId } })).status, {
         timeout: 20_000,
       })
-      .toBe("CONTACTED")
+      .toBe("PRESENTATION")
 
     // El movimiento deja rastro por duplicado: actividad para el comercial y
     // evento de auditoría para quien tenga que responder de él.
@@ -95,9 +101,9 @@ test.describe("CRM con rol SALES", () => {
     })
     expect(audit.actorId).toBeTruthy()
 
-    // Y se ve en el historial de la propia solicitud.
+    // Y se ve en el historial de la propia solicitud, con la transición traducida.
     await page.reload()
-    await expect(page.getByText(/Contactada/).first()).toBeVisible()
+    await expect(page.getByText(/Contacto → Presentación/).first()).toBeVisible()
   })
 
   test("10b. marcar como perdida exige un motivo", async ({ page }) => {

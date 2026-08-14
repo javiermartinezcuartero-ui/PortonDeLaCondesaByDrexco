@@ -33,16 +33,18 @@ export function AdminAccess({ className }: { className?: string }) {
           onClick={() => router.push(session ? "/admin" : "/admin/login")}
           aria-label={adminAccessContent.tooltip}
           className={cn(
-            "group inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-            // Verde de marca **sólido** desde el reposo. Pasó por dos versiones
-            // que no se veían: `bg-primary/5` con el icono en gris de texto
-            // secundario, y después un lavado al 10 % con anillo, que a tamaño
-            // real seguía leyéndose como un círculo gris. Es el único punto de
-            // entrada al panel en toda la web, así que tiene que distinguirse.
-            "bg-primary text-primary-foreground shadow-sm",
-            // Al pasar por encima aclara y crece un poco, en vez de invertirse:
-            // sobre fondo sólido el cambio de color solo no se percibe.
-            "transition-all duration-300 hover:bg-primary/85 hover:scale-105 hover:shadow-md",
+            // 32 px: el acceso al panel es una herramienta interna, no una llamada
+            // a la acción del sitio, así que cede protagonismo al logotipo. El
+            // volumen y el doble contorno de `.admin-access-fab` son lo que le
+            // permite seguir viéndose a este tamaño.
+            "group inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full",
+            // El relleno, los contornos y el volumen están en `.admin-access-fab`
+            // (app/globals.css), no aquí: necesitan `color-mix` sobre el token de
+            // marca y dos sombras que cambian según la cabecera esté transparente
+            // sobre la fotografía o ya opaca. Antes era `bg-primary` plano, y ese
+            // verde —`#182605`, casi negro— se empastaba con el hero.
+            "admin-access-fab text-primary-foreground",
+            "hover:scale-105",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             className
           )}

@@ -36,10 +36,10 @@ export function ExperienceSection() {
     <section
       ref={sectionRef}
       id="experience"
-      className="relative py-32 md:py-48 overflow-hidden"
+      className="relative py-20 md:py-28 overflow-hidden"
     >
       <div className="max-w-[1800px] mx-auto px-6 md:px-12 lg:px-20">
-        <div className="grid lg:grid-cols-12 lg:gap-20">
+        <div className="grid lg:grid-cols-12 lg:gap-12">
           {/* Section Label */}
           <div className="lg:col-span-2">
             <div
@@ -59,9 +59,9 @@ export function ExperienceSection() {
           {/* Content */}
           <div className="lg:col-span-10">
             {/* Section Header */}
-            <div className="mb-20 md:mb-32 max-w-3xl">
+            <div className="mb-12 md:mb-32 max-w-3xl">
               <h2
-                className="font-serif text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-light leading-[1.1] tracking-[-0.01em] text-foreground mb-8 text-pretty"
+                className="font-serif text-3xl sm:text-4xl md:text-[2.75rem] lg:text-5xl font-light leading-[1.1] tracking-[-0.01em] text-foreground mb-8 text-pretty"
               style={{
                 opacity: isVisible ? 1 : 0,
                 transform: isVisible ? "translateY(0)" : "translateY(40px)",
@@ -90,7 +90,7 @@ export function ExperienceSection() {
 
             {/* Experience Image */}
             <div
-              className="relative aspect-[16/9] mb-20 md:mb-32 overflow-hidden"
+              className="relative aspect-[21/9] mb-8 md:mb-14 overflow-hidden"
               style={{
                 opacity: isVisible ? 1 : 0,
                 transform: isVisible ? "translateY(0)" : "translateY(40px)",

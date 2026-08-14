@@ -199,6 +199,109 @@ body.cookie-banner-visible .floating-action {
 }
 
 /* ---------------------------------------------------------------------------
+ * Cortina de carga del sitio público
+ *
+ * La lógica y el por qué están en components/site-preloader.tsx. Lo que importa aquí:
+ *
+ * - **El CSS es quien la retira**, no el JavaScript. `preloader-rendicion` la desvanece
+ *   sola a los 4,5 s con `forwards`, así que si el bundle no llega o falla la hidratación,
+ *   la web se ve igual. El JavaScript solo pone `html.cargado` para adelantarlo.
+ * - `pointer-events: none` **siempre**: incluso opaca, los enlaces de debajo responden.
+ *   Una cortina que atrapa el puntero y no se retira es una web caída.
+ * - `z-index: 80` la deja por encima de la cabecera fija (z-50) y del aviso de cookies,
+ *   que es lo que tiene que tapar; por debajo de nada, porque a esa altura no hay nada más.
+ * - Se anima solo `transform` en la barra y `opacity` en el conjunto: las dos se resuelven
+ *   en la capa de composición, sin repintar.
+ *
+ * El bloque global de `prefers-reduced-motion` (arriba) ya reduce estas animaciones a 1 ms
+ * y corta la repetición de la barra: con movimiento reducido la cortina aparece y se va sin
+ * barrido, que es el comportamiento correcto y no hace falta repetirlo aquí.
+ * ------------------------------------------------------------------------- */
+
+.site-preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  background-color: var(--background);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 420ms ease;
+  animation: preloader-rendicion 700ms ease 4500ms forwards;
+}
+
+html.cargado .site-preloader {
+  opacity: 0;
+  /* Se corta la rendición: una animación con `forwards` manda sobre el valor declarado,
+   * así que si siguiera activa el desvanecido de arriba no se vería. */
+  animation: none;
+}
+
+@keyframes preloader-rendicion {
+  to {
+    opacity: 0;
+  }
+}
+
+.site-preloader__marca {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+  padding-inline: 2rem;
+}
+
+.site-preloader__logo {
+  display: block;
+  width: min(260px, 62vw);
+  background-color: var(--primary);
+  animation: preloader-entrada 800ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes preloader-entrada {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Barra de progreso indeterminada: no finge saber cuánto queda. Una barra que avanza a
+ * porcentajes inventados es peor que una que solo dice «sigue trabajando». */
+.site-preloader__linea {
+  position: relative;
+  overflow: hidden;
+  width: min(160px, 40vw);
+  height: 2px;
+  border-radius: 9999px;
+  background-color: color-mix(in oklab, var(--primary) 16%, transparent);
+}
+
+.site-preloader__linea::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 40%;
+  border-radius: 9999px;
+  background-color: var(--accent);
+  animation: preloader-barrido 1250ms ease-in-out infinite;
+}
+
+@keyframes preloader-barrido {
+  from {
+    transform: translateX(-105%);
+  }
+  to {
+    transform: translateX(355%);
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * Pantalla de acceso al panel (/admin/login)
  *
  * Fotografía a pantalla completa con un zoom lento que va y vuelve. El efecto
@@ -277,32 +380,25 @@ body.cookie-banner-visible .floating-action {
  * cascada, cambiarlas aquí las cambia en todo el subárbol. Un componente nuevo
  * que use los tokens encajará solo, y no hay dos verdades sobre el color.
  *
- * El fondo del panel es un degradado y no la fotografía de la pantalla de acceso:
- * una imagen a pantalla completa detrás de una tabla de datos compite con lo que
- * hay que leer. Se conserva la gama, que es lo que da continuidad.
+ * DOS MODOS: `data-tema="dia"` y `data-tema="noche"`. Esa misma propiedad es lo
+ * que hace baratos los dos: el tema no vive en las pantallas, vive aquí. Todo lo
+ * que no es color —radios, tipografía, tablas adherentes, desenfoques— se declara
+ * una sola vez en `.admin-shell`, y cada modo solo redefine su paleta. Las nueve
+ * vistas no saben en qué modo están, y una vista nueva funcionará en los dos sin
+ * escribir una línea de tema.
+ *
+ * Las superficies llevan variables propias (`--admin-surface`, `--admin-line`, …)
+ * en lugar de colores literales por la misma razón: sin ellas, cada regla de más
+ * abajo necesitaría duplicarse por modo, y ahí es donde los dos temas se
+ * desincronizan con el primer cambio que se haga con prisa.
  * ------------------------------------------------------------------------- */
 
 .admin-shell {
-  --background: oklch(0.19 0.03 255);
-  --foreground: oklch(0.97 0.005 250);
-  --card: oklch(0.24 0.035 255);
-  --card-foreground: oklch(0.97 0.005 250);
-  --popover: oklch(0.22 0.035 255);
-  --popover-foreground: oklch(0.97 0.005 250);
-  --muted: oklch(0.27 0.03 255);
-  /* 0.78 de luminosidad sobre el fondo 0.19: por encima de 4.5:1, que es lo que
-   * exige la WCAG para texto normal. El gris del sitio público, sobre este
-   * fondo, se habría quedado en torno a 3:1. */
-  --muted-foreground: oklch(0.78 0.02 250);
-  --border: oklch(0.45 0.04 255 / 35%);
-  --input: oklch(0.45 0.04 255 / 45%);
-  --ring: oklch(0.72 0.14 240);
-  --primary: oklch(0.72 0.15 240);
-  --primary-foreground: oklch(0.16 0.03 255);
-  --secondary: oklch(0.28 0.035 255);
-  --secondary-foreground: oklch(0.97 0.005 250);
-  --accent: oklch(0.75 0.13 200);
-  --accent-foreground: oklch(0.16 0.03 255);
+  /* La misma fotografía de la pantalla de acceso, pedida por el titular para dar
+   * continuidad entre entrar y trabajar. Es el archivo ya optimizado (2560 px,
+   * 290 KB) y ya está en la caché del navegador cuando se llega aquí: se acaba de
+   * mostrar a pantalla completa en el acceso, así que no cuesta una descarga. */
+  --admin-shell-image: url("/images/admin/acceso-fondo.jpg");
 
   color: var(--foreground);
 
@@ -318,27 +414,242 @@ body.cookie-banner-visible .floating-action {
    */
   font-family: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
 
-  /* Fondo con la paleta de la pantalla de acceso —azul noche con halos magenta,
-   * cian y ámbar—, pero **sin la fotografía**. Dos razones: una imagen a pantalla
-   * completa detrás de una tabla compite con lo que hay que leer, y son 290 KB que
-   * el panel no necesita descargar en cada visita. Lo que da continuidad es el
-   * color, no el archivo. */
-  background-color: oklch(0.18 0.03 258);
-  background-image:
-    radial-gradient(ellipse 70% 55% at 10% -8%, oklch(0.55 0.20 330 / 30%) 0%, transparent 62%),
-    radial-gradient(ellipse 62% 50% at 92% 2%, oklch(0.62 0.15 205 / 26%) 0%, transparent 60%),
-    radial-gradient(ellipse 85% 55% at 45% 108%, oklch(0.58 0.17 35 / 18%) 0%, transparent 62%),
-    linear-gradient(168deg, oklch(0.17 0.03 262) 0%, oklch(0.21 0.035 272) 100%);
-  background-attachment: fixed;
+  /* El lienzo, que es lo único que se ve mientras la fotografía carga. La imagen y
+   * su velo van en dos capas propias, justo debajo. */
+  background-color: var(--admin-canvas);
+
+  /* `isolation: isolate` no es decorativo: las dos capas de fondo llevan `z-index`
+   * negativo para quedar por debajo del contenido sin que este necesite un `z-index`
+   * propio, y sin un contexto de apilamiento aquí se colarían por detrás del `body`
+   * y no se verían. Con esto, el orden queda: color de lienzo, fotografía, velo,
+   * contenido. */
+  position: relative;
+  isolation: isolate;
+
+  /* El cambio de modo se ve, no salta. Se anima solo el color, no `all`: animar
+   * `all` en el contenedor del panel arrastraría a la transición cualquier
+   * propiedad que cambie a la vez, incluidas las de diseño. */
+  transition: background-color 350ms ease, color 350ms ease;
+}
+
+/* La fotografía, con el mismo zoom lento de la pantalla de acceso.
+ *
+ * Antes era un `background-image` con `background-attachment: fixed` y estaba quieta.
+ * El titular pidió el movimiento en los dos modos, así que pasa a capa propia y
+ * reutiliza `admin-gate-zoom`: anima solo `transform`, que el navegador resuelve en la
+ * capa de composición sin repintar una imagen a pantalla completa durante 40 s.
+ *
+ * `position: fixed` en lugar de `background-attachment: fixed`, que además de estar
+ * roto en iOS impide animar la capa por separado. */
+.admin-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background-image: var(--admin-shell-image);
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  will-change: transform;
+  animation: admin-gate-zoom 40s linear infinite;
+}
+
+/* El velo, en su propia capa y **sin animar**.
+ *
+ * No es decoración: es lo que hace legible el panel. Sin él, el texto de las tablas
+ * cae sobre las zonas claras de la fotografía y el contraste depende de por dónde se
+ * recorte la imagen, que cambia con cada tamaño de ventana. Con el velo, el contraste
+ * lo garantiza el CSS y la fotografía se sigue reconociendo. Cada modo pone el suyo.
+ *
+ * Va fuera de la capa animada a propósito: metido en el mismo elemento, escalaría con
+ * la imagen y un velo que crece y decrece se nota. Es el mismo motivo que en las
+ * bibliotecas VIP.
+ *
+ * Aquí no van los halos magenta/cian/ámbar que tenía la versión sin fotografía:
+ * sumados a la imagen —que ya es una nube de pigmentos de esos colores— disparaban la
+ * saturación de la banda central. El color lo pone la fotografía; el CSS solo la apaga
+ * lo justo. */
+.admin-shell::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--admin-veil);
+}
+
+/* --- Modo noche ------------------------------------------------------------
+ * Subido un escalón entero a petición del titular: «que el noche sea menos oscuro».
+ * El lienzo pasa de 0,16 a 0,23 de luminosidad y el velo, de 0,15 a 0,23, así que el
+ * panel deja de ser casi negro y se queda en un azul noche con cuerpo.
+ *
+ * Lo que **no** se toca es el texto: `--foreground` en 0,97 y `--muted-foreground` en
+ * 0,78 siguen dando de sobra sobre un fondo de 0,25 (por encima de 6:1 el secundario).
+ * Aclarar el fondo en modo oscuro consume margen de contraste, y por eso se sube el
+ * fondo hasta donde el texto secundario aún cumple con holgura, no hasta donde se ve
+ * bonito. */
+.admin-shell[data-tema="noche"] {
+  --background: oklch(0.25 0.03 255);
+  --foreground: oklch(0.97 0.005 250);
+  --card: oklch(0.30 0.035 255);
+  --card-foreground: oklch(0.97 0.005 250);
+  --popover: oklch(0.28 0.035 255);
+  --popover-foreground: oklch(0.97 0.005 250);
+  --muted: oklch(0.32 0.03 255);
+  /* 0.78 de luminosidad sobre el fondo 0.19: por encima de 4.5:1, que es lo que
+   * exige la WCAG para texto normal. El gris del sitio público, sobre este
+   * fondo, se habría quedado en torno a 3:1. */
+  --muted-foreground: oklch(0.78 0.02 250);
+  --border: oklch(0.45 0.04 255 / 35%);
+  --input: oklch(0.45 0.04 255 / 45%);
+  --ring: oklch(0.72 0.14 240);
+  --primary: oklch(0.72 0.15 240);
+  --primary-foreground: oklch(0.16 0.03 255);
+  --secondary: oklch(0.33 0.035 255);
+  --secondary-foreground: oklch(0.97 0.005 250);
+  --accent: oklch(0.75 0.13 200);
+  --accent-foreground: oklch(0.16 0.03 255);
+
+  --admin-canvas: oklch(0.23 0.03 258);
+  --admin-veil: linear-gradient(168deg, oklch(0.23 0.032 262 / 85%) 0%, oklch(0.27 0.042 272 / 79%) 100%);
+  --admin-surface: oklch(0.29 0.035 260 / 66%);
+  --admin-surface-soft: oklch(0.29 0.035 260 / 40%);
+  --admin-surface-strong: oklch(0.31 0.035 255 / 93%);
+  --admin-hover: oklch(1 0 0 / 7%);
+  --admin-line: oklch(0.6 0.04 255 / 22%);
+  --admin-field: oklch(1 0 0 / 8%);
+  --admin-field-focus: oklch(1 0 0 / 14%);
+  --admin-chrome: oklch(0.22 0.03 260 / 62%);
+  --admin-chrome-line: oklch(1 0 0 / 12%);
+  --admin-pill: oklch(1 0 0 / 10%);
+  --admin-pill-hover: oklch(1 0 0 / 20%);
+  --admin-pill-line: oklch(1 0 0 / 15%);
+  --admin-title: oklch(1 0 0);
+  /* Elevación de las tarjetas. En modo oscuro una sombra negra no se ve, así que lo
+   * que separa la tarjeta del fondo es un filo de luz arriba; la sombra solo asienta. */
+  --admin-elevacion: inset 0 1px 0 0 oklch(1 0 0 / 8%), 0 10px 30px -18px oklch(0 0 0 / 70%);
+}
+
+/* --- Modo día -------------------------------------------------------------- */
+/* Misma fotografía y misma estructura; lo que cambia es de qué lado del gris está
+ * todo. El velo sube al 92 % porque un velo claro tapa mucho menos que uno oscuro:
+ * con el 87 % del modo noche, los pigmentos de la imagen atravesaban el blanco y
+ * el texto oscuro de las tablas perdía contraste justo en la banda central. */
+.admin-shell[data-tema="dia"] {
+  --background: oklch(0.875 0.01 252);
+  --foreground: oklch(0.24 0.025 258);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.26 0.025 258);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.26 0.025 258);
+  --muted: oklch(0.925 0.01 250);
+  /* 0.36, y baja otra vez —de 0.44 a 0.40 y ahora a 0.36— por una razón concreta: al
+   * oscurecer el ambiente del modo día, el texto secundario que cae **directamente sobre
+   * el fondo** —no sobre una tarjeta— pierde contraste, porque es texto oscuro sobre un
+   * fondo que se ha vuelto más oscuro. Es el efecto contrario al de la primera intuición,
+   * y por eso este token se ajusta cada vez que se toca el lienzo. El valor está medido
+   * sobre los píxeles reales del fondo desnudo; ver el bloque del velo, más abajo.
+   *
+   * En modo noche el riesgo es el simétrico —texto claro sobre las zonas claras de la
+   * imagen— y por eso allí el valor es alto, 0.78. */
+  --muted-foreground: oklch(0.36 0.025 258);
+  --border: oklch(0.45 0.03 258 / 24%);
+  --input: oklch(0.45 0.03 258 / 30%);
+  --ring: oklch(0.52 0.16 245);
+  --primary: oklch(0.52 0.16 245);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.93 0.01 250);
+  --secondary-foreground: oklch(0.26 0.025 258);
+  --accent: oklch(0.52 0.11 205);
+  --accent-foreground: oklch(0.99 0 0);
+
+  /* El ambiente del modo día ha bajado tres escalones en tres fases, las tres por
+   * petición del titular: el original era casi blanco de papel y deslumbraba en una
+   * herramienta que se mira muchas horas, luego «menos claro» otra vez, y ahora «algo más
+   * oscuro de forma generalizada». El lienzo está en 0,80 de luminosidad, partiendo de
+   * casi 0,98.
+   *
+   * Las **tarjetas siguen siendo blancas**, y con cada escalón eso importa más: cuanto más
+   * oscuro el lienzo, más se separa el contenido del fondo y más se parece el panel a lo
+   * que se pidió —tarjetas blancas sobre un gris tranquilo, como un CRM de Google—. El
+   * contraste del texto sobre tarjeta no se toca en ningún caso: es blanco puro debajo, y
+   * ahí el texto principal está en 12:1.
+   *
+   * Lo que sí sube con cada escalón son los tokens de trama —`hover`, `line`, `field`—:
+   * una separación al 16 % de negro que se veía sobre un fondo de 0,855 se pierde sobre
+   * uno de 0,80, porque la diferencia relativa entre las dos capas es menor. */
+  --admin-canvas: oklch(0.80 0.016 255);
+  --admin-veil: linear-gradient(168deg, oklch(0.835 0.014 252 / 90%) 0%, oklch(0.79 0.02 258 / 88%) 100%);
+  --admin-surface: oklch(1 0 0 / 90%);
+  --admin-surface-soft: oklch(1 0 0 / 64%);
+  --admin-surface-strong: oklch(1 0 0 / 97%);
+  --admin-hover: oklch(0.42 0.03 258 / 9%);
+  --admin-line: oklch(0.42 0.03 258 / 18%);
+  --admin-field: oklch(0.42 0.03 258 / 10%);
+  --admin-field-focus: oklch(0.42 0.03 258 / 15%);
+  --admin-chrome: oklch(0.855 0.014 255 / 86%);
+  --admin-chrome-line: oklch(0.42 0.03 258 / 15%);
+  --admin-pill: oklch(0.42 0.03 258 / 10%);
+  --admin-pill-hover: oklch(0.42 0.03 258 / 18%);
+  --admin-pill-line: oklch(0.42 0.03 258 / 18%);
+  --admin-title: oklch(0.22 0.03 258);
+  /* En modo claro la elevación sí se ve, y es lo que hace que una tarjeta blanca
+   * parezca apoyada sobre el lienzo en lugar de recortada. Dos sombras: una corta que
+   * define el borde y una larga y muy difusa que da la altura. */
+  --admin-elevacion: 0 1px 2px 0 oklch(0.3 0.03 258 / 8%), 0 12px 28px -18px oklch(0.3 0.03 258 / 45%);
+}
+
+/* Cromo del panel —cabecera, pastillas de navegación, botones de la barra—. Va en
+ * clases propias y no en utilidades con colores fijos: `bg-black/40` y
+ * `ring-white/15` son invisibles en modo día, y ese es exactamente el error que
+ * aparece cuando se añade un segundo tema sobre una interfaz escrita en un solo
+ * tono. */
+.admin-shell .admin-chrome {
+  background-color: var(--admin-chrome);
+  border-color: var(--admin-chrome-line);
+  transition: background-color 350ms ease, border-color 350ms ease;
+}
+
+.admin-shell .admin-pill {
+  background-color: var(--admin-pill);
+  color: var(--foreground);
+  box-shadow: inset 0 0 0 1px var(--admin-pill-line);
+  transition: background-color 250ms ease, box-shadow 250ms ease, color 250ms ease;
+}
+
+.admin-shell .admin-pill:hover {
+  background-color: var(--admin-pill-hover);
+}
+
+.admin-shell .admin-navlink {
+  color: var(--muted-foreground);
+  transition: background-color 250ms ease, color 250ms ease;
+}
+
+.admin-shell .admin-navlink:hover {
+  background-color: var(--admin-pill);
+  color: var(--foreground);
 }
 
 /* Los títulos que en el sitio público van en serif pasan a sans con el tracking
  * cerrado, que es lo que hace que un encabezado se lea como de producto y no de
- * revista. `:where()` mantiene la especificidad en cero: cualquier utilidad escrita
- * en el componente sigue ganando. */
+ * revista.
+ *
+ * Aquí no se declara `font-weight`, y es deliberado: así el `font-light` que cada
+ * vista escribe en su encabezado sigue mandando. La versión anterior forzaba 600, y
+ * con eso los títulos de sección pesaban lo mismo que el rótulo del panel —mismo
+ * cuerpo, mismo peso, a ochenta píxeles de distancia—, así que el rótulo no
+ * destacaba: se igualaba. Con los encabezados en ligera y el rótulo en negrita, la
+ * jerarquía se lee sola.
+ *
+ * Aviso para quien mantenga esto: el `:where()` mantiene la especificidad en cero,
+ * pero **eso no basta** para que una utilidad de Tailwind escrita en el componente
+ * gane. Este archivo declara sus reglas fuera de toda `@layer`, y el CSS sin capa
+ * vence al que está en capas por mucha menos especificidad que tenga. Es decir: lo
+ * que se declare en este bloque pisa la utilidad del componente. Por eso la forma
+ * de dejar que el componente decida es **no declarar** la propiedad, como se hace
+ * con `font-weight`. */
 .admin-shell :where(.font-serif) {
   font-family: var(--font-dm-sans), system-ui, sans-serif;
-  font-weight: 600;
   letter-spacing: -0.025em;
 }
 
@@ -360,17 +671,49 @@ body.cookie-banner-visible .floating-action {
 }
 
 /* Superficies de vidrio: todo lo que el panel dibuja como "una caja con borde".
- * Se selecciona por el borde y no por una clase nueva para no tener que tocar
- * las nueve pantallas; el `:where()` mantiene la especificidad en cero, así que
- * cualquier utilidad de Tailwind escrita en el propio componente sigue ganando. */
+ * Se selecciona por el borde y no por una clase nueva para no tener que tocar las
+ * nueve pantallas. Sobre la precedencia frente a las utilidades del componente,
+ * vale el aviso del bloque anterior: aquí manda esta regla.
+ *
+ * El vidrio va teñido de azul y bastante opaco (62 %), no un 5 % de blanco como
+ * cuando el fondo era un degradado plano. Con la fotografía detrás, un vidrio casi
+ * transparente deja que el texto de las tablas caiga sobre lo que toque de la
+ * imagen; con este, cada caja aporta su propia base y el desenfoque convierte lo
+ * que hay debajo en color, no en formas que compiten con los datos. */
 .admin-shell :where(.border) {
-  border-radius: 0.875rem;
-  background-color: oklch(1 0 0 / 5%);
-  backdrop-filter: blur(12px);
+  border-radius: 1rem;
+  background-color: var(--admin-surface);
+  backdrop-filter: blur(18px) saturate(115%);
+  /* La elevación es lo que convierte «una caja con borde» en una tarjeta. Es la
+   * diferencia visual entre un panel plano y uno que se lee por capas, que es lo que
+   * se pidió al hablar de un CRM de Google: superficies apoyadas sobre un lienzo. */
+  box-shadow: var(--admin-elevacion);
 }
 
 .admin-shell :where(.border-dashed) {
-  background-color: oklch(1 0 0 / 3%);
+  background-color: var(--admin-surface-soft);
+  /* Un contorno discontinuo indica «aquí no hay nada todavía», y una sombra lo
+   * contradiría: sugeriría un objeto donde solo hay un hueco. */
+  box-shadow: none;
+}
+
+/* La tabla, dentro de una tarjeta.
+ *
+ * Los listados iban directamente sobre el fondo, así que las filas se leían sobre la
+ * fotografía y la banda central de la imagen se colaba entre los datos. Un CRM pone sus
+ * tablas sobre una superficie, y esa es la mitad del aspecto que se pidió.
+ *
+ * Se apunta al contenedor con `:has(table)` en lugar de envolver la tabla en cada
+ * pantalla: son cinco listados —contactos, solicitudes, tareas, contenidos, usuarios— y
+ * el envoltorio ya existe en todos, porque todos necesitan desplazamiento horizontal.
+ * El `:has` es lo que evita que la regla alcance a otros contenedores desplazables,
+ * como el del tablero del pipeline, que no lleva tabla. */
+.admin-shell :where(.overflow-x-auto:has(table)) {
+  border-radius: 1rem;
+  background-color: var(--admin-surface);
+  backdrop-filter: blur(18px) saturate(115%);
+  box-shadow: var(--admin-elevacion);
+  padding: 0.25rem 1rem 0.5rem;
 }
 
 /* Tablas: sin líneas duras, con separación por transparencia y una fila que
@@ -384,8 +727,16 @@ body.cookie-banner-visible .floating-action {
   position: sticky;
   top: 0;
   z-index: 1;
-  background-color: oklch(0.24 0.035 255 / 92%);
+  background-color: var(--admin-surface-strong);
   backdrop-filter: blur(8px);
+  /* El encabezado de tabla deja de ser un texto diminuto con mucho espaciado entre
+   * letras: en un CRM se lee de reojo cientos de veces al día, y a 10 px con
+   * `tracking` ancho cuesta más que a 12 px normal. Se mantiene en mayúsculas, que es
+   * lo que lo distingue de los datos. */
+  padding-block: 0.65rem;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  font-weight: 600;
 }
 
 .admin-shell :where(tbody tr) {
@@ -393,23 +744,678 @@ body.cookie-banner-visible .floating-action {
 }
 
 .admin-shell :where(tbody tr:hover) {
-  background-color: oklch(1 0 0 / 6%);
+  background-color: var(--admin-hover);
 }
 
+/* Más aire por fila. Una tabla apretada cabe mejor en pantalla y se lee peor: el
+ * recorrido de la vista de una fila a la siguiente es lo que se hace todo el día. */
 .admin-shell :where(tbody td) {
-  border-top: 1px solid oklch(0.45 0.04 255 / 25%);
+  border-top: 1px solid var(--admin-line);
+  padding-block: 0.85rem;
 }
 
 /* Campos de formulario y botones, que en el panel son etiquetas planas. */
 .admin-shell :where(input, select, textarea) {
   border-radius: 0.625rem;
-  background-color: oklch(1 0 0 / 7%);
+  background-color: var(--admin-field);
 }
 
 .admin-shell :where(input:focus-visible, select:focus-visible, textarea:focus-visible) {
-  background-color: oklch(1 0 0 / 12%);
+  background-color: var(--admin-field-focus);
 }
 
+/* Los botones del panel son cápsulas.
+ *
+ * El valor está aquí y no en las clases de `crm-ui.tsx` por la razón que explica el
+ * bloque de la tipografía: este archivo declara fuera de toda `@layer`, así que **gana
+ * a la utilidad del componente**. Un `rounded-full` escrito en el botón se quedaría sin
+ * efecto mientras esta regla dijera otra cosa, y el resultado sería un panel con
+ * botones de dos formas distintas sin motivo aparente. Al modernizar el panel se
+ * unificó aquí: un solo sitio decide, y `crm-ui.tsx` lo acompaña. */
 .admin-shell :where(button, a.button) {
-  border-radius: 0.625rem;
+  border-radius: 9999px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Botón de acceso al panel en la cabecera pública (el engranaje)
+ *
+ * El problema que resuelve: el verde de marca es `#182605`, un verde tan oscuro
+ * que es casi negro. Relleno plano y sin contorno, el botón se empastaba con la
+ * fotografía del hero —que además se oscureció a propósito en la Fase 14—, y en las
+ * zonas de vegetación desaparecía del todo.
+ *
+ * No se arregla cambiando el color, porque ese verde es la marca. Se arregla
+ * dándole **borde y volumen**, que es lo que separa un objeto de su fondo:
+ *
+ * - Un degradado en diagonal en vez de un relleno plano: una arista de luz arriba
+ *   y una sombra abajo hacen que se lea como un objeto físico, no como una mancha.
+ * - Dos contornos con trabajos distintos. El claro pegado al borde lo dibuja
+ *   cuando lo que hay detrás es oscuro; la sombra proyectada lo despega cuando lo
+ *   que hay detrás es claro —la cabecera al hacer scroll—. Hacen falta los dos,
+ *   porque este botón vive sobre las dos cosas.
+ * - Los colores se derivan del propio token con `color-mix`, así que si la marca
+ *   cambia de verde, el botón cambia con ella y no hay un segundo verde escrito a
+ *   mano en ningún sitio.
+ * ------------------------------------------------------------------------- */
+
+.admin-access-fab {
+  background-image: linear-gradient(
+    150deg,
+    color-mix(in oklab, var(--primary) 74%, white) 0%,
+    var(--primary) 52%,
+    color-mix(in oklab, var(--primary) 86%, black) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 0 oklch(1 0 0 / 28%),
+    0 0 0 1.5px oklch(1 0 0 / 48%),
+    0 8px 18px -6px oklch(0 0 0 / 55%);
+  transition: box-shadow 300ms ease, transform 300ms ease, filter 300ms ease;
+}
+
+.admin-access-fab:hover {
+  filter: brightness(1.12);
+  box-shadow:
+    inset 0 1px 0 0 oklch(1 0 0 / 32%),
+    0 0 0 2px oklch(1 0 0 / 72%),
+    0 12px 26px -8px oklch(0 0 0 / 62%);
+}
+
+/* Con la cabecera ya opaca el fondo es claro y fijo: ahí el anillo blanco no pinta
+ * nada y lo que define el botón es el propio verde. Se cambia por un contorno del
+ * color de marca, que a la vez lo ancla a la paleta. */
+.header-solid .admin-access-fab {
+  box-shadow:
+    inset 0 1px 0 0 oklch(1 0 0 / 24%),
+    0 0 0 1.5px color-mix(in oklab, var(--primary) 22%, transparent),
+    0 6px 16px -6px oklch(0 0 0 / 30%);
+}
+
+.header-solid .admin-access-fab:hover {
+  box-shadow:
+    inset 0 1px 0 0 oklch(1 0 0 / 28%),
+    0 0 0 2px color-mix(in oklab, var(--primary) 38%, transparent),
+    0 10px 22px -8px oklch(0 0 0 / 38%);
+}
+
+/* ---------------------------------------------------------------------------
+ * Bibliotecas VIP (/bodas-reales y /catering)
+ *
+ * Las dos bibliotecas pasan a la gama del panel y de la pantalla de acceso: azul
+ * noche, superficies de vidrio y esquinas redondeadas. Pedido por el titular para
+ * que la zona privada del sitio —la que se abre con un email— se distinga del
+ * escaparate público a primera vista.
+ *
+ * Se hace con la misma técnica que `.admin-shell`: redefinir los tokens de color
+ * dentro de una clase, en vez de reescribir los seis componentes de la biblioteca
+ * (listado, ficha, cabecera, gate, biblioteca vacía y detalle). Todos se pintan ya
+ * con `bg-background`, `text-muted-foreground` y `border-border`, así que heredan
+ * la paleta nueva sin tocarlos.
+ *
+ * Dos diferencias deliberadas con el panel:
+ *
+ * - **Sin la fotografía de fondo.** En el panel da continuidad con el acceso; aquí
+ *   competiría con el contenido, que es precisamente fotografía de bodas y de
+ *   eventos. Se queda la gama, que es lo que da la unidad.
+ * - **Se conserva la serif Cormorant** en los títulos de las fichas. El panel pasó
+ *   a sans porque es una herramienta de trabajo donde se leen cifras; una
+ *   biblioteca de historias es lo contrario, contenido editorial, y ahí la serif es
+ *   el carácter de la marca. Lo que moderniza estas pantallas es el color y las
+ *   superficies, no cambiarles la voz.
+ * ------------------------------------------------------------------------- */
+
+.vip-shell {
+  --background: oklch(0.19 0.03 255);
+  --foreground: oklch(0.97 0.005 250);
+  --card: oklch(0.24 0.035 255);
+  --card-foreground: oklch(0.97 0.005 250);
+  --popover: oklch(0.22 0.035 255);
+  --popover-foreground: oklch(0.97 0.005 250);
+  --muted: oklch(0.27 0.03 255);
+  /* Más claro que el gris de texto secundario habitual, y está medido: con 0.78 el
+   * párrafo del gate de bodas se quedaba en 3,55:1 sobre las zonas de humo naranja de
+   * la fotografía, por debajo del 4,5:1 de la WCAG. La alternativa era subir el velo
+   * hasta el 70 % y apagar la imagen justo después de que el titular pidiera lo
+   * contrario. Un texto secundario sobre fotografía necesita más cuerpo que sobre una
+   * superficie plana; es el mismo motivo por el que el párrafo del hero usa
+   * `text-foreground/80` en lugar del token de texto atenuado. */
+  --muted-foreground: oklch(0.9 0.015 250);
+  --border: oklch(0.45 0.04 255 / 35%);
+  --input: oklch(0.45 0.04 255 / 45%);
+  --ring: oklch(0.72 0.14 240);
+  --primary: oklch(0.72 0.15 240);
+  --primary-foreground: oklch(0.16 0.03 255);
+  --secondary: oklch(0.28 0.035 255);
+  --secondary-foreground: oklch(0.97 0.005 250);
+  /* El coral de marca se mantiene como acento: es lo que enlaza estas pantallas
+     con el resto del sitio, y sobre azul noche funciona mejor que sobre crema. */
+  --accent: oklch(0.72 0.19 25);
+  --accent-foreground: oklch(0.16 0.03 255);
+
+  color: var(--foreground);
+  background-color: oklch(0.18 0.03 258);
+  background-image: linear-gradient(168deg, oklch(0.17 0.03 262) 0%, oklch(0.21 0.035 272) 100%);
+  background-attachment: fixed;
+
+  /* Tipografía del panel también aquí: el titular pidió que las dos bibliotecas se
+   * lean como la zona privada, no como el escaparate. Se retira la serif Cormorant
+   * de esta sección —la decisión anterior era conservarla por su aire editorial— y
+   * queda DM Sans, la misma del panel y de la pantalla de acceso. */
+  font-family: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
+
+  /* El contenido va centrado, encabezados y fichas. */
+  text-align: center;
+}
+
+.vip-shell :where(.font-serif) {
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  letter-spacing: -0.025em;
+}
+
+/* El contenido, por encima del destello. Hace falta `position` para que el
+ * `z-index` cuente: sin esto, un pseudoelemento con `z-index: 0` se pinta después
+ * que los hijos en flujo normal y el destello taparía la biblioteca entera. */
+.vip-shell > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Fotografía de fondo, una por biblioteca, con el mismo zoom lento de la pantalla
+ * de acceso.
+ *
+ * Sustituye al destello de color abstracto que había aquí: el titular pidió estas dos
+ * imágenes concretas. Se reutiliza `admin-gate-zoom` en lugar de escribir una
+ * animación nueva —es literalmente el efecto que se pidió, «el mismo que en la
+ * ventana de login»—, y por lo mismo de siempre: anima solo `transform`, que se
+ * resuelve en la capa de composición sin repintar la imagen 40 s seguidos.
+ *
+ * La imagen se declara en una variable, una por biblioteca, para que sustituirla no
+ * toque la animación ni el velo. Las dos van a sangre con `cover`.
+ *
+ * `z-index: 0` y `pointer-events: none`: debajo del contenido y sin interceptar un
+ * solo clic. La regla global de `prefers-reduced-motion` la deja congelada en
+ * `scale(1)`, que es el resultado correcto sin ningún caso especial. */
+.vip-shell::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: var(--vip-photo);
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  will-change: transform;
+  animation: admin-gate-zoom 40s linear infinite;
+}
+
+.vip-shell[data-biblioteca="bodas"] {
+  --vip-photo: url("/images/vip/bodas-fondo.jpg");
+}
+
+.vip-shell[data-biblioteca="catering"] {
+  --vip-photo: url("/images/vip/catering-fondo.jpg");
+}
+
+/* Velo de legibilidad, y la base sobre la que se apoya la cabecera.
+ *
+ * Son dos cosas en un solo elemento porque las dos son exactamente eso, una capa
+ * oscura por encima de la fotografía y por debajo del contenido:
+ *
+ * 1. Un degradado más denso en la franja alta, para la cabecera pública, que es
+ *    `fixed` y translúcida y necesita algo debajo. Va también `fixed`, así que
+ *    acompaña a la cabecera al desplazarse en vez de quedarse arriba de la página.
+ * 2. Una viñeta que rebaja el conjunto. Su opacidad la fija cada biblioteca porque
+ *    las dos fotografías están en extremos opuestos, y esto está medido: la de
+ *    catering tiene 173 de luminancia media sobre 255 —polvo de colores a plena luz—
+ *    y la de bodas, 72, una explosión sobre fondo casi negro. Con un velo único, o
+ *    catering se queda ilegible o bodas se apaga sin motivo.
+ *
+ * El velo está **fuera** del elemento animado a propósito. Metido en el mismo
+ * `background-image` que la fotografía escalaría con ella, y una viñeta que crece y
+ * decrece es justo lo que se nota. */
+.vip-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to bottom, oklch(0.13 0.025 260 / 88%) 0%, oklch(0.14 0.025 260 / 30%) 140px, transparent 260px),
+    radial-gradient(ellipse 90% 75% at 50% 45%, var(--vip-veil-centro) 0%, var(--vip-veil-borde) 100%);
+}
+
+.vip-shell[data-biblioteca="bodas"] {
+  --vip-veil-centro: oklch(0.13 0.025 260 / 58%);
+  --vip-veil-borde: oklch(0.11 0.02 260 / 76%);
+}
+
+.vip-shell[data-biblioteca="catering"] {
+  --vip-veil-centro: oklch(0.13 0.025 260 / 74%);
+  --vip-veil-borde: oklch(0.10 0.02 260 / 88%);
+}
+
+/* Las tarjetas de ficha: la imagen deja de ser un rectángulo a hueso y pasa a
+ * superficie redondeada con vidrio debajo del texto. */
+.vip-shell :where(a.group > div:first-child) {
+  border-radius: 1rem;
+  box-shadow: 0 20px 45px -25px oklch(0 0 0 / 65%);
+}
+
+/* Las superficies pasan de un velo blanco al 5 % a vidrio oscuro.
+ *
+ * El 5 % valía sobre el degradado azul liso que había antes de fondo. Sobre una
+ * fotografía de polvo de colores no: el texto blanco de una tarjeta quedaba
+ * literalmente encima de una mancha amarilla o verde clara, y ninguna cantidad de
+ * desenfoque arregla que debajo haya un color claro. Lo que hace legible el texto es
+ * que la superficie **aporte su propio fondo oscuro**, que es exactamente lo que hace
+ * `--admin-surface` en el panel. El desenfoque sube a la par para que se siga leyendo
+ * como vidrio y no como un rectángulo opaco pegado encima. */
+.vip-shell :where(.border) {
+  border-radius: 1rem;
+  background-color: oklch(0.17 0.03 260 / 62%);
+  backdrop-filter: blur(20px);
+}
+
+.vip-shell :where(input, select, textarea) {
+  border-radius: 0.75rem;
+  background-color: oklch(0.12 0.02 260 / 55%);
+}
+
+.vip-shell :where(input:focus-visible, select:focus-visible, textarea:focus-visible) {
+  background-color: oklch(0.12 0.02 260 / 70%);
+}
+
+/* Botones en pastilla, como en el panel y en el aviso de las bibliotecas. */
+.vip-shell :where(button[type="submit"], a.button) {
+  border-radius: 9999px;
+}
+
+/* ---------------------------------------------------------------------------
+ * Texto de la portada en el verde de marca
+ *
+ * El titular, el párrafo y las etiquetas del hero usaban `--foreground`, que es un
+ * casi negro cálido. Pedido por el titular: que sea el verde oscuro de la marca.
+ *
+ * Se redefine el token en la sección en lugar de cambiar la clase de cada elemento,
+ * que es la misma técnica de `.admin-shell` y `.vip-shell`. Con esto el titular, el
+ * párrafo, la etiqueta de localización y el enlace secundario cambian a la vez y
+ * siguen coincidiendo entre sí, y un elemento nuevo en la portada nacerá ya con el
+ * color correcto en lugar de heredar el negro que se está retirando.
+ *
+ * El coral del acento no entra aquí —es otro token— así que «gran día» sigue en
+ * coral, que es lo que sostiene la composición.
+ * ------------------------------------------------------------------------- */
+
+.hero-brand-text {
+  --foreground: var(--primary);
+}
+
+/* Aquí hubo un halo crema detrás del titular y del párrafo, y se ha retirado.
+ *
+ * La intención era buena: el titular cae en parte sobre la sombra de la pérgola y una
+ * aureola clara le habría dado base. El efecto real fue el contrario del buscado. Un
+ * resplandor claro alrededor de un texto oscuro no se lee como contraste, se lee como
+ * desenfoque: el titular parecía lavado y con niebla encima, que fue exactamente la
+ * queja del titular del proyecto —«se ven rarísimos, como muy blanquecinos»—.
+ *
+ * La legibilidad se resuelve donde debe, en el velo de la fotografía: con la parada
+ * intermedia al 46 % en móvil el fondo bajo el titular da 3,66:1, y el titular no baja
+ * de 48 px en ningún tamaño, así que cumple el 3:1 que la WCAG pide para texto grande.
+ * Sin halo y con el texto nítido.
+ * ------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+ * Los dos accesos a las bibliotecas, en el menú, como llamada a la acción
+ *
+ * Catering y Bodas reales dejan de ser dos enlaces de texto más y pasan a pastilla
+ * de color. Tiene sentido más allá del gusto: son los dos únicos destinos del menú
+ * que abren una sección con acceso por email, así que conviene que se distingan de
+ * las anclas de la home.
+ *
+ * Los estilos los entregó el titular y se aplican tal cual, con **un color propio por
+ * botón**: turquesa a azul en Catering, azul a morado en Bodas reales. Antes se
+ * probaron dos versiones que descartó —verde de marca plano, «aburrido», y un
+ * degradado multicolor animado con reflejo de cristal, «no me gustan los colores»— y
+ * conviene que quede dicho, porque explica por qué esto es una tarjeta rectangular y
+ * sobria y no una pastilla llamativa: ese camino se recorrió entero.
+ *
+ * De la especificación recibida no se cambia nada. Sí merece constancia lo que aporta:
+ *
+ * - **44 px de alto mínimo** coincide con el objetivo táctil recomendado, así que el
+ *   botón es cómodo de pulsar en móvil sin depender del relleno.
+ * - **El texto blanco tiene contraste de sobra en los cuatro extremos** de los dos
+ *   degradados, y está comprobado: 5,2:1 sobre `#00796f`, 6,8:1 sobre `#0758b8`,
+ *   6,9:1 sobre `#174fc5` y 7,6:1 sobre `#8b2f73`, todos por encima del 4,5:1 exigido.
+ *   Por eso este bloque no necesita el contorno de sombra en el texto que sí hizo
+ *   falta con el degradado animado.
+ * - **El contorno blanco al 25 %** es lo que dibuja el botón cuando lo que hay detrás
+ *   es oscuro: la fotografía del hero, o el fondo de las bibliotecas. Con relleno plano
+ *   y sin contorno se empastaría, que es el mismo problema ya resuelto en el botón de
+ *   acceso al panel.
+ * ------------------------------------------------------------------------- */
+
+.nav-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 22px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  border: 1px solid rgb(255 255 255 / 25%);
+  border-radius: 12px;
+  box-shadow:
+    0 8px 20px rgb(0 0 0 / 28%),
+    inset 0 1px 0 rgb(255 255 255 / 18%);
+  transition: transform 200ms ease, box-shadow 200ms ease, filter 200ms ease;
+}
+
+.nav-cta--catering {
+  background: linear-gradient(135deg, #00796f, #0758b8);
+}
+
+.nav-cta--bodas {
+  background: linear-gradient(135deg, #174fc5, #8b2f73);
+}
+
+.nav-cta:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+  box-shadow: 0 12px 26px rgb(0 0 0 / 35%);
+}
+
+/* Más discretos en la barra de escritorio, pedido por el titular.
+ *
+ * La reducción va **dentro de una consulta de medios en 1280 px** y no en la regla base,
+ * y el motivo es concreto: `.nav-cta` sirve a dos sitios distintos. La barra superior es
+ * `hidden xl:flex` y el menú desplegable es `xl:hidden`, así que este bloque solo alcanza
+ * a la barra. En el menú móvil los botones conservan los 44 px, que es el objetivo táctil
+ * mínimo recomendado: ahí se pulsan con el dedo, y encogerlos sería cambiar un problema
+ * de estética por uno de uso.
+ *
+ * El cuerpo baja a 13 px, que es exactamente el de los enlaces de texto que tienen al
+ * lado —"Espacios", "Contacto"—. Es lo que los integra en la barra en lugar de dejarlos
+ * como dos carteles: en la fase anterior se pidió no encoger el texto cuando la pastilla
+ * se estrechó, y esto es el paso siguiente de la misma petición, ya sobre el alto.
+ *
+ * La sombra también se rebaja: 8 px de desenfoque con 28 % de negro es sombra de tarjeta,
+ * y sobre una pastilla de 34 px pesaba más que la pastilla.
+ *
+ * **Este bloque va después de `.nav-cta:hover`, y no antes, a propósito.** Una consulta de
+ * medios no añade especificidad: si estuviera arriba, el `box-shadow` del `:hover` de
+ * abajo —misma especificidad, declarado después— ganaría y el botón recuperaría la sombra
+ * grande justo al pasar el ratón. */
+@media (min-width: 1280px) {
+  .nav-cta {
+    min-height: 34px;
+    padding: 0 15px;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    border-radius: 9px;
+    box-shadow:
+      0 3px 10px rgb(0 0 0 / 20%),
+      inset 0 1px 0 rgb(255 255 255 / 16%);
+  }
+
+  .nav-cta:hover {
+    box-shadow: 0 6px 14px rgb(0 0 0 / 28%);
+  }
+}
+
+/* Sobre las bibliotecas el fondo es oscuro y saturado, y el contorno blanco al 25 % se
+ * queda corto para separar el botón. Se refuerza el contorno sin tocar el color. */
+body:has(main.vip-shell) .nav-cta {
+  border-color: rgb(255 255 255 / 42%);
+}
+
+/* ---------------------------------------------------------------------------
+ * Cabecera y pie sobre las bibliotecas
+ *
+ * Las dos piezas se sirven desde el layout raíz, fuera del `<main>`, así que no
+ * heredan la paleta de `.vip-shell` y se quedaban en la gama crema del escaparate:
+ * el menú era texto verde casi negro sobre una fotografía oscura, y el logotipo,
+ * una silueta que apenas se distinguía.
+ *
+ * Se resuelve con `:has()` y no pasando una propiedad desde la página porque el dato
+ * ya está en el DOM —esta página contiene una biblioteca— y así la cabecera sigue sin
+ * saber en qué ruta está: una sección nueva con `.vip-shell` se adapta sola. Si un
+ * navegador no soportara `:has()`, la cabecera se queda como estaba: menos bonita,
+ * pero legible, porque el degradado crema y su texto oscuro son coherentes entre sí.
+ *
+ * Solo se redefinen tokens. Las utilidades de Tailwind que ya usan la cabecera y el
+ * pie —`bg-background/72`, `text-foreground/70`, `border-border`— cambian con ellos,
+ * y `--primary` se deja intacto a propósito: es el fondo del CTA del menú móvil, y
+ * aclararlo lo habría dejado en blanco sobre blanco.
+ * ------------------------------------------------------------------------- */
+
+body:has(main.vip-shell) :where(header, footer) {
+  --background: oklch(0.14 0.025 260);
+  --foreground: oklch(0.97 0.005 250);
+  --muted-foreground: oklch(0.78 0.02 250);
+  --border: oklch(0.55 0.04 255 / 30%);
+  --accent: oklch(0.72 0.19 25);
+}
+
+/* El logotipo de la cabecera se pinta como máscara sobre un color, así que basta
+ * cambiar el color. Se usa el crema de la marca y no blanco puro para que no cante
+ * más que el propio contenido. */
+body:has(main.vip-shell) .header-logo {
+  background-color: oklch(0.96 0.008 85);
+}
+
+/* Los dos logotipos del pie sí son imágenes, y de tono medio: 120 y 140 de
+ * luminancia sobre 255, medido. Sobre azul oscuro se leen apagados. `brightness(0)`
+ * los aplana a negro conservando la transparencia y `invert(1)` los levanta a
+ * blanco, así que queda la silueta limpia sin necesidad de una segunda versión del
+ * archivo que habría que mantener en paralelo. */
+body:has(main.vip-shell) footer img {
+  filter: brightness(0) invert(1);
+  opacity: 0.92;
+}
+
+/* El pie, por encima del velo fijo.
+ *
+ * Aquí estaba el fallo al bajar: el velo es `position: fixed` con `z-index: 1` y el
+ * pie no llevaba `z-index`, así que el velo se pintaba **encima del pie** y lo dejaba
+ * apagado y con la fotografía por delante. Subirlo a 2 lo pone donde le toca. El
+ * fondo translúcido con desenfoque es lo que hace que la fotografía siga viéndose
+ * detrás en vez de cortarse en seco al llegar al pie. */
+body:has(main.vip-shell) footer {
+  z-index: 2;
+  background-color: oklch(0.12 0.02 260 / 82%);
+  backdrop-filter: blur(20px);
+}
+
+/* Con la cabecera desplazada, sobre las bibliotecas el vidrio es oscuro, no claro:
+ * el anillo de marca que se le pone al botón del panel sobre fondo claro
+ * desaparecería. Se le devuelve el anillo blanco. */
+body:has(main.vip-shell) .header-solid .admin-access-fab {
+  box-shadow:
+    inset 0 1px 0 0 oklch(1 0 0 / 28%),
+    0 0 0 1.5px oklch(1 0 0 / 48%),
+    0 8px 18px -6px oklch(0 0 0 / 55%);
+}
+
+/* Rótulo del panel con más presencia: cuerpo grande, tracking muy cerrado y un
+ * degradado de texto de la propia gama. Va en CSS y no en utilidades porque el
+ * degradado tiene que cambiar con el modo, y porque `background-clip: text` con
+ * `color: transparent` es una combinación que hay que proteger: si el navegador no
+ * soporta el recorte, un texto transparente sería un rótulo invisible. Con el
+ * `@supports`, el color sólido es el punto de partida y el degradado solo entra
+ * cuando se puede pintar. */
+.admin-title-strong {
+  color: var(--admin-title);
+}
+
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+  .admin-title-strong {
+    background-image: var(--admin-title-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+.admin-shell[data-tema="noche"] {
+  --admin-title-gradient: linear-gradient(100deg, oklch(1 0 0) 0%, oklch(0.93 0.02 250) 45%, oklch(0.82 0.10 215) 100%);
+}
+
+.admin-shell[data-tema="dia"] {
+  --admin-title-gradient: linear-gradient(100deg, oklch(0.24 0.03 258) 0%, oklch(0.30 0.05 262) 45%, oklch(0.42 0.12 245) 100%);
+}
+
+/* ---------------------------------------------------------------------------
+ * Bloque de filtros plegable (Interesados y Solicitudes)
+ *
+ * Solo dos cosas que no se pueden escribir con utilidades: quitar el triángulo que el
+ * navegador pinta por su cuenta en un `<summary>` —hace falta el pseudoelemento propio de
+ * WebKit además de `list-style`— y girar la flecha propia al abrir, que necesita el
+ * selector `[open]` del padre.
+ * ------------------------------------------------------------------------- */
+
+.crm-filtros > summary::-webkit-details-marker {
+  display: none;
+}
+
+.crm-filtros__flecha {
+  display: inline-block;
+  transition: transform 200ms ease;
+}
+
+.crm-filtros[open] > summary .crm-filtros__flecha {
+  transform: rotate(90deg);
+}
+
+/* ---------------------------------------------------------------------------
+ * Paleta de datos
+ *
+ * Ocho tonos tipo semáforo, definidos **una sola vez** para todo el panel. Los usan las
+ * pastillas de fase del tablero, la fase en los listados y las gráficas de Estatus
+ * Plataforma e Informes captación.
+ *
+ * La regla apunta a `[data-tono]` en cualquier elemento y expone el color en `--tono`,
+ * que hereda. Eso es lo que permite escribir `stroke="var(--tono)"` en un `<circle>` de
+ * SVG o `bg-[var(--tono)]` en una barra sin pasar ni un color por props: la gráfica no
+ * sabe qué color tiene, y por eso cambia sola con el modo día/noche. La versión anterior
+ * ataba los tonos a `.pipe-pill`, así que solo servían para el tablero.
+ *
+ * El color **no es nunca la única señal**: cada pastilla lleva su texto y su recuento, y
+ * cada segmento de una gráfica lleva su etiqueta y su cifra en la leyenda. Un tablero
+ * donde la fase se dedujera del color sería inservible para alguien con daltonismo —entre
+ * el 4 y el 8 % de los hombres— y el rojo y el verde son justo el par que se confunde.
+ *
+ * Los ocho valen para los dos modos: son colores saturados con texto blanco encima, así
+ * que no dependen de si el fondo es claro u oscuro. La luminosidad ronda 0,50–0,58 en
+ * todos, lo que deja el blanco por encima del 4,5:1 en cualquiera.
+ * ------------------------------------------------------------------------- */
+
+[data-tono="gris"] { --tono: oklch(0.52 0.02 260); }
+[data-tono="azul"] { --tono: oklch(0.53 0.15 250); }
+[data-tono="cian"] { --tono: oklch(0.55 0.12 210); }
+[data-tono="ambar"] { --tono: oklch(0.58 0.13 80); }
+[data-tono="naranja"] { --tono: oklch(0.57 0.17 50); }
+[data-tono="verde"] { --tono: oklch(0.52 0.15 148); }
+[data-tono="violeta"] { --tono: oklch(0.52 0.16 300); }
+[data-tono="rojo"] { --tono: oklch(0.53 0.19 25); }
+
+/* ---------------------------------------------------------------------------
+ * Tablero del pipeline
+ * ------------------------------------------------------------------------- */
+
+.pipe-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 9999px;
+  padding: 0.3rem 0.7rem;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: oklch(0.99 0 0);
+  background-color: var(--tono);
+  box-shadow:
+    inset 0 1px 0 0 oklch(1 0 0 / 24%),
+    0 2px 8px -3px oklch(0 0 0 / 40%);
+}
+
+.pipe-pill__cuenta {
+  min-width: 1.25rem;
+  border-radius: 9999px;
+  background-color: oklch(0 0 0 / 26%);
+  padding: 0 0.3rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Columna durante el arrastre.
+ *
+ * Se marca por atributo y no con una clase alternada en JavaScript para que el estado
+ * viva en el DOM y sea inspeccionable: `data-suelta="permitida"` en las columnas que
+ * aceptan la tarjeta que se está arrastrando, `"bloqueada"` en las que no.
+ *
+ * La diferencia entre las dos no es solo el color del borde: la bloqueada además se
+ * atenúa. Con solo el borde, quien no distinga bien los colores no sabría dónde puede
+ * soltar, y el arrastre es un gesto que no perdona el ensayo y error. */
+.pipe-columna[data-suelta="permitida"] {
+  outline: 2px dashed var(--pipe-suelta-ok);
+  outline-offset: 4px;
+  background-color: color-mix(in oklab, var(--pipe-suelta-ok) 8%, transparent);
+}
+
+.pipe-columna[data-suelta="bloqueada"] {
+  opacity: 0.42;
+}
+
+.admin-shell[data-tema="noche"] {
+  --pipe-suelta-ok: oklch(0.72 0.14 150);
+}
+
+.admin-shell[data-tema="dia"] {
+  --pipe-suelta-ok: oklch(0.48 0.15 150);
+}
+
+/* La tarjeta que se está arrastrando: se deja a medio gas para que se distinga del
+ * resto sin desaparecer, porque el navegador ya pinta su propia imagen de arrastre. */
+.pipe-tarjeta[data-arrastrando="si"] {
+  opacity: 0.4;
+}
+
+.pipe-tarjeta {
+  cursor: grab;
+}
+
+.pipe-tarjeta[data-movible="no"] {
+  cursor: default;
+}
+
+/* Salir, en rojo: es la única acción del panel que interrumpe el trabajo, y hasta
+ * ahora era una pastilla idéntica a las demás. El rojo se toma de la gama del token
+ * `--destructive` pero se define por modo, porque el mismo rojo que funciona sobre
+ * azul noche resulta chillón sobre fondo claro. */
+.admin-shell .admin-pill--danger {
+  background-color: var(--admin-danger);
+  color: var(--admin-danger-fg);
+  box-shadow: inset 0 0 0 1px var(--admin-danger-line);
+}
+
+.admin-shell .admin-pill--danger:hover {
+  background-color: var(--admin-danger-hover);
+}
+
+.admin-shell[data-tema="noche"] {
+  --admin-danger: oklch(0.52 0.19 22 / 85%);
+  --admin-danger-hover: oklch(0.58 0.21 22 / 95%);
+  --admin-danger-fg: oklch(0.98 0.01 20);
+  --admin-danger-line: oklch(0.72 0.19 22 / 45%);
+}
+
+.admin-shell[data-tema="dia"] {
+  --admin-danger: oklch(0.55 0.20 25);
+  --admin-danger-hover: oklch(0.49 0.20 25);
+  --admin-danger-fg: oklch(0.99 0.005 20);
+  --admin-danger-line: oklch(0.45 0.18 25 / 35%);
 }

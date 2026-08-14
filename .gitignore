@@ -57,6 +57,18 @@ next-env.d.ts
 /uploads/
 /public/uploads/
 
+# originales de los fondos, sin procesar
+# Son los archivos de cámara tal como llegaron —22 MB y 3,4 MB— y **no se sirven**:
+# lo que usa la web son las versiones optimizadas de /public/images/vip/, generadas
+# con `npm run images:optimize` y de unos 300 KB cada una. Versionar los originales
+# metería 25 MB en el repositorio y, lo que es peor, los desplegaría: todo lo que
+# está bajo /public se publica, así que cualquiera podría descargarlos.
+#
+# No se borran: son el material de partida para regenerar los fondos si cambia el
+# encuadre o el tamaño objetivo. Simplemente se quedan en el equipo.
+/public/images/ExplosionColor.jpg
+/public/images/CucharasColor.jpg
+
 # plataforma y herramientas
 .vercel
 .turbo

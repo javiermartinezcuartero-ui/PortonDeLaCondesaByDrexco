@@ -43,7 +43,7 @@ export function supabaseHost(supabaseUrl: string | undefined = process.env.SUPAB
  * - `www.google.com` en `frame-src`: el iframe del mapa de la sección de contacto.
  * - El host de Supabase en `img-src` y `connect-src`: las URL firmadas del bucket
  *   privado y el cliente de Storage.
- * - `api.sendgrid.com` **no** aparece: el envío es servidor a servidor y nunca sale
+ * - `api.resend.com` **no** aparece: el envío es servidor a servidor y nunca sale
  *   del navegador.
  */
 export function buildContentSecurityPolicy(host: string | null = supabaseHost()): string {

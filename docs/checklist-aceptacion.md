@@ -59,7 +59,7 @@ comprobar", el estado no es "Cumplido".
 | 3.8 | Tareas con vistas, asignación y cancelación sin borrar historial | Parcial | E2E 10. **Limitación:** el enlace con la solicitud vive en la actividad, no como columna de la tarea (§Limitaciones, L1) |
 | 3.9 | Notas internas con autor, fecha y edición auditada | Cumplido | `lib/domain/notes.ts` |
 | 3.10 | Puntuación configurable, sin sumar dos veces el mismo hito | Cumplido | `lib/domain/scoring.test.ts` |
-| 3.11 | Exportación CSV solo ADMIN, con filtros y neutralización de fórmulas | Cumplido | `lib/domain/crm-export.test.ts`; `app/api/admin/crm/export/route.test.ts` |
+| 3.11 | Exportación a Excel (`.xlsx`) solo ADMIN, con filtros y celdas tipadas —la inyección de fórmulas dejó de ser posible— | Cumplido | `lib/domain/crm-workbook.test.ts`; `app/api/admin/crm/export/route.test.ts` |
 | 3.12 | CMS: borrador, media, previsualización, publicación y archivado | Cumplido | E2E 8 |
 | 3.13 | Publicar exige título en español, slug e imagen principal con alt | Cumplido | `getMissingPublicationRequirements`; `lib/domain/content-cms.test.ts` |
 | 3.14 | Lo publicado aparece en su ruta y no en la de la otra biblioteca | Cumplido | E2E 9 |

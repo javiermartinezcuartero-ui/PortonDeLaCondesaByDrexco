@@ -7,7 +7,7 @@ Avisos por correo del proyecto. Amplía el README §CRM, pipeline, tareas e info
 
 **La base de datos es la fuente de verdad. El correo es un efecto secundario.**
 
-Guardar un lead o una solicitud no depende de que SendGrid responda. De ahí se
+Guardar un lead o una solicitud no depende de que Resend responda. De ahí se
 derivan todas las decisiones de este módulo:
 
 - el envío ocurre **después** del commit y **después** de responder al visitante;
@@ -27,13 +27,13 @@ Route Handler / script
               └─ notifyNewLeadRequest()   lib/notifications/lead-request-notification.ts
                    ├─ plantilla           lib/email/templates.ts
                    ├─ proveedor           lib/email/index.ts → resolveEmailProvider()
-                   │    ├─ SendGridEmailProvider      (con credenciales)
+                   │    ├─ ResendEmailProvider        (con credenciales)
                    │    └─ DevelopmentEmailProvider   (sin credenciales)
                    └─ registro            lib/notifications/record.ts → NotificationLog
 ```
 
 La aplicación habla con la interfaz `EmailProvider` (`lib/email/provider.ts`) y
-nunca con SendGrid directamente. Eso es lo que permite cambiar de proveedor —o no
+nunca con Resend directamente. Eso es lo que permite cambiar de proveedor —o no
 tener ninguno— sin tocar el dominio ni la captación.
 
 Dos reglas del contrato:
@@ -67,8 +67,8 @@ bloquear ni función que se congele. Ese respaldo está explícito en el código
 
 | Variable | Uso | Si falta |
 |---|---|---|
-| `SENDGRID_API_KEY` | Credencial del proveedor | No hay transporte: `SKIPPED_CONFIG` |
-| `LEADS_FROM_EMAIL` | Remitente verificado en SendGrid | No hay transporte: `SKIPPED_CONFIG` |
+| `RESEND_API_KEY` | Credencial del proveedor (empieza por `re_`) | No hay transporte: `SKIPPED_CONFIG` |
+| `LEADS_FROM_EMAIL` | Remitente de un dominio verificado en Resend | No hay transporte: `SKIPPED_CONFIG` |
 | `LEADS_NOTIFICATION_TO` | Destinatarios internos, separados por comas | No se envía el aviso interno |
 | `SEND_LEAD_ACKNOWLEDGEMENT` | `"true"` activa el acuse al visitante | El acuse queda desactivado |
 | `NEXT_PUBLIC_SITE_URL` | Base de los enlaces al panel, sin barra final | Se usa `http://localhost:3000` |
@@ -76,7 +76,7 @@ bloquear ni función que se congele. Ese respaldo está explícito en el código
 Detalles que importan:
 
 - **Hacen falta clave y remitente**, las dos, para considerar que hay transporte. Con
-  solo la clave, SendGrid rechazaría el envío por falta de remitente verificado, así
+  solo la clave, Resend rechazaría el envío por no venir de un dominio verificado, así
   que tener media configuración cuenta como no tenerla.
 - **Solo el valor exacto `"true"`** activa el acuse. `"1"`, `"si"` o `"TRUE"` lo dejan
   apagado: escribir a un visitante es una decisión que se toma a propósito, no algo
@@ -84,6 +84,33 @@ Detalles que importan:
 - `NEXT_PUBLIC_SITE_URL` es la **única** variable pública del proyecto, y lo es porque
   una URL de sitio no es un secreto. La clave de API vive tras `import "server-only"`:
   si alguien la importara desde un componente cliente, el build falla.
+
+### El remitente, que es donde falla esto en la práctica
+
+Resend solo entrega desde un dominio que se haya verificado en su panel (Domains,
+añadiendo los registros DNS que indica). Hay una excepción, y conviene entenderla bien
+porque explica el 90 % de los «no llega nada»:
+
+- **`onboarding@resend.dev`** funciona sin verificar ningún dominio, pero **solo puede
+  escribir a la dirección de correo titular de la cuenta de Resend**. Cualquier envío a
+  otra dirección se rechaza. Sirve para la primera prueba y para el aviso interno si ese
+  buzón es el de la cuenta; no sirve para el acuse al visitante, que va a direcciones
+  cualesquiera.
+- Por eso **`SEND_LEAD_ACKNOWLEDGEMENT` debe quedarse apagado** mientras el remitente
+  sea `onboarding@resend.dev`. Encenderlo antes de verificar el dominio no produce un
+  error visible en la web —la solicitud se guarda igual— sino una fila `FAILED` en
+  `NotificationLog` por cada visitante.
+
+### Comprobarlo sin adivinar
+
+```bash
+npm run email:test
+```
+
+Lee la configuración del entorno, dice qué variable falta si falta alguna, y si están
+todas envía un correo real al buzón interno usando **el adaptador del proyecto**, no la
+API de Resend a pelo. Es la diferencia entre comprobar que Resend funciona y comprobar
+que esta aplicación envía. De la clave solo informa el prefijo y la longitud.
 
 ## 5. Los cuatro casos
 
@@ -154,13 +181,13 @@ eso la ruta que lo consuma tendrá que invalidarlo en el primer uso.
 
 | Estado | Significa | Cuándo |
 |---|---|---|
-| `SENT` | El proveedor aceptó el mensaje | HTTP 202 de SendGrid |
+| `SENT` | El proveedor aceptó el mensaje | HTTP 200 de Resend, con el `id` en el cuerpo |
 | `SKIPPED_CONFIG` | No se intentó por falta de configuración | Sin clave, sin remitente o sin destinatarios |
 | `RETRY_PENDING` | Fallo transitorio; merecería reintento | Timeout, 429, 5xx, error de red |
 | `FAILED` | Fallo permanente; reintentar no arreglaría nada | Otros 4xx, o excepción del adaptador |
 | `PENDING` | Valor por defecto de la columna | No lo produce ningún camino del código: una fila aquí sería un fallo |
 
-`SENT` significa que SendGrid aceptó y encoló, **no** que el correo llegara a una
+`SENT` significa que Resend aceptó y encoló, **no** que el correo llegara a una
 bandeja. El registro no afirma más de lo que sabe.
 
 El adaptador de desarrollo devuelve `SKIPPED_CONFIG`, no `SENT`. Si devolviera
@@ -169,7 +196,7 @@ sería peor que no tener correo.
 
 ### Lo que se guarda y lo que no
 
-- **Sí:** plantilla, proveedor (`sendgrid`/`development`), estado, motivo corto del
+- **Sí:** plantilla, proveedor (`resend`/`development`), estado, motivo corto del
   fallo, y destinatarios **parcialmente ocultos** (`an***a@example.test`).
 - **No:** el cuerpo del mensaje, el asunto (puede llevar el texto que escribió una
   persona), la clave de API, ni la dirección completa.
@@ -195,7 +222,7 @@ memoria.
 ## 7. Lo que esta fase **no** garantiza
 
 **No hay entrega garantizada.** Un `RETRY_PENDING` describe un fallo que merecería
-reintento; **nada lo reintenta**. Si SendGrid está caído tres minutos, ese aviso no
+reintento; **nada lo reintenta**. Si Resend está caído tres minutos, ese aviso no
 sale, y lo único que queda es la fila en `NotificationLog` diciéndolo.
 
 Esto es deliberado: el enunciado de la fase pide no añadir cola externa, y montar
@@ -212,7 +239,7 @@ Para tener entrega garantizada de verdad haría falta, como evolución:
    para no enviar dos veces lo mismo.
 3. **El mismo programador** serviría para automatizar el resumen de tareas vencidas
    (§5.3), que hoy es manual.
-4. **Webhooks de SendGrid** (`delivered`, `bounce`, `spamreport`) si se quiere saber
+4. **Webhooks de Resend** (`email.delivered`, `email.bounced`, `email.complained`) si se quiere saber
    qué pasó *después* de que el proveedor aceptara el mensaje. Hoy `SENT` es lo último
    que el sistema sabe.
 
@@ -223,7 +250,7 @@ Ninguna de las cuatro está hecha, y el código no finge que lo esté.
 | Archivo | Cubre |
 |---|---|
 | `lib/email/config.test.ts` | Enmascarado (nunca devuelve la dirección completa), lectura de variables, `"true"` como único activador, parseo de destinatarios, y **selección del proveedor** con y sin credenciales |
-| `lib/email/sendgrid.test.ts` | Clasificación 202/429/5xx/4xx/timeout/red, timeout presente en la petición, texto plano antes del HTML, `reply_to` opcional, y que ni el motivo del fallo ni el resultado contengan la clave o el cuerpo. También que el adaptador de desarrollo no imprima cuerpo ni dirección completa |
+| `lib/email/resend.test.ts` | Clasificación 200/429/5xx/4xx/timeout/red, un 200 con cuerpo ilegible que sigue siendo `SENT`, timeout presente en la petición, clave como `Bearer` y nunca en la URL, `reply_to` opcional y como cadena, y que ni el motivo del fallo ni el resultado contengan la clave o el cuerpo. También que el adaptador de desarrollo no imprima cuerpo ni dirección completa |
 | `lib/email/templates.test.ts` | Enlace al CRM sin token, escapado del texto libre, acuse sin marketing que solo confirma recepción, acuse con marketing y cómo darse de baja, sin promesas de plazos, y accesibilidad de las cuatro plantillas (texto plano, `lang`, `h1`, `role="presentation"`, `th scope="row"`, `max-width`, sin imágenes) |
 | `lib/notifications/lead-request-notification.test.ts` | Envío correcto, sin configurar, **fallo después de guardar** (transitorio, permanente y excepción del adaptador, comprobando que la solicitud sigue intacta), acuse activado y desactivado, marketing concedido y revocado, y que el registro no guarde cuerpo, asunto, clave ni direcciones completas |
 | `lib/notifications/overdue-tasks.test.ts` | Sin destinatarios, sin tareas, resumen único, ventana de silencio y su expiración, sin proveedor, fallo del proveedor sin tocar el CRM, y enlace a la vista de vencidas |

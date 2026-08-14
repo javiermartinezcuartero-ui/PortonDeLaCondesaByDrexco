@@ -3,6 +3,7 @@ import Link from "next/link"
 import type { InteractionType } from "@prisma/client"
 import { roleHasPermission } from "@/lib/auth/session"
 import { requireCrmAccess } from "../guards"
+import { ExportButton } from "../export-button"
 import { LEAD_LIST_PAGE_SIZE, listLeadSources, listLeadsForAdmin, listTags } from "@/lib/domain/crm-leads"
 import { INTERACTION_LABEL, LIFECYCLE_LABEL, formatDate, leadName } from "@/lib/crm/labels"
 import {
@@ -12,20 +13,12 @@ import {
   parsePageParam,
   parsePositiveIntParam,
 } from "@/lib/validation/crm"
-import {
-  EmptyState,
-  Pagination,
-  Pill,
-  buttonClass,
-  filterFieldClass,
-  filterLabelClass,
-  secondaryButtonClass,
-} from "../crm-ui"
+import { EmptyState, FilterPanel, Pagination, Pill, filterFieldClass, filterLabelClass } from "../crm-ui"
 
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: "Contactos",
+  title: "Captaciones",
   robots: { index: false, follow: false, nocache: true, googleBot: { index: false, follow: false } },
 }
 
@@ -68,6 +61,12 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
 
   const canExport = roleHasPermission(user.role, "crm:export")
 
+  // Cuántos filtros hay puestos. `pagina` no cuenta: es paginación, no un filtro, y
+  // contarla dejaría el bloque abierto en cuanto se pasara de página.
+  const activeFilters = (Object.keys(params) as Array<keyof SearchParams>).filter(
+    (key) => key !== "pagina" && params[key]
+  ).length
+
   const query = new URLSearchParams()
   for (const [key, value] of Object.entries(params)) if (value) query.set(key, value)
   const buildHref = (nextPage: number) => {
@@ -83,22 +82,25 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-serif text-3xl font-light text-foreground">Contactos</h1>
+          <h1 className="font-serif text-3xl font-light text-foreground">Captaciones</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Personas identificadas por su email, con su historial comercial completo.
+            Personas que dejaron su email para entrar en las bibliotecas de bodas reales y catering, con su
+            historial completo.
           </p>
         </div>
         {canExport && (
-          <a href={`/api/admin/crm/export?conjunto=contactos&${exportQuery.toString()}`} className={secondaryButtonClass}>
-            Exportar CSV
-          </a>
+          <ExportButton
+            href={`/api/admin/crm/export?conjunto=contactos&${exportQuery.toString()}`}
+            label="Descargar los contactos en Excel"
+          />
         )}
       </div>
 
-      {/* Formulario GET: los filtros acaban en la URL, así una vista filtrada se
-          puede compartir o guardar en marcadores, y funciona sin JavaScript. */}
-      <form method="get" className="space-y-4 border border-border p-4">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Formulario GET dentro de un bloque plegable: los filtros acaban en la URL, así
+          una vista filtrada se puede compartir o guardar en marcadores, y funciona sin
+          JavaScript. El plegado y el recuento están en `FilterPanel`. */}
+      <FilterPanel activeCount={activeFilters} clearHref="/admin/contactos">
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2">
             <label htmlFor="q" className={filterLabelClass}>
               Buscar por nombre, email o teléfono
@@ -180,15 +182,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
             <input id="hasta" name="hasta" type="date" defaultValue={params.hasta ?? ""} className={filterFieldClass} />
           </div>
         </div>
-        <div className="flex gap-2">
-          <button type="submit" className={buttonClass}>
-            Filtrar
-          </button>
-          <Link href="/admin/contactos" className={secondaryButtonClass}>
-            Limpiar
-          </Link>
-        </div>
-      </form>
+      </FilterPanel>
 
       {leads.length === 0 ? (
         <EmptyState>No hay contactos que coincidan con estos filtros.</EmptyState>

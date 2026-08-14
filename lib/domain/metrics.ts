@@ -109,15 +109,11 @@ function createdAtFilter(range: DateRange): Prisma.DateTimeFilter | undefined {
 }
 
 const EMPTY_PIPELINE: PipelineCounts = {
-  NEW: 0,
-  CONTACTED: 0,
-  QUALIFIED: 0,
-  VISIT_SCHEDULED: 0,
-  PROPOSAL_SENT: 0,
-  NEGOTIATION: 0,
-  WON: 0,
+  CONTACT: 0,
+  PRESENTATION: 0,
+  PROPOSAL: 0,
+  CLIENT: 0,
   LOST: 0,
-  NURTURING: 0,
 }
 
 // ---------------------------------------------------------------------------
@@ -140,16 +136,16 @@ export async function countRequestsByStatus(range: DateRange = {}): Promise<Pipe
 
 /**
  * Conversión sobre **cerrados**, no sobre el total: mientras una solicitud sigue
- * viva no cuenta ni a favor ni en contra. El denominador es WON + LOST y viaja
+ * viva no cuenta ni a favor ni en contra. El denominador es CLIENT + LOST y viaja
  * en el resultado para que se pueda mostrar junto al porcentaje.
  */
 export function conversionOverClosed(counts: PipelineCounts): Ratio {
-  return ratio(counts.WON, counts.WON + counts.LOST)
+  return ratio(counts.CLIENT, counts.CLIENT + counts.LOST)
 }
 
 /**
- * Horas medias hasta el primer contacto: del alta de la solicitud a su primer
- * paso a CONTACTED. Se lee del historial real de `LeadActivity`, no de un campo
+ * Horas medias hasta el primer contacto: del alta de la solicitud a su salida de la
+ * fase de entrada. Se lee del historial real de `LeadActivity`, no de un campo
  * denormalizado que pudiera quedar desfasado.
  */
 export async function averageHoursToFirstContact(range: DateRange = {}): Promise<Average> {
@@ -167,15 +163,24 @@ export async function averageHoursToFirstContact(range: DateRange = {}): Promise
     where: {
       leadRequestId: { in: requestIds },
       type: "STATUS_CHANGED",
-      // Filtro sobre el JSON de metadata: el paso concreto a CONTACTED.
-      metadata: { path: ["to"], equals: "CONTACTED" },
+      // Filtro sobre el JSON de metadata: el paso concreto a la segunda fase.
+      //
+      // Se aceptan **los dos vocabularios**. Antes de la reducción a cinco fases el
+      // paso se anotaba como `to: "CONTACTED"`, y el historial no se reescribió en la
+      // migración a propósito: es una pista de auditoría. Si este filtro solo mirase
+      // el nombre nuevo, la métrica devolvería "sin datos" sobre todo el histórico
+      // anterior, que es peor que aceptar dos nombres.
+      OR: [
+        { metadata: { path: ["to"], equals: "PRESENTATION" } },
+        { metadata: { path: ["to"], equals: "CONTACTED" } },
+      ],
     },
     select: { leadRequestId: true, createdAt: true },
     orderBy: { createdAt: "asc" },
   })
 
-  // El primer CONTACTED de cada solicitud; los posteriores (reapertura desde
-  // NURTURING, por ejemplo) no son "el primer contacto".
+  // El primer paso a la segunda fase de cada solicitud; los posteriores (una vuelta
+  // atrás y otro avance) no son "el primer contacto".
   const firstContact = new Map<string, Date>()
   for (const activity of contacts) {
     if (!activity.leadRequestId) continue
@@ -194,9 +199,9 @@ export async function averageHoursToFirstContact(range: DateRange = {}): Promise
   return { value: Math.round((total / durations.length) * 10) / 10, sampleSize: durations.length }
 }
 
-/** Solicitudes sin ningún contacto todavía: siguen en NEW. */
+/** Solicitudes sin trabajar todavía: siguen en la fase de entrada. */
 export async function countPendingFirstContact(): Promise<number> {
-  return prisma.leadRequest.count({ where: { status: "NEW", archivedAt: null } })
+  return prisma.leadRequest.count({ where: { status: "CONTACT", archivedAt: null } })
 }
 
 // ---------------------------------------------------------------------------
@@ -414,7 +419,7 @@ export async function getDashboardMetrics(now: Date): Promise<DashboardMetrics> 
 
   return {
     leadsFromGate,
-    newRequests: pipeline.NEW,
+    newRequests: pipeline.CONTACT,
     pendingFirstContact,
     tasks,
     pipeline,

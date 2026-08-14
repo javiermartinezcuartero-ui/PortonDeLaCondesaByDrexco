@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import Image from "next/image"
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { brand } from "@/data/site-content"
 import { getSessionUser } from "@/lib/auth/session"
@@ -51,14 +52,30 @@ export default async function AdminLoginPage() {
 
       <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/25 bg-white/10 p-8 shadow-[0_25px_70px_-15px_rgba(30,64,175,0.65)] backdrop-blur-xl sm:p-10">
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <Image
-            src="/brand/icon-porton-hq.png"
-            alt={brand.name}
-            width={64}
-            height={64}
-            priority
-            className="drop-shadow-lg"
-          />
+          {/*
+            El logotipo es la salida de esta pantalla: quien llega aquí por error
+            —o cambia de idea— no tiene ningún otro camino de vuelta, porque el
+            formulario no lleva enlaces y la cabecera pública no se muestra.
+
+            El nombre accesible va en el enlace y la imagen queda con `alt=""`. Si
+            se dejara el nombre de la marca en el `alt`, un lector de pantalla
+            anunciaría «El Portón de la Condesa, enlace» sin decir a dónde va, que
+            es justo el dato que hace falta.
+          */}
+          <Link
+            href="/"
+            aria-label={`Ir a la web pública de ${brand.name}`}
+            className="rounded-2xl transition-transform duration-300 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          >
+            <Image
+              src="/brand/icon-porton-hq.png"
+              alt=""
+              width={64}
+              height={64}
+              priority
+              className="drop-shadow-lg"
+            />
+          </Link>
           <p className="text-xs uppercase tracking-[0.3em] text-white/70">Acceso privado</p>
         </div>
 

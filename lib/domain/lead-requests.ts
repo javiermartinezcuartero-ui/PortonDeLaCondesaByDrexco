@@ -209,19 +209,27 @@ function isUniqueSubmissionIdViolation(error: unknown): boolean {
 }
 
 /**
- * Máquina de estados del pipeline. WON es terminal. Desde LOST solo se
- * permite reabrir a NURTURING. No están listadas => transición no permitida.
+ * Máquina de estados del pipeline, sobre las cinco fases del enum.
+ *
+ * CLIENT sigue siendo terminal: un evento cerrado no vuelve al embudo. LOST se puede
+ * reabrir, y ahora reabre a CONTACT —antes reabría a NURTURING, que ya no existe—.
+ *
+ * **Se permite un paso hacia atrás** (PRESENTATION → CONTACT, PROPOSAL →
+ * PRESENTATION), y es un cambio respecto a la versión de nueve estados, que solo
+ * avanzaba. El motivo: con nueve estados había un aparcamiento (NURTURING) al que
+ * retirar una solicitud que se enfriaba, así que existía una vía de vuelta. Al reducir
+ * a cinco fases ese aparcamiento desaparece, y sin transición hacia atrás la única
+ * forma de deshacer un avance —un arrastre a la columna equivocada, por ejemplo— sería
+ * darla por perdida y reabrirla, que ensucia el historial con dos movimientos falsos.
+ *
+ * Lo que no está listado no se permite: sigue sin poderse saltar una fase.
  */
 const ALLOWED_TRANSITIONS: Record<LeadRequestStatus, LeadRequestStatus[]> = {
-  NEW: ["CONTACTED", "LOST"],
-  CONTACTED: ["QUALIFIED", "NURTURING", "LOST"],
-  QUALIFIED: ["VISIT_SCHEDULED", "NURTURING", "LOST"],
-  VISIT_SCHEDULED: ["PROPOSAL_SENT", "NURTURING", "LOST"],
-  PROPOSAL_SENT: ["NEGOTIATION", "LOST"],
-  NEGOTIATION: ["WON", "LOST"],
-  NURTURING: ["CONTACTED", "QUALIFIED", "LOST"],
-  WON: [],
-  LOST: ["NURTURING"],
+  CONTACT: ["PRESENTATION", "LOST"],
+  PRESENTATION: ["PROPOSAL", "CONTACT", "LOST"],
+  PROPOSAL: ["CLIENT", "PRESENTATION", "LOST"],
+  CLIENT: [],
+  LOST: ["CONTACT"],
 }
 
 export type ChangeLeadRequestStatusInput = {

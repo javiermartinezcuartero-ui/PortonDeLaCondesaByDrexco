@@ -17,7 +17,7 @@ import {
 
 describe("lectura de parámetros de URL", () => {
   it("descarta un valor de enumeración que no está en la lista blanca", () => {
-    expect(parseEnumParam("NEW", LEAD_REQUEST_STATUS_VALUES)).toBe("NEW")
+    expect(parseEnumParam("CONTACT", LEAD_REQUEST_STATUS_VALUES)).toBe("CONTACT")
     expect(parseEnumParam("INVENTADO", LEAD_REQUEST_STATUS_VALUES)).toBeUndefined()
     expect(parseEnumParam(undefined, LEAD_REQUEST_STATUS_VALUES)).toBeUndefined()
   })
@@ -95,7 +95,7 @@ describe("changeStatusSchema", () => {
   })
 
   it("no exige motivo en el resto de estados", () => {
-    expect(changeStatusSchema.safeParse({ requestId: "abcdefghij", nextStatus: "CONTACTED" }).success).toBe(true)
+    expect(changeStatusSchema.safeParse({ requestId: "abcdefghij", nextStatus: "PRESENTATION" }).success).toBe(true)
   })
 
   it("rechaza un estado que no existe", () => {

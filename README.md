@@ -22,7 +22,9 @@ Lo que no está confirmado o implementado se marca explícitamente como `PENDIEN
 
 **Calidad** — [24. Pruebas y resultados reales](#24-pruebas-y-resultados-reales) · [25. Seguridad](#25-seguridad) · [26. Privacidad](#26-privacidad) · [27. Accesibilidad](#27-accesibilidad) · [28. SEO](#28-seo) · [29. Rendimiento](#29-rendimiento) · [30. Despliegue en Vercel](#30-despliegue-en-vercel)
 
-**Cierre** — [31. Metodología y uso de IA](#31-metodología-y-uso-de-ia) · [32. Limitaciones conocidas](#32-limitaciones-conocidas) · [33. Roadmap](#33-roadmap) · [34. Licencia](#34-licencia) · [35. Derechos de marca y assets](#35-derechos-de-marca-y-assets) · [36. Enlaces de entrega](#36-enlaces-de-entrega) · [37. Historial de fases](#37-historial-de-fases)
+**Cierre** — [31. Metodología y uso de IA](#31-metodología-y-uso-de-ia) · [32. Limitaciones conocidas](#32-limitaciones-conocidas) · [33. Roadmap](#33-roadmap) · [34. Licencia](#34-licencia) · [35. Derechos de marca y assets](#35-derechos-de-marca-y-assets) · [36. Enlaces de entrega](#36-enlaces-de-entrega)
+
+**Anexos** — [37. Documentación complementaria](#37-documentación-complementaria) · [38. Historial de fases](#38-historial-de-fases)
 
 ---
 
@@ -38,7 +40,7 @@ Este proyecto sustituye eso por un sistema propio, en tres piezas que se apoyan 
 
 El resultado, en una frase: la finca pasa de perder sus consultas a tener cada una registrada, puntuada y con responsable.
 
-**Cifras del proyecto:** 25 tablas, 9 migraciones, 3 roles, 12 fases de desarrollo, **698 pruebas unitarias y de integración** en 58 archivos, **23 pruebas end-to-end** que recorren los 13 escenarios críticos en un navegador real contra el build de producción, y **cero errores y cero advertencias** de lint, tipos y compilación.
+**Cifras del proyecto:** 25 tablas, 10 migraciones, 3 roles, 21 fases de desarrollo, **741 pruebas unitarias y de integración** en 61 archivos, **23 pruebas end-to-end** que recorren los 13 escenarios críticos en un navegador real contra el build de producción, y **cero errores y cero advertencias** de lint, tipos y compilación.
 
 ---
 
@@ -112,7 +114,7 @@ Diseñar, construir y validar una aplicación web full-stack que resuelva el cic
 - Dos bibliotecas de contenido —Bodas Reales y Catering— tras un gate de correo con sesión en servidor.
 - CMS privado de fichas con borrador, media, previsualización y publicación.
 - API propia de alta de solicitudes comerciales, con antispam y rate limit.
-- CRM: contactos, solicitudes, pipeline, tareas, notas, informes y exportación CSV.
+- CRM: interesados, solicitudes, fases de seguimiento, acciones, notas, informes y exportación a Excel.
 - Autenticación administrativa con tres roles y permisos por área.
 - Correo transaccional desacoplado tras una interfaz de proveedor.
 - Seguridad: cabeceras, CSP, autorización en servidor, validación de imágenes por firma de bytes, anti-SSRF, rate limit persistente.
@@ -144,7 +146,7 @@ Diseñar, construir y validar una aplicación web full-stack que resuelva el cic
 | **Visitante identificado** | Ha dejado su correo en el gate | Todo lo anterior, más las dos bibliotecas completas y sus fichas. Su sesión es una cookie `HttpOnly` respaldada por una fila en base de datos |
 | **CONTENT** | Quien publica contenido en la finca | Solo el CMS. **No accede a datos personales**: las nueve rutas del CRM le devuelven 404 |
 | **SALES** | Equipo comercial | Todo el CRM: contactos, solicitudes, pipeline, tareas, notas, informes. **No** publica contenido y **no** puede exportar |
-| **ADMIN** | Responsable del sistema | Todo, más gestión de usuarios, configuración del scoring, exportación CSV y las operaciones de privacidad (copia de datos, anonimizar, revocar) |
+| **ADMIN** | Responsable del sistema | Todo, más gestión de usuarios, configuración del scoring, exportación a Excel y las operaciones de privacidad (copia de datos, anonimizar, revocar) |
 
 Que la navegación oculte lo que un rol no puede usar es interfaz. La autorización real se comprueba en el servidor en cada página, cada Server Action y cada endpoint, y hay pruebas que invocan cada mutación con la sesión equivocada y verifican que la base de datos no cambia.
 
@@ -173,29 +175,44 @@ Alguien pide su copia de datos: ADMIN la descarga en JSON desde la ficha del con
 
 ## 6. Estado actual
 
-| Área | Estado |
-|---|---|
-| Frontend público (home, bodas reales, catering, legal) | **Implementado** — §7 |
-| Saneamiento técnico (lint, typecheck real, tests, CI) | **Implementado** (Fase 1) — §24 |
-| Base de datos, Prisma y capa de dominio | **Implementado** (Fase 2) — §13, §20 |
-| Autenticación administrativa y roles | **Implementado** (Fase 3) — §21, `docs/autenticacion.md` |
-| CMS de contenido | **Implementado** (Fase 4) — §9, `docs/cms.md` |
-| Rutas públicas VIP conectadas al CMS | **Implementado** (Fase 5) — §7 |
-| Gate de correo con sesión en servidor | **Implementado** (Fase 5) — §8. **Resuelto el riesgo crítico** de las fases anteriores |
-| Captación con API propia | **Implementado** (Fase 6) — §8. Web3Forms retirado |
-| CRM: pipeline, tareas, informes | **Implementado** (Fase 7) — §10, `docs/crm.md` |
-| Correo transaccional | **Implementado** (Fase 8) — §10, `docs/email.md` |
-| Endurecimiento de seguridad y privacidad | **Implementado** (Fase 9) — §25, §26, `docs/modelo-amenazas.md` |
-| Pruebas E2E y base de pruebas aislada | **Implementado** (Fase 10) — §24, `docs/pruebas-e2e.md` |
-| Preparación del despliegue | **Implementado** (Fase 10) — §30, `docs/despliegue-vercel.md` |
-| Documentación de entrega y preparación de la publicación | **Implementado** (Fase 11) — §34, §36, `docs/publicacion-github.md` |
-| Auditoría correctiva final | **Implementado** (Fase 12) — 15 defectos reales corregidos con su prueba de regresión. Ver §37 |
-| Publicación del código y despliegue | **Implementado** (Fase 13) — §30, §36 |
-| Identidad propia del panel y contraste del menú público | **Implementado** (Fase 16) |
-| Acceso al panel con clave única y rediseño del panel | **Implementado** (Fase 14) — §21, §25 |
-| **Despliegue en producción** | **Desplegado** (Fase 13) en https://elportondelacondesa.solucionesbonicas.com — §30 |
-| **Revisión jurídica de los textos legales** | `PENDIENTE` — la base jurídica y el plazo de retención los tiene que fijar un profesional. §26 |
-| Licencia del código | **MIT** (Fase 13) — `LICENSE`, §34 |
+Las filas van **en orden de fase**, que es el orden en que ocurrieron. El detalle de cada una está en el anexo §38.
+
+| Área | Fase | Estado |
+|---|---|---|
+| Frontend público (home, bodas reales, catering, legal) | — | **Implementado** — §7 |
+| Saneamiento técnico (lint, typecheck real, tests, CI) | 1 | **Implementado** — §24 |
+| Base de datos, Prisma y capa de dominio | 2 | **Implementado** — §13, §20 |
+| Autenticación administrativa y roles | 3 | **Implementado** — §21, `docs/autenticacion.md` |
+| CMS de contenido | 4 | **Implementado** — §9, `docs/cms.md` |
+| Rutas públicas de las bibliotecas conectadas al CMS | 5 | **Implementado** — §7 |
+| Gate de correo con sesión en servidor | 5 | **Implementado** — §8. **Resuelto el riesgo crítico** de las fases anteriores |
+| Captación con API propia | 6 | **Implementado** — §8. Web3Forms retirado |
+| CRM: fases de seguimiento, acciones e informes | 7 | **Implementado** — §10, `docs/crm.md` |
+| Correo transaccional desacoplado | 8 | **Implementado** — §10, `docs/email.md` |
+| Endurecimiento de seguridad y privacidad | 9 | **Implementado** — §25, §26, `docs/modelo-amenazas.md` |
+| Pruebas E2E y base de pruebas aislada | 10 | **Implementado** — §24, `docs/pruebas-e2e.md` |
+| Preparación del despliegue | 10 | **Implementado** — §30, `docs/despliegue-vercel.md` |
+| Documentación de entrega y preparación de la publicación | 11 | **Implementado** — §34, §36, `docs/publicacion-github.md` |
+| Auditoría correctiva final | 12 | **Implementado** — 15 defectos reales corregidos con su prueba de regresión |
+| **Despliegue en producción** | 13 | **Desplegado** en https://elportondelacondesa.solucionesbonicas.com — §30 |
+| Licencia del código | 13 | **MIT** — `LICENSE`, §34 |
+| Acceso al panel con clave única y rediseño del panel | 14 | **Implementado** — §21, §25 |
+| Limpieza de los datos ficticios | 15 | **Implementado** |
+| Identidad propia del panel y contraste del menú público | 16 | **Implementado** |
+| Fotografía de fondo en el panel y rótulo destacado | 17 | **Implementado** |
+| Modos día/noche y front compacto | 18 | **Implementado** |
+| Selector de fecha propio, destello en las bibliotecas y pie compacto | 19 | **Implementado** |
+| Correo transaccional por Resend, con envío verificado | 20 | **Implementado** — `docs/email.md`, `npm run email:test` |
+| Exportación del CRM en Excel (`.xlsx`) con tipos reales | 20 | **Implementado** — §10 |
+| Tablero de seguimiento con arrastre y alternativa de teclado | 20 | **Implementado** — §10 |
+| Panel estilo CRM, fondo animado y modos menos extremos | 20 | **Implementado** |
+| Pipeline reducido a cinco fases comerciales | 21 | **Implementado** — §10, §13, §20 |
+| Panel renombrado en lenguaje de negocio | 21 | **Implementado** — §10 |
+| Gráficas circulares, de barras y de embudo en el panel | 21 | **Implementado** — §10 |
+| Acciones y Puntuación Visitantes editables en la propia tabla | 21 | **Implementado** — §10 |
+| Cortina de carga del sitio público | 21 | **Implementado** — §7, §29 |
+| Captación con aviso a los 35 s | 21 | **Implementado** — §8 |
+| **Revisión jurídica de los textos legales** | — | `PENDIENTE` — la base jurídica y el plazo de retención los tiene que fijar un profesional. §26 |
 
 ---
 
@@ -210,6 +227,7 @@ Una sola página con secciones ancladas: hero, la finca, espacios, gastronomía,
 - **Mapa sin clave de API**: se incrusta el mapa público de Google, con el color de marca aplicado por filtro CSS sobre el iframe. Ninguna clave de Google Maps Platform, ninguna cuota que agotar.
 - **Cero peticiones a terceros para pintar la página.** Las tipografías se sirven desde el propio dominio (§29), así que la IP del visitante no viaja a Google.
 - **Consentimiento de cookies** con privacidad y marketing como decisiones separadas.
+- **Cortina de carga con la marca** mientras el documento termina de cargar, para que una conexión lenta no muestre la página a medio pintar. La retira el CSS y el JavaScript solo lo adelanta: si el bundle falla o está bloqueado, la web se ve igual (§29).
 
 ### Páginas legales
 
@@ -284,40 +302,77 @@ Detalle completo en `docs/crm.md`. Correo transaccional en `docs/email.md`.
 
 ### Apartados y permisos
 
-Resumen, Contactos, Solicitudes, Pipeline, Tareas e Informes con `crm:access` (ADMIN, SALES); Contenidos con `cms:access` (ADMIN, CONTENT); Configuración con `settings:manage` (ADMIN). `/admin` tiene dos caras: con `crm:access` muestra las métricas y, sin él, un punto de partida con acceso a Contenidos en lugar de una pantalla vacía.
+Los ocho apartados llevan **nombres de negocio, no de tecnología**, fijados por el titular en la Fase 21. Las rutas no cambiaron: renombrar carpetas habría roto marcadores, `revalidatePath` y los escenarios E2E sin que se viera nada en pantalla.
+
+| Apartado | Ruta | Permiso | Qué es |
+|---|---|---|---|
+| Estatus Plataforma | `/admin` | `crm:access` | Cómo va la captación ahora mismo, en gráficas |
+| Captaciones | `/admin/contactos` | `crm:access` | Personas identificadas por su correo, con su historial |
+| Solicitudes Formulario | `/admin/solicitudes` | `crm:access` | Peticiones llegadas por el formulario público |
+| Seguimiento clientes | `/admin/pipeline` | `crm:access` | Tablero de las cinco fases comerciales |
+| Acciones | `/admin/tareas` | `crm:access` | Llamadas, visitas y recordatorios, editables en la tabla |
+| Contenidos Biblioteca | `/admin/contenidos` | `cms:access` | Fichas de bodas reales y catering |
+| Informes captación | `/admin/informes` | `crm:access` | Conversión y adquisición por año |
+| Puntuación Visitantes | `/admin/configuracion` | `settings:manage` | Cuántos puntos vale cada hito |
+
+`/admin` tiene dos caras: con `crm:access` muestra las métricas y, sin él, un punto de partida con acceso a Contenidos Biblioteca en lugar de una pantalla vacía.
 
 ### Resumen e informes
 
-Contactos captados, solicitudes nuevas, pendientes de primer contacto, tiempo medio hasta el primer contacto leído del historial real, visitas, propuestas, ganadas y perdidas, conversión sobre cerradas **con el denominador a la vista**, origen y campaña, contenido más consultado, embudo gate → ficha → solicitud, y últimos movimientos.
+Interesados captados, solicitudes sin trabajar, tiempo medio hasta el primer contacto leído del historial real, reparto por fase, conversión sobre cerradas **con el denominador a la vista**, origen y campaña, contenido más consultado, embudo biblioteca → ficha → solicitud, y últimos movimientos. Informes captación repite el cuadro filtrado por año, con pastillas de periodo desde 2025.
 
-**Una regla que conviene decir en voz alta: un ratio sin denominador devuelve «sin datos», no 0 %.** Un 0 % afirma que nadie convierte, que es distinto de no tener datos todavía. Cada ratio y cada media viajan con su denominador o su tamaño de muestra.
+**Los datos se muestran en gráficas** —anillo, barras y embudo— **escritas a mano en SVG y HTML**, no con una librería. El proyecto arrastra `recharts` de la plantilla inicial, así que usarla no habría añadido una dependencia; se descarta por dos motivos concretos: solo funciona en el cliente, y obligaría a **pasar los colores por props**, es decir, a tener la paleta en un segundo sitio. El panel resuelve sus dos modos enteramente con variables CSS, así que una gráfica que recibe `#3b82f6` se queda con el color del otro modo al cambiar de tema. Aquí el SVG usa `var(--tono)` y cambia solo.
+
+**El dibujo lleva `aria-hidden` y el dato va siempre en la leyenda**, que es texto real con su cifra y su porcentaje: un anillo no se puede leer en voz alta.
+
+Dos reglas que conviene decir en voz alta:
+
+- **Un ratio sin denominador devuelve «sin datos», no 0 %.** Un 0 % afirma que nadie convierte, que es distinto de no tener datos todavía. Cada ratio y cada media viajan con su denominador o su tamaño de muestra.
+- **No se dibuja un anillo con cifras que se solapan.** Las tres de Acciones —vencidas, próximos 7 días y pendientes en total— no son una partición: la última incluye a las dos primeras. Se convierten en una restando los tramos, en lugar de sumar lo mismo dos veces en el mismo círculo.
 
 ### Contactos y solicitudes
 
-- **Contactos.** Paginación en servidor; búsqueda por nombre y por **correo y teléfono normalizados** —buscar `600 11 22 33` encuentra a quien está guardado como `+34600112233`—; filtros por origen, etiqueta, puntuación, interacción, consentimiento y fechas, todos reflejados en la URL. Ficha 360º con datos, consentimientos, solicitudes, contenido consultado, historial, notas y tareas.
-- **Solicitudes.** Listado paginado con filtros en URL y **orden por lista blanca cerrada**, más un segundo criterio estable por `id` para que ninguna fila salga en dos páginas. El detalle edita la gestión —prioridad, responsable, próxima acción, espacio, presupuesto— y **no reescribe el asunto ni el mensaje** que escribió la persona. Enlaces mailto, tel y WhatsApp con todo codificado y esquema fijo. Aviso de posibles coincidencias del mismo contacto que **no fusiona nada**.
+- **Captaciones.** Paginación en servidor; búsqueda por nombre y por **correo y teléfono normalizados** —buscar `600 11 22 33` encuentra a quien está guardado como `+34600112233`—; filtros por origen, etiqueta, puntuación, interacción, consentimiento y fechas, todos reflejados en la URL. Ficha 360º con datos, consentimientos, solicitudes, contenido consultado, historial, notas y acciones.
+- **Solicitudes Formulario.** Listado paginado con filtros en URL y **orden por lista blanca cerrada**, más un segundo criterio estable por `id` para que ninguna fila salga en dos páginas. El detalle edita la gestión —prioridad, responsable, próxima acción, espacio, presupuesto— y **no reescribe el asunto ni el mensaje** que escribió la persona. Enlaces mailto, tel y WhatsApp con todo codificado y esquema fijo. Aviso de posibles coincidencias del mismo contacto que **no fusiona nada**.
+- **Los filtros de las dos pantallas van plegados.** Son once campos con su etiqueta: desplegados ocupaban 291 px —más que las primeras filas de datos—, así que lo primero que se veía al entrar era el formulario para buscar y no lo que hay. Plegados ocupan 38 px. Es un `<details>` nativo: funciona sin JavaScript, y el navegador ya le da el rol y el estado de accesibilidad correctos. **Se abre solo si hay algún filtro puesto**, porque al revés sería una trampa: quien llega por un enlace filtrado vería tres resultados sin encontrar el filtro que los recorta. El recuento de filtros activos se ve incluso plegado.
 
 ### Pipeline
 
-Tablero por estado, con alternativa de tabla en `?vista=tabla`. **Sin arrastrar y soltar, por decisión:** cada tarjeta ofrece un desplegable con solo las transiciones válidas, que funciona con teclado y con lector de pantalla sin trabajo extra. El servidor revalida la transición y escribe la actividad y la auditoría **en la misma transacción**. Perder una oportunidad exige motivo, comprobado en el esquema y otra vez en el dominio.
+**Cinco fases: Contacto, Presentación, Propuesta, Cliente y Perdida.** Antes eran nueve estados, y la reducción se hizo **en el enumerado de la base de datos**, no agrupando nueve estados en cinco columnas al pintar. El motivo: los informes, la exportación a Excel y el historial de cada persona leen el mismo campo, así que un tablero de cinco columnas sobre nueve estados guardados habría enseñado nueve fases en los informes y cinco en el tablero. El pipeline es dominio, no presentación.
+
+`CLIENT` es terminal y `LOST` se puede reabrir a `CONTACT`. **Se permite un paso hacia atrás** —Presentación a Contacto, Propuesta a Presentación—, que con nueve estados no hacía falta porque existía un aparcamiento (`NURTURING`) al que retirar una solicitud enfriada. Sin ese aparcamiento y sin vuelta atrás, deshacer un avance obligaría a darla por perdida y reabrirla, ensuciando el historial con dos movimientos falsos.
+
+**Solo tablero, y se mueve arrastrando.** La vista de tabla y el desplegable «Mover a» se retiraron a petición del titular. Durante el arrastre se marcan solo las columnas que la máquina de estados acepta, y el servidor **vuelve a validar** la transición: que una columna se pinte no es nunca la garantía. La actividad y la auditoría se escriben **en la misma transacción** que el cambio. Perder una oportunidad exige motivo, comprobado en el esquema y otra vez en el dominio, así que soltar en Perdida abre un diálogo que lo pide.
+
+**El arrastre no quita el teclado:** con una tarjeta enfocada, Control o Comando más flecha la mueve a la fase válida anterior o siguiente, y cada movimiento se anuncia en una región `aria-live`. No ocupa un píxel de pantalla, que era la objeción al desplegable (§27).
 
 ### Tareas y notas
 
-Crear, asignar, editar, completar y cancelar, ligadas a un contacto. Vistas mías, vencidas, hoy, semana, cerradas y todas, con contador. Completar registra actividad; **cancelar no borra**: conserva la fila y su rastro. Notas internas en texto plano interpolado en JSX —no hay `dangerouslySetInnerHTML` en el CRM—, con límite de 4.000 caracteres, y editar queda auditado sin copiar el cuerpo.
+Crear, asignar, editar, completar y cancelar, ligadas a una persona. Completar registra actividad; **cancelar no borra**: conserva la fila y su rastro. Notas internas en texto plano interpolado en JSX —no hay `dangerouslySetInnerHTML` en el CRM—, con límite de 4.000 caracteres, y editar queda auditado sin copiar el cuerpo.
+
+**La pantalla es una tabla que se edita en la propia celda**, sin las seis pestañas de filtro que tenía. Cada campo guarda al modificarlo: el texto al salir del campo o con Intro —guardar al teclear sería una petición por letra—, y los desplegables y la fecha al cambiar. Cada cambio envía **la fila completa**, porque el dominio valida la tarea entera; una acción por campo exigiría cuatro validaciones parciales del mismo objeto.
+
+**Una acción cerrada no se edita, y eso lo decide el dominio** (`updateFollowUpTask` rechaza cualquiera que no esté pendiente). En la tabla sus campos se pintan como texto: ofrecer un desplegable que el servidor va a rechazar es peor que no ofrecerlo. El estado de cada guardado se ve en la última columna y **se anuncia** en una región `aria-live`, porque una tabla que guarda sola no da ninguna otra señal.
+
+El parámetro `vista` sigue funcionando sin interfaz que lo genere: los anillos de Estatus Plataforma enlazan aquí acotados —vencidas, próximos 7 días—, y cuando llega acotado se dice en una línea con salida a la vista completa. Ese salto de una cifra a su detalle es la mitad de la utilidad de un panel.
 
 ### Puntuación
 
-Configurable por ADMIN y auditada: gate +10, teléfono +10, fecha +10, invitados +10, tres fichas distintas +10 una sola vez, formulario +15, visita +25. **`recalculateLeadScore` recalcula desde el historial, nunca acumula**, así que el mismo hito no puede sumar dos veces y un cambio de pesos se aplica en el siguiente movimiento de cada contacto.
+Configurable por ADMIN y auditada. **`recalculateLeadScore` recalcula desde el historial, nunca acumula**, así que el mismo hito no puede sumar dos veces y un cambio de pesos se aplica en el siguiente movimiento de cada persona.
+
+Los ocho hitos se editan en **una tabla agrupada en tres bloques** —lo que cuenta en el formulario, lo que hace en las bibliotecas, lo que pide expresamente— con el subtotal de cada bloque y el máximo alcanzable al pie, calculados en vivo mientras se escribe. La agrupación es lo que permite comparar pesos: en una lista alfabética, que es como llegan de la base de datos, no hay forma de ver si «dejar el teléfono» y «pedir una visita» están bien valorados uno respecto al otro. Una regla desactivada **conserva su peso** y no suma, así que no entra en el máximo.
 
 ### Exportación
 
-CSV solo para ADMIN (`crm:export`, un permiso **distinto** de consultar el CRM): respeta los filtros, UTF-8 con BOM y `;`, encabezados en español, **neutraliza los valores que empiezan por `=`, `+`, `-` o `@`** para que un texto escrito en el formulario público no se ejecute al abrir el archivo, lista blanca de columnas —nada de credenciales, tokens, hashes ni identificadores internos—, `no-store`, y un evento de auditoría por exportación sin el término de búsqueda.
+**Excel (`.xlsx`) solo para ADMIN** (`crm:export`, un permiso **distinto** de consultar el CRM): respeta los filtros, encabezados en español en negrita y fila fija, lista blanca de columnas —nada de credenciales, tokens, hashes ni identificadores internos—, `no-store`, y un evento de auditoría por exportación sin el término de búsqueda.
+
+**El cambio de CSV a Excel elimina la inyección de fórmulas por construcción, no por saneado.** En CSV había que poner un apóstrofo delante de todo valor que empezara por `=`, `+`, `-` o `@`, porque Excel interpreta la celda al abrirla; en `.xlsx` la celda **declara su tipo**, y una cadena es una cadena aunque empiece por `=`. Efecto colateral que se buscaba igual: las fechas van como fechas y los números como números, así que se ordenan y se suman sin convertir columnas a mano.
 
 ### Correo transaccional
 
 **Principio: la base de datos es la fuente de verdad y el correo es un efecto secundario.** Guardar una solicitud no depende de que el proveedor responda. El envío ocurre después del commit y después de responder al visitante; ninguna función de notificación lanza, y un fallo de correo no borra datos ni produce un error falso.
 
-- Interfaz `EmailProvider` con dos adaptadores: SendGrid (API v3 por `fetch`, con timeout de 10 s) y desarrollo (registra y no envía). La aplicación nunca habla con SendGrid directamente.
+- Interfaz `EmailProvider` con dos adaptadores: **Resend** (API por `fetch`, con timeout de 10 s) y desarrollo (registra y no envía). La aplicación nunca habla con Resend directamente. El adaptador de SendGrid **se retiró** en lugar de dejar los dos: con dos instalados, un despliegue con la variable equivocada envía por un canal que nadie mira.
 - Se usa `after()` de Next.js, no `void promise`: mantiene viva la invocación hasta que el envío termina sin retrasar la respuesta. Un `void` parece equivalente pero deja el envío a medias cuando la plataforma congela la función, y sin rastro.
 - Cuatro estados: `SENT` (el proveedor aceptó; no promete bandeja), `SKIPPED_CONFIG` (falta configuración, no es error), `RETRY_PENDING` (fallo transitorio) y `FAILED` (4xx: reintentar no arreglaría nada). El adaptador de desarrollo devuelve `SKIPPED_CONFIG`, **no `SENT`**.
 - Registro sin datos personales innecesarios: plantilla, proveedor, estado, motivo corto y destinatarios **parcialmente ocultos**. Nunca el cuerpo, el asunto, la clave de API ni la dirección completa.
@@ -424,11 +479,11 @@ Un middleware que autoriza es un único punto que, si se equivoca, lo abre todo.
     ┌──────────────┬──────────────┬──────────────┬─────────────┐
     │ lib/security │ lib/email    │ lib/storage  │ lib/observ. │
     │ hash · rate  │ EmailProvider│ validación   │ log sin PII │
-    │ limit · CSP  │ SendGrid/dev │ de bytes     │ requestId   │
+    │ limit · CSP  │ Resend/dev   │ de bytes     │ requestId   │
     └──────────────┴──────────────┴──────────────┴─────────────┘
                           │
                           ▼
-                   SendGrid (opcional)
+                   Resend (opcional)
 ```
 
 **Cómo se lee este diagrama:** todo lo que baja hacia la base de datos pasa por validación y por dominio. No hay ninguna flecha que salte de la interfaz a Prisma, y eso no es una convención: es lo que permite que la autorización y las reglas de negocio estén en un solo sitio comprobable.
@@ -439,13 +494,15 @@ Un middleware que autoriza es un único punto que, si se equivoca, lo abre todo.
 
 **25 tablas.** Esquema completo, narrado y con diagrama ER en `docs/modelo-datos.md`; definición en `prisma/schema.prisma`.
 
-### Las tres decisiones que explican el resto
+### Las cuatro decisiones que explican el resto
 
 **1. `Lead` separado de `LeadRequest`.** Una persona, varias solicitudes. Nunca se sobrescribe una anterior: quien pregunta por su boda y dos años después por una comunión es la misma persona con dos peticiones distintas, y las dos cuentan. Un modelo con una sola tabla obligaría a elegir entre perder la primera consulta o duplicar la persona.
 
 **2. Los consentimientos son eventos inmutables, no una casilla.** `ConsentEvent` con `purpose` (`PRIVACY` / `MARKETING`), `granted`, la versión de la política y la fecha. Revocar es un evento nuevo, nunca un `UPDATE`. Solo así se puede demostrar **qué** se consintió, **cuándo** y **sobre qué texto**. Una columna booleana solo sabe decir el estado de hoy, que es justo lo que no sirve ante una reclamación.
 
 **3. La sesión de acceso VIP vive en la base de datos.** `VipAccessSession` guarda el **HMAC** del token; la cookie del navegador lleva solo el token. Ni el correo ni el identificador del contacto salen del servidor, y revocar un acceso es una operación real, no esperar a que caduque una cookie.
+
+**4. Las fases del pipeline son un enumerado de cinco valores, no columnas de una pantalla.** `LeadRequestStatus` es `CONTACT`, `PRESENTATION`, `PROPOSAL`, `CLIENT` y `LOST`. Fueron nueve hasta la Fase 21, y reducirlas se hizo en el esquema —con su migración— y no agrupando estados al pintar el tablero: el mismo campo lo leen los informes, la exportación a Excel y el historial de cada persona, así que dos vocabularios habrían dado dos respuestas distintas a la misma pregunta. El precio, dicho claramente: **la migración no es reversible**, porque tres estados antiguos caen en `PRESENTATION` y nada guarda cuál era cada uno.
 
 ### Grupos de tablas
 
@@ -515,7 +572,9 @@ Las decisiones que cambiaron el resultado, con la alternativa que se descartó. 
 | **Prisma 6, no 7** | Prisma 7 (la última) | La 7 exige un *driver adapter* y mueve la configuración a `prisma.config.ts`: complejidad que no compra nada aquí. Revisable en el futuro |
 | **Bucket privado con URL firmadas** | Bucket público | Las fotografías de una boda son de sus protagonistas. Un bucket público es una URL adivinable para siempre |
 | **Validar imágenes por la firma real de los bytes** | Confiar en la extensión y el MIME declarado | Los dos los controla quien sube el archivo. Se leen las cabeceras de PNG, JPEG y WebP a mano, sin `sharp`: `sharp` ya arrastra vulnerabilidades conocidas en este proyecto y para leer una cabecera no hace falta decodificar el bitmap |
-| **Pipeline sin arrastrar y soltar** | Tablero con drag and drop | Los desplegables con solo transiciones válidas funcionan con teclado y lector de pantalla sin trabajo extra, y evitan estados imposibles. Si algún día se pide el gesto, tendría que **convivir** con esta alternativa, no sustituirla |
+| **Tablero con arrastrar y soltar** (Fase 20; **revierte** la decisión contraria de la Fase 7) | Desplegable «Mover a» por tarjeta | Lo pidió el titular, y la objeción original era buena: un tablero accesible con arrastre exige alternativa de teclado, anuncios en vivo y manejo del foco. Se implementó **con** esa alternativa —`Ctrl`/`Cmd` más flecha, sin ocupar un píxel— en lugar de aceptar el gesto y perder el teclado, que era el riesgo real |
+| **Cinco fases en el enumerado** (Fase 21) | Nueve estados guardados agrupados en cinco columnas al pintar | Habría sido más barato, y habría enseñado nueve fases en los informes y cinco en el tablero. El pipeline es dominio, no presentación. Coste asumido: la migración no es reversible |
+| **Gráficas escritas a mano en SVG** | `recharts`, que ya está en las dependencias | Solo funciona en cliente y obliga a pasar los colores por props. El panel resuelve día y noche con variables CSS: una gráfica con el color en props se queda con el del otro modo al cambiar de tema |
 | **Ratios sin denominador devuelven «sin datos»** | Mostrar 0 % | Un 0 % afirma que nadie convierte. No es lo mismo que no tener datos |
 | **La retención solo identifica candidatos** | Anonimizar automáticamente al cumplirse el plazo | Anonimizar es irreversible y no puede depender de una tarea programada mal configurada |
 | **Correo después del commit, con `after()`** | Enviar dentro de la transacción, o con `void promise` | Dentro de la transacción, un proveedor lento retrasa la respuesta al visitante y un fallo puede tumbar el guardado. Con `void`, la plataforma congela la función y el envío se queda a medias sin rastro |
@@ -540,7 +599,7 @@ Las decisiones que cambiaron el resultado, con la alternativa que se descartó. 
 | ORM | Prisma | 6.19.3 | Migraciones versionadas y tipos generados. La 7 exige driver adapters (§14) |
 | Autenticación | Better Auth | 1.6.26 | Adaptador de Prisma, rate limit persistente y roles nativos (§14) |
 | Almacenamiento | Supabase Storage | `@supabase/supabase-js` 2.112.3 | Bucket privado con URL firmadas |
-| Correo | SendGrid tras interfaz propia | API v3 | Adaptador sustituible; la aplicación no depende del proveedor |
+| Correo | Resend tras interfaz propia | API HTTP | Adaptador sustituible; la aplicación no depende del proveedor. SendGrid se retiró en la Fase 20 |
 | Gestor de paquetes | **npm** | — | Un solo lockfile: `package-lock.json` |
 | Runtime | Node | ≥ 22 (`engines.node`) | Es lo que lee Vercel para elegir el runtime. Se usa `--env-file-if-exists`, que requiere 22 |
 | Lint | ESLint (flat config) + `eslint-config-next` | 9.39.5 / 16.0.10 | Versión alineada con Next; incluye las reglas del compilador de React |
@@ -578,7 +637,7 @@ app/                       rutas (App Router)
     ├── auth/[...all]      handler de Better Auth
     ├── leads/requests/    alta pública de solicitudes (contrato en docs/openapi.yaml)
     ├── admin/users/       API solo ADMIN
-    ├── admin/crm/export/  descarga CSV (solo ADMIN)
+    ├── admin/crm/export/  descarga Excel .xlsx (solo ADMIN)
     ├── admin/crm/lead-data/  copia de datos de un contacto en JSON (solo ADMIN)
     └── health/            healthcheck sin versiones, secretos ni excepciones
 
@@ -608,7 +667,7 @@ lib/
 │                          secret-patterns (patrones del escáner de secretos)
 ├── storage/               supabase (server-only), bucket, validate-image
 │                          (firma real de bytes), external-url (anti-SSRF), object-name
-├── email/                 provider (interfaz), sendgrid, development, config, templates
+├── email/                 provider (interfaz), resend, development, config, templates
 ├── notifications/         lead-request-notification, overdue-tasks, record, after-response
 ├── content/               to-story-detail, to-story-card, demo-stories, seed-equivalence
 ├── vip/                   session (cookie + getVipLead), gate-action, track-action, metadata
@@ -724,8 +783,8 @@ Plantilla sin valores en `.env.example`. El `.env` real **no se versiona** y hay
 | `ENABLE_DEMO_CONTENT` | Si no es `"true"`, oculta de los listados públicos las fichas con `isDemo=true` | **En uso** desde Fase 2 |
 | `CSP_ENFORCE` | `"true"` hace que la CSP bloquee en vez de solo informar | **Opcional**, apagado (§25) |
 | `DATA_RETENTION_MONTHS` | Plazo de retención en meses (1–240) para **identificar** candidatos a anonimizar | **Opcional**, 36 por defecto. Nada se anonimiza solo, y el plazo no está validado jurídicamente |
-| `SENDGRID_API_KEY` | Credencial de SendGrid. Solo servidor | **Opcional, sin configurar.** Sin ella cada intento queda como `SKIPPED_CONFIG` |
-| `LEADS_FROM_EMAIL` | Remitente verificado en el proveedor | **Opcional.** Necesaria junto con la clave |
+| `RESEND_API_KEY` | Credencial de Resend (`re_…`). Solo servidor | **En uso** desde Fase 20. Sin ella cada intento queda como `SKIPPED_CONFIG` |
+| `LEADS_FROM_EMAIL` | Remitente de un dominio verificado en Resend | **En uso.** Necesaria junto con la clave. `onboarding@resend.dev` vale para pruebas pero solo escribe al titular de la cuenta |
 | `LEADS_NOTIFICATION_TO` | Destinatarios internos del aviso comercial (lista separada por comas) | **Opcional.** Sin ella no se envía el aviso interno |
 | `SEND_LEAD_ACKNOWLEDGEMENT` | `"true"` activa el acuse de recibo al visitante | **Opcional, apagado.** Solo el valor exacto `"true"` lo activa |
 | `ADMIN_BOOTSTRAP_NAME` / `_EMAIL` / `_PASSWORD` | Solo para `npm run admin:bootstrap`, una vez | **Uso puntual** — retirar del entorno inmediatamente después (§21) |
@@ -805,7 +864,7 @@ Supabase pausa los proyectos del plan gratuito tras un periodo de inactividad, y
 
 `prisma/schema.prisma` define las 25 tablas. `lib/db.ts` expone el singleton de `PrismaClient`. Detalle de las migraciones —qué hace cada una, su orden y qué hacer cuando falla— en **`docs/migraciones.md`**.
 
-### Las nueve migraciones
+### Las diez migraciones
 
 | # | Migración | Qué hace |
 |---|---|---|
@@ -818,16 +877,21 @@ Supabase pausa los proyectos del plan gratuito tras un periodo de inactividad, y
 | 7 | `20260812210000_notification_status_values` | Añade valores al enumerado de estados de notificación |
 | 8 | `20260812210100_notification_log_fields` | Usa esos valores nuevos |
 | 9 | `20260813205449_add_metrics_indexes` | Tres índices que faltaban, encontrados en la auditoría final: `ContentInteraction([type, createdAt])` y `LeadActivity([createdAt])` y `([leadRequestId])`. Solo `CREATE INDEX`: nada destructivo |
+| 10 | `20260814120000_pipeline_cinco_fases` | Reduce `LeadRequestStatus` de nueve valores a cinco, con la correspondencia en un `CASE`. **La única migración del historial que no es reversible** (ver más abajo) |
 
 Las migraciones 7 y 8 van separadas **por obligación, no por gusto**: PostgreSQL no permite usar un valor de un tipo enumerado en la misma transacción en la que se ha añadido.
+
+**La 10 es la única que destruye algo, y conviene entender exactamente qué.** PostgreSQL no sabe quitar valores de un enumerado: hay que crear un tipo nuevo, convertir la columna con un `CASE` y borrar el viejo, así que esa migración contiene un `DROP TYPE`. Lo que se pierde no es el tipo, es la información: `CONTACTED`, `QUALIFIED` y `VISIT_SCHEDULED` caen los tres en `PRESENTATION`, y nada guarda cuál era cada uno. Se aplicó con cuatro solicitudes en la base y ninguna pérdida relevante, pero **en un entorno con historial hay que hacer copia antes**.
+
+Lo que la 10 **no** toca es la pista de auditoría: `LeadActivity` y `AuditEvent` conservan las transiciones tal como se anotaron —`{from: "NEW", to: "CONTACTED"}`—, porque reescribir un registro para que diga lo que no dijo es falsearlo. Quien las lee acepta los dos vocabularios: `LEGACY_STATUS_LABEL` en `lib/crm/labels.ts` los traduce y `averageHoursToFirstContact` cuenta el paso a la segunda fase con cualquiera de los dos nombres.
 
 ### Reglas de operación
 
 - **En producción, siempre `npx prisma migrate deploy`.** Nunca `migrate dev`: es interactivo y puede decidir recrear el esquema desde cero.
 - **Vercel no aplica migraciones.** Se aplican a mano. Una migración lanzada por cada despliegue, en paralelo desde varias instancias, es una forma excelente de corromper una base de datos.
-- **Ninguna migración del historial borra una tabla o una columna.** No hay ningún `DROP TABLE`, `DROP COLUMN` ni `DROP TYPE`.
+- **Ninguna migración del historial borra una tabla o una columna.** No hay ningún `DROP TABLE` ni `DROP COLUMN`. Sí hay un `DROP TYPE` en la migración 10, que es la única forma que da PostgreSQL de quitar valores de un enumerado; el aviso está arriba.
 - **No hay rollback automático.** Prisma no genera migraciones inversas: la vía normal es corregir hacia delante con una migración nueva. Antes de cualquier cambio destructivo, copia o exportación previa.
-- Verificado: las nueve se aplican en orden sobre una base virgen sin errores (`npm run e2e:db:reset && npm run e2e:db:migrate`).
+- Verificado: las diez se aplican en orden sobre una base virgen sin errores (`npm run e2e:db:reset && npm run e2e:db:migrate`).
 
 ### Comandos
 
@@ -927,7 +991,7 @@ Decisiones que hacen que la demo sea segura de enseñar y de retirar:
 
 - **Todas las fichas de demostración llevan `isDemo`**, y quedan ocultas en producción salvo `ENABLE_DEMO_CONTENT=true`. Su equivalencia con la fuente original está probada campo por campo.
 - **Los estados del pipeline se alcanzan moviendo cada solicitud por las transiciones reales** del dominio, no escribiendo el estado final. Así el historial y la auditoría de la demo son los que produciría el uso normal: abrir una solicitud ganada enseña los seis movimientos que la llevaron ahí.
-- **Todos los correos terminan en `.test`**, un dominio reservado por la RFC 2606 que no resuelve. Ninguna dirección de la demo puede recibir un correo por error, ni siquiera si alguien activara SendGrid por accidente. Y es la marca que permite a `demo:clean` borrar exactamente lo suyo.
+- **Todos los correos terminan en `.test`**, un dominio reservado por la RFC 2606 que no resuelve. Ninguna dirección de la demo puede recibir un correo por error, ni siquiera si alguien activara el proveedor de correo por accidente. Y es la marca que permite a `demo:clean` borrar exactamente lo suyo.
 - **El equipo ficticio no tiene contraseña.** Existe para firmar tareas y notas. Crear tres cuentas con contraseña conocida sería regalar tres puertas de entrada.
 - **La cuenta de evaluación** se declara por variable de entorno y el script **no imprime nunca su contraseña**. Se entrega solo por canal privado (`docs/formulario-entrega-tfm.md`).
 - **Al retirar, la cuenta se desactiva en vez de borrarse**: se revocan sus sesiones y se le quitan las credenciales, pero el usuario sigue existiendo porque la auditoría de la demo le apunta como autor. Un registro del que no se sabe quién hizo qué no sirve para nada.
@@ -956,6 +1020,8 @@ Decisiones que hacen que la demo sea segura de enseñar y de retirar:
 | `npm run demo:seed` / `demo:clean` | Sembrar y retirar la demostración (§22) |
 | `npm run test:clean` | Retirar los contactos ficticios que dejan las pruebas de Vitest. `-- --seco` informa sin borrar; `-- --dominio=x.y` añade un dominio puntual |
 | `npm run secrets:history` | Escáner de secretos sobre **todo el historial de Git** (§25) |
+| `npm run email:test` | Comprueba la configuración de correo y **envía un correo real** con el adaptador del proyecto (Fase 20) |
+| `npm run images:optimize` | Prepara una fotografía de cámara para servirla como fondo. `-- <origen> <destino> [ancho] [calidad]` (Fase 20) |
 | `npm run e2e` | Las 23 pruebas end-to-end |
 | `npm run e2e:env` | Crea `.env.e2e` con secretos aleatorios. No sobrescribe |
 | `npm run e2e:setup` | Contenedor de PostgreSQL + migraciones + escenario |
@@ -977,7 +1043,7 @@ Decisiones que hacen que la demo sea segura de enseñar y de retirar:
 | CMS | Vitest, incluido **contra el bucket real** | Validación de imagen por firma de bytes (JPEG-como-PNG, `.exe`, SVG, PDF, tamaño, dimensiones), anti-SSRF (13 destinos internos), permisos por rol en cada Server Action, publicación incompleta, objeto compartido no borrado, auditoría sin datos sensibles |
 | Gate y publicación dinámica | Vitest, con espías sobre la capa de datos | El gate **no consulta contenido ni firma URL** sin sesión, slug directo protegido, cookie manipulada/caducada/revocada, el hash no sirve como token, rate limit persistente con IP hasheada, fallo de base de datos que no desbloquea |
 | Captación | Vitest + Testing Library | Solicitud completa, dos solicitudes del mismo correo conservadas, first/last touch, privacidad rechazada sin guardar nada, política caducada (409), honeypot, tiempo mínimo, rate limit, doble clic concurrente, UTMs, ficha de origen verificada, fallo de persistencia sin filtrar el error |
-| CRM | Vitest | Filtros y paginación, búsqueda normalizada, transiciones válidas e inválidas, `LOST` sin motivo rechazado dos veces, tareas, notas, scoring idempotente, métricas con denominador, exportación (filtros, CSV injection neutralizada, sin identificadores internos) |
+| CRM | Vitest | Filtros y paginación, búsqueda normalizada, transiciones válidas e inválidas, `LOST` sin motivo rechazado dos veces, tareas, notas, scoring idempotente, métricas con denominador, exportación (filtros, el libro de Excel se abre y se comprueba su contenido real, sin identificadores internos) |
 | Correo | Vitest | Selección de proveedor, enmascarado que nunca devuelve la dirección completa, clasificación 202/429/5xx/4xx/timeout, ni clave ni cuerpo en los motivos de fallo, enlace al CRM sin token, accesibilidad de las cuatro plantillas, fallo **después** de guardar sin tocar la solicitud |
 | Seguridad | Vitest | **Ataque:** endpoints sin sesión (401) y con rol insuficiente (403), rol declarado por cabecera/cuerpo/cookie, cookie inventada, cookie VIP falsa, hash usado como token, sesión revocada, payload de 200 KB, HTML guardado como texto, respuesta de error sin stack ni rastro de Prisma, contacto anonimizado que no reaparece en ninguna exportación. **Secretos:** el árbol que git subiría, 11 patrones |
 | Privacidad | Vitest | Retención con valores absurdos, exclusión de negociaciones vivas, exportación sin el hash del token, revocaciones auditadas sin destruir historial, anonimización campo por campo |
@@ -1051,7 +1117,7 @@ Lo que **no** se ha cedido, porque no formaba parte de la decisión:
 - Validación con el mismo esquema Zod en cliente y servidor; el servidor **revalida siempre**.
 - **El texto libre no se transforma al guardarlo.** El saneado es de salida: JSX escapa en la interfaz y `escapeHtml` en el correo. Lo único que se elimina antes de persistir son caracteres de control, porque PostgreSQL rechaza el byte NUL. Transformar la entrada destruye lo que la persona escribió y no protege más.
 - Los errores responden con **códigos, no con textos**, y nunca con los valores recibidos. Un fallo de escritura devuelve un error genérico y el motivo real queda solo en el log.
-- CSV con **lista blanca de columnas** —una columna nueva del esquema no aparece por descuido— y **neutralización de fórmulas** (`=`, `+`, `-`, `@`).
+- Excel con **lista blanca de columnas**: una columna nueva del esquema no aparece por descuido. La **inyección de fórmulas dejó de ser posible** al pasar de CSV a `.xlsx`: la celda declara su tipo, así que una cadena que empieza por `=` sigue siendo una cadena (§10).
 - Imágenes validadas por la **firma real de los bytes**. URL externas tras un filtro **anti-SSRF** (loopback, redes privadas, `169.254.169.254`, `.internal`/`.local`) y **anti-XSS** (solo `https:`).
 - Rate limit persistente en base de datos, con incremento atómico y la clave siempre hasheada. Corregido un **falso 429**: `updateMany` con 0 filas afectadas significaba dos cosas distintas —límite agotado o fila desaparecida— y se trataban igual.
 
@@ -1136,7 +1202,10 @@ Lo que está hecho, y lo que falta. Las dos listas importan.
 - **El formulario comercial** tiene su región de resultado con `aria-live` y **recibe el foco** cuando el servidor responde, para que quien usa lector de pantalla se entere de que ha pasado algo. Un error no borra lo escrito. Probado en jsdom: movimiento de foco y atributos de la región.
 - **El honeypot está fuera del alcance del teclado y de los lectores de pantalla**, para que nadie lo rellene por accidente y pierda su mensaje.
 - **Texto alternativo obligatorio para publicar** en el CMS: sin él no se puede publicar una ficha, y la interfaz dice exactamente qué imagen le falta. Es la única forma de que se añada.
-- **El pipeline funciona con teclado.** No hay arrastrar y soltar: cada tarjeta ofrece un desplegable con las transiciones válidas, y existe una vista de tabla alternativa en `?vista=tabla`. Es la razón principal de esa decisión (§14).
+- **El tablero de seguimiento funciona con teclado, aunque se mueva arrastrando.** El arrastre se añadió en la Fase 20 revirtiendo la decisión contraria, y la objeción original era buena: un tablero con arrastre y sin alternativa deja fuera a quien no puede hacer el gesto. Con una tarjeta enfocada, `Ctrl`/`Cmd` más flecha izquierda o derecha la mueve a la fase válida anterior o siguiente, y cada movimiento se anuncia en una región `aria-live`. La instrucción de teclado está en la página, visible solo al recibir el foco.
+- **Las tablas que se editan en la celda anuncian lo que guardan.** Acciones y Puntuación Visitantes guardan al cambiar un campo, sin botón; el resultado de cada guardado va a una región `aria-live` además del icono, porque un icono que aparece y desaparece no dice nada a quien no lo ve.
+- **Los iconos de acción llevan nombre accesible.** En Contenidos Biblioteca las cinco acciones por fila son iconos sin texto, y cada uno lleva `title` —la sugerencia del navegador— y `aria-label` con el título de la ficha dentro: «Editar Boda de Ana y Luis», no «Editar». Con seis filas hay seis botones «Editar», y sin el título son indistinguibles al navegar por controles. Lo mismo en el conmutador de día y noche, que se quedó solo con el icono.
+- **El bloque de filtros plegable es un `<details>` nativo**, no un desplegable propio: el rol, el estado expandido y el manejo de teclado vienen del navegador.
 - **Las cuatro plantillas de correo** son accesibles: `lang="es"`, un `h1` real, `th scope="row"` en tablas de datos, `role="presentation"` en las de maquetación, sin imágenes, y **siempre con alternativa en texto plano** antes del HTML.
 - **Contraste** derivado de los tokens de color de la marca, con texto sobre fondos sólidos. Los placeholders del formulario público se corrigieron en la auditoría final: iban al 50 % de opacidad sobre el token, lo que los dejaba en torno a 2:1 —por debajo del 4,5:1 exigido—, y llevan información que no está en la etiqueta (el formato del teléfono, el orden de magnitud de los invitados).
 
@@ -1186,6 +1255,15 @@ Métricas reales de posicionamiento: no las habrá mientras el despliegue esté 
 - **Consultas sin N+1.** Las relaciones se traen con `include` en un número fijo de consultas, no una por fila. Las colecciones de las fichas 360º están acotadas (últimos 50 movimientos, últimas interacciones), y el camino para el histórico completo es el listado paginado o la exportación, que tiene tope de 5.000 filas.
 - **Paginación en servidor** en todos los listados del panel, con orden por lista blanca cerrada y un segundo criterio estable para que ninguna fila salga en dos páginas.
 - **El correo no está en la ruta crítica.** Se envía después del commit y después de responder al visitante.
+
+### La cortina de carga, y qué no hace
+
+**Un preloader no acelera nada.** Lo que hace es tapar el momento en que la página se pinta a medias —la tipografía del sistema que salta a la definitiva, las imágenes entrando de una en una— y sustituirlo por una pantalla de marca. En una conexión lenta eso mejora la percepción; en una rápida añade el tiempo del desvanecido, 420 ms. Se pidió así y se hizo así, con el diseño puesto en que no pueda romper nada:
+
+- **La retira el CSS, no el JavaScript.** La regla lleva una animación con retardo que la desvanece sola a los 4,5 s. Si el bundle no llega, está bloqueado o falla la hidratación, la web se ve igual. Con el JavaScript como único responsable, cualquiera de esos fallos deja una pantalla en blanco permanente.
+- **`pointer-events: none` siempre.** Incluso opaca, los enlaces de debajo responden.
+- **Se pinta desde el servidor**, en el HTML inicial: un componente de cliente aparecería después de descargar el bundle, es decir, cuando ya no hace falta.
+- **La marca de «ya cargó» vive en `<html>`**, no en la propia cortina. La cortina se desmonta al entrar en /admin y se vuelve a montar al salir; con la marca en su elemento, cada vuelta al sitio público traería un destello de cortina en una navegación que no carga nada.
 
 ### Coste asumido, dicho claramente
 
@@ -1249,7 +1327,9 @@ Dos reglas de ese contrato han condicionado el resultado más que ninguna decisi
 
 El desarrollo se ha hecho con **Claude Code** como asistente de desarrollo full-stack, siguiendo el flujo de prompts documentado en `project-reference/docs/02-prompts-claude-code.md`.
 
-Reparto honesto: el asistente ha escrito la mayor parte del código. Lo que no se ha delegado es el criterio —qué construir, qué rechazar y qué dar por bueno—, la verificación, y las decisiones de §14, incluidas las de rechazar cosas: el arrastrar y soltar, el CAPTCHA, Prisma 7, la CSP bloqueando desde el primer día.
+Reparto honesto: el asistente ha escrito la mayor parte del código. Lo que no se ha delegado es el criterio —qué construir, qué rechazar y qué dar por bueno—, la verificación, y las decisiones de §14, incluidas las de rechazar cosas: el CAPTCHA, Prisma 7, la CSP bloqueando desde el primer día.
+
+**Dos de esas decisiones se revirtieron después, y las dos por petición del titular:** el arrastrar y soltar del tablero (Fase 20) y la reducción del pipeline a cinco fases (Fase 21). Quedan anotadas como reversiones y no reescritas como si nunca se hubiera decidido lo contrario, porque el motivo original —la accesibilidad del arrastre, la coherencia de un enumerado con nueve valores— seguía siendo válido y obligó a resolver el problema, no a ignorarlo: el arrastre llegó con alternativa de teclado, y las cinco fases con su migración en el esquema en lugar de un agrupamiento al pintar.
 
 Y el dato que mejor describe el método: **las pruebas encontraron defectos reales que ni el asistente ni la revisión humana habían visto leyendo el código.** Uno de ellos impedía enviar el formulario desde el botón de una ficha, y la prueba que existía para ese flujo lo tapaba. Están enumerados en `docs/evidencias-tfm.md` §5. Un proyecto asistido por IA sin esa lista es un proyecto que no se ha comprobado.
 
@@ -1280,7 +1360,8 @@ Ordenadas por lo que importa. Cada una con su motivo.
 
 - **No hay entrega garantizada.** `RETRY_PENDING` describe un fallo que merecería reintento y **nada lo reintenta**. Es deliberado: montar media cola daría sensación de fiabilidad sin la fiabilidad.
 - **`SENT` no significa «llegó a la bandeja»**, solo que el proveedor aceptó el mensaje. Saber qué pasó después exigiría webhooks, que no están integrados.
-- **Ningún correo se ha enviado de verdad todavía:** no hay cuenta de SendGrid configurada, así que la clasificación de respuestas está probada con `fetch` simulado, no contra la API real.
+- **El envío está verificado de punta a punta con Resend** desde la Fase 20 (`npm run email:test` y un formulario real cuyo aviso llegó a la bandeja). Lo que sigue probado con `fetch` simulado es la **clasificación de las respuestas de error**: no se han provocado un 429 ni un 500 reales del proveedor.
+- **El remitente es `onboarding@resend.dev`**, que no exige verificar dominio pero **solo escribe a la dirección titular de la cuenta**. Por eso el acuse al visitante sigue apagado: encenderlo antes de verificar el dominio propio no daría un error visible en la web —la solicitud se guarda igual— sino un fallo silencioso por cada visitante.
 - **El resumen de tareas vencidas es manual.** No hay programador en el proyecto, así que no se afirma ninguna periodicidad. Tampoco se ha expuesto como endpoint HTTP: una ruta que envía correos sin exigir sesión es una vía de abuso.
 
 ### Accesibilidad
@@ -1360,14 +1441,20 @@ Los dos se encontraron en la auditoría final. Ninguno se ha reescrito, y el mot
 10. ~~Pruebas E2E con base aislada y preparación del despliegue.~~ **Fase 10**
 11. ~~Documentación de entrega y preparación de la publicación.~~ **Fase 11**
 12. ~~Auditoría correctiva final: revisión como pull request ajena, con corrección y prueba de cada defecto.~~ **Fase 12**
+13. ~~Publicación del código con licencia MIT y despliegue en producción.~~ **Fase 13**
+14. ~~Acceso al panel con clave única y su rediseño.~~ **Fase 14**
+15. ~~Retirada de los datos ficticios de la base.~~ **Fase 15**
+16. ~~Identidad propia del panel y contraste del menú público.~~ **Fases 16 a 19**
+17. ~~Correo real por Resend, exportación a Excel y tablero con arrastre.~~ **Fase 20**
+18. ~~Pipeline de cinco fases, panel en lenguaje de negocio, gráficas y tablas editables.~~ **Fase 21**
 
 ### Siguiente, por orden
 
-1. **Desplegar** siguiendo `docs/despliegue-vercel.md`. Todo lo demás depende de esto.
-2. **Revisión jurídica** de la base legal y el plazo de retención. Antes de recoger datos de personas reales.
-3. **Métricas reales** de Lighthouse y Core Web Vitals sobre el sitio desplegado.
-4. **Decidir la licencia** del código (§34).
-5. **Accesibilidad:** enlace de salto al contenido, `prefers-reduced-motion` y una escucha con lector de pantalla real.
+1. **Rotar la clave de API de Resend**, que se compartió por chat y hay que dar por comprometida.
+2. **Verificar un dominio propio en Resend** y cambiar `LEADS_FROM_EMAIL`. Hasta entonces el acuse al visitante se queda apagado (§32).
+3. **Revisión jurídica** de la base legal y el plazo de retención. La política nombra ya a Resend y declara el correo activo.
+4. **Métricas reales** de Lighthouse y Core Web Vitals sobre el sitio desplegado, incluida la cortina de carga.
+5. **Accesibilidad:** una escucha con lector de pantalla real y una auditoría formal WCAG.
 6. **CSP en bloqueo** con nonce por petición y receptor de informes.
 7. **E2E en integración continua** (contenedor de servicio + secretos de Storage) y migración de las pruebas de Vitest al contenedor aislado.
 8. **Verificación del correo en el gate**, si se decide exigirla: la arquitectura ya está preparada.
@@ -1375,6 +1462,7 @@ Los dos se encontraron en la auditoría final. Ninguno se ha reescrito, y el mot
 10. **Entrega garantizada de correo:** programador para reintentar los `RETRY_PENDING`, idempotencia por mensaje y webhooks del proveedor.
 11. **Completar la media del CMS:** vídeos externos desde el editor, y valorar redimensionado y miniaturas.
 12. **Gestión de etiquetas** y **fusión de contactos**.
+13. **Buscador en Contenidos Biblioteca**, si la biblioteca crece: al retirar los filtros de esa pantalla se quedó solo con la paginación, que basta con siete fichas y no con setenta.
 
 ---
 
@@ -1445,7 +1533,9 @@ Material de la entrega:
 
 ---
 
-## Documentación
+## 37. Documentación complementaria
+
+Amplían capítulos concretos de este documento; **no lo sustituyen**.
 
 | Documento | Contenido |
 |---|---|
@@ -1462,7 +1552,7 @@ Material de la entrega:
 | `docs/crm.md` | Pipeline, scoring y exportación |
 | `docs/email.md` | Correo transaccional desacoplado |
 | `docs/openapi.yaml` | Contrato de la API pública |
-| `docs/migraciones.md` | Las 9 migraciones, su orden y qué hacer si una falla |
+| `docs/migraciones.md` | Las 10 migraciones, su orden y qué hacer si una falla |
 | `docs/pruebas-e2e.md` | Cobertura, aislamiento de la base y decisiones de la suite |
 | `docs/despliegue-vercel.md` | Despliegue paso a paso, smoke tests, rollback y recuperación |
 | `docs/runbook-demo.md` | Preparar, enseñar y retirar la demostración |
@@ -1475,7 +1565,7 @@ Material de la entrega:
 
 ---
 
-## 37. Historial de fases
+## 38. Historial de fases
 
 ### Fase 0 — Auditoría local y contrato de trabajo (2026-08-11)
 
@@ -2156,7 +2246,7 @@ La gradación importa y por eso se resolvió con una variable y no borrando el a
 
 **Configuración de la puerta en este despliegue.** Se creó una cuenta ADMIN dedicada (`acceso.panel@…`) con una contraseña aleatoria de 40 caracteres que vive solo en el entorno: nadie la teclea nunca. La clave que se escribe es la que eligió el titular. Así la contraseña de la cuenta no es memorizable ni reutilizada, y la auditoría identifica esa cuenta como la de la puerta. Verificado en el navegador contra el servidor local: clave incorrecta rechazada con el campo vaciado, clave correcta dentro del panel con los ocho apartados de ADMIN, y `/admin/login/credenciales` devolviendo 404.
 
-**El panel adopta la estética de la pantalla de acceso** redefiniendo los tokens de color dentro de una clase `.admin-shell`, no reescribiendo las nueve vistas: ya se pintan con `bg-background`, `border-border` y `text-muted-foreground`, que en Tailwind 4 resuelven a variables CSS y por tanto heredan. Azul noche, superficies de vidrio, esquinas redondeadas, cabecera fija con la navegación en pastillas y tablas con cabecera adherente y filas que responden al puntero. El fondo del panel es un degradado y no la fotografía: una imagen a pantalla completa detrás de una tabla de datos compite con lo que hay que leer. El `--muted-foreground` se fijó en 0.78 de luminosidad, no en el gris del sitio público, que sobre este fondo se habría quedado en torno a 3:1.
+**El panel adopta la estética de la pantalla de acceso** redefiniendo los tokens de color dentro de una clase `.admin-shell`, no reescribiendo las nueve vistas: ya se pintan con `bg-background`, `border-border` y `text-muted-foreground`, que en Tailwind 4 resuelven a variables CSS y por tanto heredan. Azul noche, superficies de vidrio, esquinas redondeadas, cabecera fija con la navegación en pastillas y tablas con cabecera adherente y filas que responden al puntero. El fondo del panel es un degradado y no la fotografía: una imagen a pantalla completa detrás de una tabla de datos compite con lo que hay que leer. *(Decisión revisada en la Fase 17 a petición del titular: el panel lleva la fotografía, bajo un velo del 87 %.)* El `--muted-foreground` se fijó en 0.78 de luminosidad, no en el gris del sitio público, que sobre este fondo se habría quedado en torno a 3:1.
 
 **La fotografía de fondo llegó al final, y venía a 8000 × 5000 px y 13,3 MB.** Servir eso como `background-image` habría puesto 13 MB en la primera petición de la pantalla, sin pasar por `next/image` —un `background-image` de CSS no se optimiza—. Se redimensionó a 2560 px de ancho con `sharp`: **290 KB**, un 98 % menos, y sigue sobrada para pantalla completa con el zoom al 120 %. La ruta y los requisitos quedan escritos en `public/images/admin/README.md` para la próxima vez.
 
@@ -2230,8 +2320,483 @@ Cinco ajustes de interfaz pedidos por el titular. Los dos que tienen fondo son l
 
 El degradado se ajustó **dos veces**: al 92 % aclaraba el tercio superior de la fotografía y deshacía parte del oscurecido de la Fase 14, así que bajó al 72 %. Con el texto ya en negro y con peso, sigue sobrando para leerlo.
 
-**El resto:** el título del panel pasa de «Panel privado» a **«Seguimiento comercial»**, que dice lo que se hace ahí; desaparece la etiqueta con el nombre y el rol de la sesión —con una sola clave de acceso siempre mostraba la misma cuenta, así que ocupaba sitio sin informar de nada—; «Cerrar sesión» pasa a **«Salir»** en pastilla, con estado de carga propio; y el fondo del panel toma la paleta de la pantalla de acceso —azul noche con halos magenta, cian y ámbar— **sin la fotografía**, porque una imagen a pantalla completa detrás de una tabla compite con lo que hay que leer y son 290 KB que el panel no necesita descargar. Lo que da continuidad es el color, no el archivo.
+**El resto:** el título del panel pasa de «Panel privado» a **«Seguimiento comercial»**, que dice lo que se hace ahí; desaparece la etiqueta con el nombre y el rol de la sesión —con una sola clave de acceso siempre mostraba la misma cuenta, así que ocupaba sitio sin informar de nada—; «Cerrar sesión» pasa a **«Salir»** en pastilla, con estado de carga propio; y el fondo del panel toma la paleta de la pantalla de acceso —azul noche con halos magenta, cian y ámbar— **sin la fotografía**, porque una imagen a pantalla completa detrás de una tabla compite con lo que hay que leer y son 290 KB que el panel no necesita descargar. Lo que da continuidad es el color, no el archivo. *(Esta última decisión la revisó el titular en la Fase 17: el panel lleva la fotografía.)*
 
 **Archivos modificados:** `app/globals.css`, `app/admin/(protected)/layout.tsx`, `app/admin/(protected)/logout-button.tsx`, `components/header.tsx`, `README.md`.
 
 **Validación:** `npm run lint` y `npm run typecheck` exit 0, y comprobación real en el navegador con capturas de la home, la cabecera, el Resumen y Solicitudes. **Las suites de pruebas no se han ejecutado en esta fase**, por decisión del titular: son cambios de presentación y cada pasada completa cuesta minutos. Quedan pendientes de la siguiente ejecución que él indique.
+
+---
+
+### Fase 17 — Fotografía de fondo en el panel y rótulo destacado (2026-08-14)
+
+Dos peticiones de diseño del titular sobre el panel privado.
+
+**El fondo del panel pasa a ser la fotografía de la pantalla de acceso.** Es una revisión explícita de la decisión de la Fase 16, que dejó solo la gama de color: el titular quiere continuidad visual entre entrar y trabajar. Se reutiliza el mismo archivo ya optimizado (2560 px, 290 KB), que además está en la caché del navegador cuando se llega al panel —se acaba de mostrar a pantalla completa en el acceso—, así que no cuesta una descarga nueva. Va con `background-attachment: fixed`, porque un fondo que acompaña al scroll en un listado largo arrastra la vista.
+
+**El velo es la pieza que hace esto viable, no un adorno.** Sin él, el texto de las tablas cae sobre las zonas claras de la fotografía y el contraste depende de por dónde recorte la imagen el navegador, que cambia con cada tamaño de ventana. Con un velo al 87 %–81 % el contraste lo garantiza el CSS: medido sobre el fondo desnudo —ocultando el contenido y analizando los píxeles reales de la captura—, en el punto más claro el texto secundario queda a **7,7:1** y el principal a **12,6:1**, frente al 4,5:1 que exige la WCAG AA. Se repitió la medición a 390 px de ancho, donde el recorte `cover` amplía la zona más saturada: **7,7:1** también.
+
+**Se quitaron los halos magenta, cian y ámbar.** Existían para dar interés a un degradado plano; sumados a una fotografía que ya es una nube de pigmentos de esos mismos colores, disparaban la saturación de la banda central y el Resumen quedaba ruidoso justo entre las tarjetas. Se vio en la captura de comprobación. El color lo pone ahora la fotografía y el CSS solo la apaga lo justo. En la misma línea, las superficies de vidrio subieron del 5 % de blanco a un azul al 62 % con más desenfoque: con una imagen detrás, un vidrio casi transparente deja el texto a merced de lo que toque de la foto.
+
+**El rótulo «Seguimiento comercial» gana notoriedad, y hubo que tocar dos cosas para conseguirlo.** Subirlo de cuerpo no bastaba: a 28 px y peso 600 quedaba igualado con los títulos de sección —30 px y también 600—, dos textos casi idénticos a ochenta píxeles de distancia. La causa era una regla propia de la Fase 16 que forzaba `font-weight: 600` a todos los encabezados del panel y pisaba el `font-light` que cada vista escribe. Se eliminó esa declaración, así que los títulos de sección vuelven a la ligera que eligió su autor, y el rótulo pasa a 30 px en negrita con una barra de acento en degradado. La jerarquía se lee sola. El rótulo sigue siendo un `span` y no un `h1`: el encabezado de la página lo pone cada vista, y meter un segundo `h1` en el layout rompería la jerarquía de encabezados.
+
+**Hallazgo que queda documentado en el código.** Los comentarios del bloque `.admin-shell` afirmaban que el `:where()` deja ganar a cualquier utilidad de Tailwind escrita en el componente. **Es falso**, y se comprobó leyendo el peso calculado del `h1`: este archivo declara sus reglas fuera de toda `@layer`, y el CSS sin capa vence al que está en capas por poca especificidad que tenga. La forma de dejar que el componente decida no es bajar la especificidad, es **no declarar** la propiedad. Corregido en los dos comentarios que lo afirmaban, porque es justo el tipo de nota que hace perder una tarde a quien venga después.
+
+**Un tropiezo del proceso:** el rate limit del propio gate —5 intentos por 10 minutos— bloqueó las comprobaciones en el navegador a mitad de la sesión, funcionando exactamente como debe. Se liberó el contador en la base de datos de desarrollo; el límite se queda como está.
+
+**Archivos modificados:** `app/globals.css`, `app/admin/(protected)/layout.tsx`, `README.md`.
+
+**Validación:** `npm run lint` y `npm run typecheck` exit 0. Comprobación real en el navegador con capturas del Resumen, Solicitudes, Contactos y Configuración a 1440 px y del Resumen a 390 px, más medición de contraste sobre los píxeles del fondo desnudo en ambos anchos. Sin desbordamiento horizontal en móvil (`scrollWidth` = `clientWidth` = 390). **Las suites de pruebas siguen sin ejecutarse**, por decisión del titular; estos cambios no tocan dominio, validación ni autorización.
+
+---
+
+### Fase 18 — Modos día/noche, captación a los 90 s y front compacto (2026-08-14)
+
+Bloque largo de peticiones del titular, todas de interfaz salvo dos que tocan validación y una que añade funcionalidad nueva.
+
+#### Panel privado
+
+**Dos modos, día y noche, con el conmutador a la izquierda de «Salir».** El tema no vive en las pantallas: `data-tema` sobre `.admin-shell` elige la paleta y las nueve vistas no saben en qué modo están. Todo lo que no es color —radios, tipografía, tablas adherentes, desenfoques— se declara una sola vez, y cada modo redefine solo sus tokens. Se introdujeron variables propias para las superficies (`--admin-surface`, `--admin-line`, `--admin-chrome`…) porque con colores literales cada regla habría necesitado duplicarse por modo, y ahí es donde dos temas se desincronizan con el primer cambio hecho con prisa.
+
+**El modo elegido vive en una cookie, no en `localStorage`.** El layout del panel se renderiza en servidor, así que puede leer la cookie y pintar el modo correcto en el primer HTML. Con `localStorage` el servidor no sabe nada: el primer pintado saldría en un modo y el cliente lo corregiría tras hidratar —el parpadeo clásico—, y para evitarlo habría que meter un script inline en el `<head>` y abrirle un hueco a la CSP. Es **cookie de sesión de navegador**, y `enterAdminArea` la borra al entrar, así que **cada acceso empieza en día**, como se pidió; el cambio se recuerda mientras se navega, que es lo que espera cualquiera al pulsar un interruptor.
+
+**El cromo dejó de usar colores fijos.** `bg-black/40` y `ring-white/15` son invisibles sobre fondo claro: ese es exactamente el error que aparece al añadir un segundo tema sobre una interfaz escrita en un solo tono. Ahora la cabecera, las pastillas y los enlaces de sección salen de `admin-chrome`, `admin-pill` y `admin-navlink`.
+
+**El resto del panel:** el modo día se oscureció un escalón —era casi blanco de papel y deslumbra en una herramienta de uso continuado—, manteniendo las tarjetas blancas para que el contenido gane capa en vez de fundirse con el fondo; el rótulo pasa a **«Gestión comercial»** a 34 px, en negrita y con un degradado de texto de la propia gama, protegido con `@supports` porque `background-clip: text` con `color: transparent` sin red de seguridad es un rótulo invisible en cuanto un navegador no lo soporta; y **«Salir» es rojo**, con un tono distinto por modo, porque el mismo rojo que funciona sobre azul noche resulta chillón sobre fondo claro.
+
+**Un hallazgo medido:** en modo día hay texto secundario que cae directamente sobre la fotografía, no sobre tarjeta, y el velo claro deja pasar más imagen que el oscuro. Medido sobre los píxeles del fondo desnudo, en el punto más oscuro el token daba 5,5:1; se bajó a 0.44 para dejarlo en 6,0:1. Los dos pasaban el 4,5:1 de la WCAG AA —se eligió el margen—. La primera medición dio 3,53:1 y era **errónea**: usaba un color estimado a mano en lugar del que renderiza el navegador.
+
+#### Bibliotecas VIP
+
+Las dos —bodas reales y catering— pasan a la gama del panel con la misma técnica de tokens (`.vip-shell`), sin reescribir sus seis componentes. Dos diferencias deliberadas con el panel: **sin la fotografía de fondo**, porque aquí competiría con el contenido, que es precisamente fotografía; y **se conserva la serif Cormorant** en los títulos, porque una biblioteca de historias es contenido editorial y no una herramienta de trabajo. Lo que moderniza estas pantallas es el color y las superficies, no cambiarles la voz.
+
+#### Aviso de captación a los 90 segundos
+
+Nuevo `VipInvitePopup`: a los 90 s pide el email y, cuando lo recibe, ofrece un botón que entra directamente en la biblioteca de bodas reales. **No es un gate ni lo sustituye**: el contenido protegido sigue detrás de `VipGate` y de la validación en servidor. Usa la misma acción, así que registra el lead, los dos consentimientos por separado y la atribución igual que el formulario de la biblioteca —y la sesión que abre vale para las dos bibliotecas, que ya funcionaba así—.
+
+**Se calla cuando debe:** en las dos bibliotecas (ya tienen su propio formulario a pantalla completa), en el panel, en las páginas legales —interrumpir la lectura de la política de privacidad con una captación de email es justo lo que no hay que hacer—, para quien ya tiene acceso, y durante el resto de la visita si se cierra.
+
+**Cómo sabe si ya hay acceso.** La cookie VIP es `HttpOnly`, así que el cliente no puede mirarla. Se añadió `GET /api/vip/access`, que devuelve **solo un booleano**: ni el email, ni el identificador del lead, ni la caducidad. No se resolvió en el layout a propósito: leer la cookie ahí habría marcado como dinámico todo el sitio público, incluidas las páginas que hoy se generan estáticas. La consulta sale una sola vez y solo si el visitante sigue ahí al minuto y medio.
+
+**El diálogo es el de Radix** y no un `div` con `position: fixed`: foco atrapado, Escape, `aria-modal`, retorno del foco y bloqueo del scroll de fondo vienen resueltos, y un aviso que interrumpe es justo donde no conviene improvisar accesibilidad. Tras el repaso del titular quedó sin icono decorativo, con menos texto, esquinas de 24 px, casillas discretas de 14 px —sin reducir su área de pulsación, que la da la etiqueta entera—, campo de email con el icono dentro y sin el botón «Ahora no»: sigue habiendo tres formas de rechazarlo (aspa, Escape y clic fuera).
+
+Verificado de punta a punta con el reloj real: no aparece a los 1,5 s, aparece a los ~91 s, rechaza sin el consentimiento de privacidad, concede acceso en 1,9 s y el botón entra en la biblioteca; después, `/catering` tampoco pide nada.
+
+#### Formulario de contacto
+
+**Un solo campo de nombre.** El formulario pedía nombre y apellidos por separado; ahora es uno con el marcador «Nombre y Apellidos». **El dominio sigue guardando los dos por separado** —el CRM ordena, busca y saluda con ellos— y **el contrato del endpoint no cambia**: `leadRequestFormSchema` se deriva del compartido con `.omit().extend()`, y `splitFullName` traduce en un único sitio, al construir el payload. Por eso el campo exige dos palabras: con una sola no habría apellido, y rellenarlo con un guion o repitiendo el nombre sería meter basura en la ficha del cliente. La primera palabra es el nombre y el resto los apellidos; es una convención que partirá algún nombre compuesto, y se acepta porque adivinar dónde acaba uno falla más y de forma menos predecible, y porque en el panel ambos campos son editables.
+
+**Fuera el espacio preferido y el presupuesto orientativo.** El presupuesto ya era opcional y deja de enviarse. El espacio lo sigue exigiendo el endpoint, así que quien no lo pregunta envía `NO_SPACE_PREFERENCE` —«sin preferencia, aconsejadme»—, que es exactamente lo que significa no haberlo preguntado.
+
+**Sin rótulo visible sobre cada campo,** que era la mitad de la altura del formulario. Las etiquetas siguen en el HTML con `sr-only`: unidas a su campo, anunciadas por un lector de pantalla y con el `for` llevando el foco al pulsar. Borrarlas habría dejado diez campos sin nombre accesible, que es una barrera de verdad. **Lo que sí se pierde** es la pista visual cuando el campo ya tiene texto escrito, porque el marcador desaparece al escribir; y el campo de fecha, que no admite marcador, queda sin rótulo visible.
+
+Aspecto: tarjeta con borde y esquinas grandes, campos con relleno redondeado en lugar de una línea inferior —un campo subrayado no dice dónde acaba la zona pulsable, y en móvil eso se nota— y botón en pastilla.
+
+#### Resto del front
+
+**El mapa era una ilustración y ahora es un módulo de ubicación.** El filtro anterior (`grayscale(0.55) sepia(0.35) hue-rotate(45deg) saturate(2.2)`) dejaba el mapa teñido de un verde irreal donde costaba distinguir una carretera de un río: un mapa es información, y si hay que entornar los ojos para leer una calle el filtro está de más. Queda una corrección mínima. Mapa y datos van dentro de una sola tarjeta, con un chip que nombra el punto, la dirección y las coordenadas con su icono, las coordenadas en monoespaciada con botón de copiar —copia las decimales, que son las que acepta un GPS, no la etiqueta con grados y símbolos— y **dos acciones**: ver ruta y abrir el mapa. Antes había un solo botón que decía «Abrir en Google Maps» pero llevaba a las indicaciones.
+
+**La web es un 16 % más corta:** de 11.111 px a 9.343 px medidos a 1440 px de ancho, de 12,3 a 10,4 pantallas. Sin quitar contenido: se recortaron los rellenos de sección (128/192 px → 80/112), los huecos de las rejillas, un escalón en los títulos grandes, y sobre todo las dos fotografías a ancho completo, que medían 936 y 596 px de alto y pasan a formato panorámico. El hero baja de `min-h-screen` a `88vh`, con lo que asoma el borde de la sección siguiente: además de acortar, le dice a quien llega que hay más abajo.
+
+**Cabecera con cristal al hacer scroll,** como la tarjeta de la pantalla de acceso: fondo al 72 % y desenfoque `xl` en vez de una barra opaca al 95 %, con una sombra baja que la despega del contenido.
+
+**Pie compactado** y con iconos delante de la dirección, el correo y el teléfono. Van con `aria-hidden`: son ayuda visual, no información nueva; un lector que los anunciara diría «imagen, sobre, correo@…», que es peor que no tenerlos.
+
+**Fotografía del hero un 20 % más oscura** (0,49 → 0,40 de luminancia en la zona del titular) y viñeta lateral reducida a menos de la mitad (48 % → 22 %). El límite no es estético: el titular, el párrafo y la etiqueta de localización son **texto oscuro sobre la fotografía**, y los velos crema son lo que les da contraste. Con el velo intermedio al 16 % la etiqueta de localización caía a 2,37:1; se dejó en el 26 % y se le dio base propia a esa etiqueta —el mismo recurso que ya usaba la de coordenadas—, con lo que los tres quedan en 8,21:1, 8,99:1 y 13,45:1.
+
+**Logotipo de la cabecera más grande** (de 36/44 px a 44/56) con sombra proyectada sobre la silueta de las letras, y **acceso al panel más pequeño** (40 → 32 px): es una herramienta interna, no una llamada a la acción, así que cede protagonismo. El propio botón se rehízo antes en esta fase porque se empastaba con la fotografía: el verde de marca es `#182605`, casi negro, y plano sobre el hero desaparecía. Se arregló con volumen y **dos contornos con trabajos distintos** —uno claro que lo dibuja sobre fondo oscuro y una sombra que lo despega sobre fondo claro—, con los tonos derivados del token mediante `color-mix` para que no haya un segundo verde escrito a mano.
+
+**Una falsa alarma que conviene anotar,** porque cuesta tiempo dos veces: se dio por roto el conjunto de sombras arbitrarias con `oklch(... / ..%)` al ver `boxShadow` transparente en el navegador. No estaban rotas: Tailwind 4 pone cuatro capas vacías de inset y ring **delante** de la sombra real, y la comprobación truncaba la cadena a 70 caracteres, justo antes del valor. Las sombras se pasaron igualmente a `rgba()` por coherencia con la pantalla de acceso, que ya lo usaba.
+
+**Archivos modificados:** `app/globals.css`, `app/layout.tsx`, `app/admin/(protected)/layout.tsx`, `app/admin/(protected)/logout-button.tsx`, `app/admin/(protected)/theme-toggle.tsx` (nuevo), `app/admin/login/page.tsx`, `app/admin/login/gate-action.ts`, `app/api/vip/access/route.ts` (nuevo), `lib/admin-theme.ts` (nuevo), `lib/leads.ts`, `lib/validation/lead-request.ts`, `components/header.tsx`, `components/footer.tsx`, `components/admin-access.tsx`, `components/sections/*.tsx`, `components/vip/vip-invite-popup.tsx` (nuevo), `components/vip/vip-library.tsx`, `components/vip/vip-story.tsx`, `data/site-content.ts`, `data/site-content.en.ts`, `README.md`.
+
+**Validación:** `npm run lint` y `npm run typecheck` exit 0 tras cada bloque. Comprobación real en el navegador: los dos modos del panel con su cookie y su persistencia al navegar, el aviso a los 90 s de punta a punta, el gate y las dos bibliotecas, el formulario simplificado, el mapa con el copiado de coordenadas (portapapeles leído: `38.077167, -1.150417`), la cabecera con scroll y el responsive en 360, 390, 768, 1024 y 1440 px sin desbordamiento horizontal en ninguna combinación. Medición de contraste sobre los píxeles del fondo en los dos modos del panel y en los tres textos del hero. Los tres contactos de prueba que generaron las comprobaciones se borraron con `npm run test:clean` (quedan 0 contactos).
+
+**Pendiente y advertido:** **las suites siguen sin ejecutarse** por decisión del titular, y esta fase **sí toca validación y dominio** —`lead-request.ts`, `lib/leads.ts`— además del formulario, así que hay pruebas que necesitan actualizarse: las que envían `firstName`/`lastName` desde el formulario y las que esperan los campos de espacio y presupuesto en pantalla. Es lo primero que habrá que mirar cuando se dé la orden de ejecutarlas.
+
+---
+
+### Fase 19 — Selector de fecha propio, destello en las bibliotecas y pie compacto (2026-08-14)
+
+#### Formulario
+
+**El calendario salía en inglés y no había atributo que lo cambiara.** El control nativo `<input type="date">` pinta su calendario en el idioma de la **interfaz del navegador**, no en el de la página: con un Chrome en inglés salía en inglés aunque el documento declare `lang="es"`. Se sustituye por el `Calendar` que ya estaba en el proyecto (react-day-picker) dentro de un `Popover`, con el `locale` de `date-fns` que corresponde al idioma de la web. Verificado: el calendario dice «agosto 2026» y «lu ma mi ju vi sá do».
+
+El cambio resuelve de paso la segunda queja: el control nativo traía su propia caja y **medía distinto** que el desplegable de al lado. El valor del formulario sigue siendo `yyyy-MM-dd`, que es lo que valida el esquema y lo que espera el endpoint; lo que cambia es cómo se elige y cómo se muestra. La conversión usa `parse` con formato explícito y no `new Date(cadena)`, que interpreta `2026-09-12` como UTC y según la zona devuelve el día anterior —el error clásico de las fechas sin hora, que aquí significaría mostrar un día distinto del elegido—.
+
+**Las alturas ya no bailan: los cuatro campos de la rejilla miden 48 px.** El desajuste que quedaba era del desplegable, que fijaba su alto con `data-[size=default]:h-9`; por ser un selector de atributo gana a un `h-12` suelto y `tailwind-merge` no los fusiona, así que medía 36 frente a 48. Se corrige apuntando a la misma variante.
+
+**Los marcadores de posición dicen el nombre del campo, no un ejemplo,** como se pidió. Excepción justificada: el de la fecha se acorta a «Fecha prevista» porque «Fecha prevista (opcional)» no cabe en una línea y partía la caja en dos; el «(opcional)» sigue en la etiqueta accesible, que es donde hace falta. Y se corrigieron dos deslices del cambio anterior: el marcador del teléfono había quedado en español dentro del bloque inglés, y el del desplegable seguía diciendo «Selecciona una opción».
+
+#### Bibliotecas VIP
+
+**Destello de color en movimiento,** en la gama del panel —magenta, cian, ámbar y un punto de violeta— en lugar del degradado quieto. Va en un pseudoelemento propio y se animan solo `transform` y `opacity`, que el navegador resuelve en la capa de composición sin recalcular diseño ni repintar; animar las paradas del degradado daría el mismo efecto a la vista y obligaría a repintar dos manchas a pantalla completa durante toda la visita. Lleva también un grado y medio de rotación: con solo mover y escalar, el recorrido se adivina en pocos segundos y el fondo parece una diapositiva deslizándose. Comprobado que se mueve de verdad comparando dos fotogramas separados siete segundos: **cambia el 67 % de los píxeles**. La regla global de `prefers-reduced-motion` lo deja quieto, y quieto sigue siendo un fondo correcto porque el destello decora, no comunica.
+
+La primera versión salió demasiado tímida —se vio en la captura— y hubo que subir las opacidades bastante por encima de las del panel: sobre un fondo sin fotografía, las mismas manchas se leen mucho más flojas.
+
+**Tipografía del panel y contenido centrado.** Esto revierte una decisión de la fase anterior, que conservaba la serif Cormorant por su aire editorial: el titular quiere que las dos bibliotecas se lean como la zona privada. Ahora es DM Sans, la misma del panel y del acceso. El formulario del gate se queda alineado a la izquierda dentro del bloque centrado: un campo de email y dos consentimientos centrados se leen peor.
+
+**Títulos concretos.** «Accede a la biblioteca de bodas reales» describía el trámite de entrar; ahora dice qué hay dentro: **«Bodas reales celebradas aquí»** y **«Caterings servidos por nosotros»**, en el gate y en la cabecera del listado, en los dos idiomas.
+
+#### Pie
+
+**Fuera el filete intermedio,** que partía en dos algo que se lee como una sola pieza —el pie ya está delimitado por su propio borde superior—. La separación la da el espacio.
+
+**De cuatro filas a dos.** El crédito de desarrollo tenía una fila propia y se integra junto al copyright; la columna de navegación, con siete enlaces en vertical, pasa a dos columnas y es la que más altura devuelve. El pie mide **335 px**, frente a los 514 con los que empezó la sesión: un **35 % menos** sin quitar un solo enlace ni reducir el área de pulsación.
+
+#### Portada
+
+**El hero vuelve a pantalla completa.** Se había bajado a `88vh` para acortar la página y el titular lo devolvió: con la fotografía recortada, el titular, el párrafo y los dos botones quedaban apretados contra el borde inferior. El aire de la portada es parte de lo que vende la finca, así que la reducción de longitud se queda en las secciones interiores. La home queda en 9.282 px, 10,3 pantallas —sigue un 16 % por debajo de los 11.111 px de partida—.
+
+#### Un aviso que no era
+
+Apareció un error de hidratación en la consola durante las comprobaciones. **No se reproduce**: tres cargas limpias con contexto nuevo salen sin un solo error, y era la recompilación en caliente de Turbopack sirviendo un HTML de una versión y un cliente de otra. Aprovechando el susto se corrigió algo que sí estaba mal por otro motivo: `disabled={{ before: startOfToday() }}` llamaba al reloj en **cada render** del formulario, también en el del servidor, y un valor que depende de la hora no debe entrar en el árbol que se hidrata. Ahora es una función y solo se evalúa al abrir el calendario.
+
+**Archivos modificados:** `app/globals.css`, `components/sections/contact.tsx`, `components/sections/hero.tsx`, `components/footer.tsx`, `components/vip/vip-gate.tsx`, `components/vip/list-header.tsx`.
+
+**Validación:** `npm run lint` y `npm run typecheck` exit 0. En el navegador: alturas de los cuatro campos medidas, calendario en español, marcadores comprobados uno a uno, pie medido, destello comparado entre fotogramas, y responsive de la home y de las dos bibliotecas en 360, 390, 768, 1024 y 1440 px **sin desbordamiento horizontal en ninguna de las quince combinaciones**. Las suites siguen sin ejecutarse por decisión del titular; sigue en pie el aviso de la Fase 18 sobre las pruebas que hay que actualizar.
+
+---
+
+### Fase 20 — Resend, exportación a Excel, tablero con arrastre y panel estilo CRM (2026-08-14)
+
+Fase larga y con muchas peticiones encadenadas. Se agrupa por bloques porque las
+decisiones de cada uno son independientes.
+
+#### Correo transaccional: SendGrid fuera, Resend dentro
+
+**El motivo del cambio es del titular: SendGrid no iba a ser posible.** El adaptador de
+SendGrid se **retira**, no se deja en paralelo con una variable que elija. Con dos
+proveedores instalados, un despliegue con la variable equivocada envía por un canal que
+nadie mira y `NotificationLog` acaba contando dos historias distintas.
+
+El cambio no toca ni el dominio ni la captación: para eso existía `EmailProvider`, y esta
+es la primera vez que se cobra el interés de haberlo puesto. Lo que cambia es un archivo
+de adaptador, la variable de entorno y las pruebas de ese adaptador.
+
+Diferencias reales entre las dos APIs, que es donde estaba el trabajo:
+
+- **200 en lugar de 202**, y el identificador del envío viene en el **cuerpo**
+  (`{ "id": ... }`), no en una cabecera. Leer ese JSON va envuelto en un `try`: un cuerpo
+  ilegible **no es un fallo de envío** —el proveedor ya respondió 200— y sin la guarda un
+  cambio de formato en su respuesta convertiría un envío correcto en una excepción. Hay
+  prueba para ese caso.
+- **`reply_to` es una cadena**, no `{ email }`. Y en la API HTTP va en snake_case; es el
+  SDK el que expone `replyTo`.
+- **El cuerpo va en `text` y `html`**, sin el array `content` con tipos MIME que obligaba
+  a ordenar el texto plano antes del HTML.
+
+Se sigue usando `fetch` y no el SDK oficial, por lo mismo que con el proveedor anterior:
+para una sola llamada HTTP el SDK arrastra dependencias que en el runtime de Vercel se
+pagan.
+
+**El remitente es donde esto falla en la práctica**, y conviene tenerlo escrito:
+`onboarding@resend.dev` funciona sin verificar ningún dominio pero **solo puede escribir
+a la dirección titular de la cuenta**. Por eso `SEND_LEAD_ACKNOWLEDGEMENT` se queda
+apagado hasta que haya un dominio propio verificado: encenderlo antes no produce un error
+visible en la web —la solicitud se guarda igual— sino una fila `FAILED` por cada
+visitante.
+
+**Nuevo comando: `npm run email:test`.** Lee la configuración, dice qué falta si falta
+algo y, si está todo, envía un correo real usando **el adaptador del proyecto**. Es la
+diferencia entre comprobar que Resend funciona y comprobar que esta aplicación envía. De
+la clave solo informa el prefijo y la longitud.
+
+**La política de privacidad cambió y su versión sube a `2026-08.2`.** No es un detalle
+administrativo: la versión anterior nombraba a SendGrid y afirmaba que el envío estaba
+desactivado y que ningún dato salía hacia el proveedor. Con Resend en marcha eso ya no es
+cierto, y un consentimiento otorgado sobre aquel texto no cubre este. Efecto conocido y
+buscado: quien tenga el formulario abierto desde antes recibirá
+`policy-version-mismatch` y tendrá que recargar.
+
+El patrón de detección de secretos también se sustituye: fuera el de SendGrid, dentro el
+de Resend (`re_` + 24 caracteres de letras, dígitos y guiones bajos). **Sin guiones
+medios**, y el escáner del propio proyecto es quien lo enseñó: la primera versión los
+admitía y marcaba como secreto la constante ficticia de las pruebas. Ceñirse al formato
+real detecta mejor y deja fuera los valores de prueba, que se escriben con guiones justo
+para no parecer credenciales.
+
+#### Exportación: de CSV a Excel de verdad
+
+Se pidió que los botones descargaran Excel. Se entrega un `.xlsx` real, no un CSV
+renombrado, y el cambio aporta más de lo que parece:
+
+1. **Las fechas son fechas y los números son números.** En CSV todo era texto, así que no
+   se podía ordenar por fecha ni sumar invitados sin convertir las columnas a mano. Peor:
+   Excel interpretaba algunas fechas ISO según la configuración regional y podía cambiar
+   el día. El formato de la columna se declara explícito (`dd/mm/yyyy hh:mm`) porque el
+   mismo libro abierto en dos equipos mostraría 12/06 y 06/12 para la misma celda, y en
+   una fecha de evento eso son seis meses de error.
+2. **La inyección de fórmulas deja de ser un riesgo por construcción.** En CSV, un valor
+   que empieza por `=`, `+`, `-` o `@` lo ejecuta la hoja al abrirla, y el asunto de una
+   solicitud es texto que escribe un desconocido; había que prefijarlo con un apóstrofo,
+   que ensuciaba el dato. En `.xlsx` la celda declara su tipo: una cadena es una cadena.
+   **La prueba que antes comprobaba que el valor se retocaba ahora comprueba que llega
+   íntegro**, y que no acaba siendo fórmula se verifica releyendo el archivo.
+
+La arquitectura se separa en dos: `crm-export.ts` decide **qué** sale —lista blanca de
+columnas y evento de auditoría, que es la parte con consecuencias— y `crm-workbook.ts`
+decide **cómo**. Antes la decisión de seguridad más importante del proyecto compartía
+archivo con el escapado de comillas.
+
+Se añade `exceljs`. Escribir un ZIP y su XML a mano para ahorrar una dependencia es
+riesgo sin beneficio en un formato que Excel valida con severidad. **Coste honesto:
+`npm audit` pasa a informar de una vulnerabilidad moderada más (`uuid`, transitiva de
+exceljs, sin vía de explotación aquí: exige controlar el argumento `buf` de v3/v5/v6).**
+
+Las pruebas del libro **releen el archivo generado** con un parser independiente. Es la
+diferencia entre afirmar que se escribió algo y afirmar que ese algo es un libro válido
+con las celdas correctas. Y en las pruebas de la ruta es imprescindible por otro motivo:
+un `.xlsx` es un ZIP, así que un `expect(texto).not.toContain("clave-interna")` sobre los
+bytes crudos pasaría **siempre**, incluso con el dato dentro. Las comprobaciones de «esto
+no debe salir» son justo las que no pueden depender de eso.
+
+Los dos botones pasan a **solo iconos** —hoja de cálculo y flecha de descarga— sin texto,
+como se pidió. Eso obliga a `aria-label` y `title`: sin el primero, un lector de pantalla
+anuncia «enlace» y nada más; sin el segundo, el botón es un jeroglífico para quien usa el
+ratón. Los dos iconos van con `aria-hidden` para que no se lean como «imagen, imagen».
+
+#### Pipeline: solo tablero, y se mueve arrastrando
+
+**Esto revierte una decisión documentada, y el motivo anterior era bueno:** no había
+arrastrar y soltar porque un tablero accesible con ese gesto exige alternativa de teclado,
+anuncios en vivo y manejo del foco. El titular pidió el arrastre y que desapareciera el
+desplegable «Mover a». Se hace lo pedido **sin perder el acceso por teclado**:
+
+- Cada tarjeta es enfocable con `Tab`, y con `Ctrl`/`Cmd` + flecha izquierda o derecha se
+  mueve al estado válido anterior o siguiente. Nada de esto ocupa un píxel: el
+  desplegable ya no está, que era la objeción.
+- Cada movimiento se anuncia en una región `aria-live`. Es la única forma de que alguien
+  que no ve el tablero sepa qué acaba de pasar.
+
+La vista de tabla se retira, también pedido.
+
+**Quien decide sigue siendo el dominio.** Durante el arrastre solo se marcan como
+válidas las columnas que la máquina de estados acepta —verificado: desde «Nueva» solo se
+ofrecen «Contactada» y «Perdida»— y el servidor vuelve a comprobarlo. Que una columna se
+pinte o no nunca es la garantía. Las tarjetas en «Ganada» no son arrastrables porque es
+estado final.
+
+**«Perdida» exige motivo**, y eso no se puede resolver con el gesto solo: soltar ahí abre
+un diálogo que lo pide. Es la única transición del tablero que necesita un paso más.
+
+Los títulos de columna pasan a pastilla tipo semáforo, del frío al verde, con el rojo
+para «Perdida». **El color no es la única señal**: la pastilla lleva siempre su texto y su
+recuento, porque un tablero donde el estado se dedujera del color sería inservible para
+entre el 4 y el 8 % de los hombres, y el rojo y el verde son justo el par que se confunde.
+
+#### Panel: aspecto de CRM, modos menos extremos, fondo animado
+
+- **El fondo se mueve en los dos modos**, pedido. La fotografía pasa a capa propia con el
+  mismo zoom lento de la pantalla de acceso, y el velo va en otra capa **sin animar**:
+  metido en la misma, escalaría con la imagen y una viñeta que crece y decrece se nota.
+  Comprobado que se mueve: **16,7 % de los píxeles cambian en 7 segundos**.
+- **Noche menos oscuro y día menos claro**, pedido. El lienzo nocturno sube de 0,16 a
+  0,23 de luminosidad; el diurno baja de 0,90 a 0,855. Hay un efecto contraintuitivo que
+  obligó a un ajuste: al oscurecer el modo día, el texto secundario que cae directamente
+  sobre el fondo **pierde** contraste, porque es texto oscuro sobre fondo más oscuro. Por
+  eso `--muted-foreground` baja de 0,44 a 0,40. Medido sobre los píxeles reales del fondo
+  desnudo: **5,11:1 en día y 5,70:1 en noche**, sobre el 4,5:1 que exige la WCAG.
+- **Las tablas van dentro de una tarjeta.** Iban sobre el fondo, así que las filas se
+  leían sobre la fotografía. Se resuelve con una regla sobre el contenedor
+  (`:has(table)`), que alcanza a los cinco listados sin tocar ninguna pantalla.
+- Las tarjetas ganan elevación, que es lo que las convierte de «caja con borde» en
+  superficie apoyada sobre el lienzo. La sombra se define por modo: en oscuro una sombra
+  negra no se ve y lo que separa es un filo de luz arriba.
+- Los botones pasan a cápsula y los rótulos diminutos en mayúsculas espaciadas a texto
+  normal en peso medio. Esa fórmula viene del escaparate, donde funciona porque hay pocos
+  botones muy separados; en una barra con seis controles convierte cada uno en un cartel.
+  **El radio se unifica en `globals.css` y no en las clases**: este archivo declara fuera
+  de toda `@layer`, así que gana a la utilidad del componente, y un `rounded-full` escrito
+  en el botón se habría quedado sin efecto.
+
+#### Front público
+
+- **Fondos propios en Catering y Bodas reales**, con el zoom del acceso y velo por
+  sección. Los dos velos son distintos y está medido: la fotografía de catering tiene 173
+  de luminancia media sobre 255 y la de bodas 72, así que con un velo único o una sección
+  queda ilegible o la otra se apaga sin motivo. Contraste final: 12,64:1 y 9,77:1 en
+  catering, 8,93:1 y 6,13:1 en bodas.
+- **Las imágenes se procesan antes de servirlas.** Llegaron con 9 MB y 23 MB: son
+  archivos de cámara, y un fondo decorativo de 23 MB tarda más de medio minuto en móvil.
+  Nuevo comando `npm run images:optimize`. Quedan en 291 KB y 394 KB. Dato medido que va
+  contra la intuición: **WebP y AVIF pesan MÁS que JPEG** en la foto de catering —941 KB
+  en JPEG, 1,3 MB en WebP, 1,9 MB en AVIF—, porque con texturas de altísima frecuencia la
+  predicción de esos formatos no encuentra nada que predecir. Por eso el fondo va en CSS
+  y no en `next/image`, que serviría WebP.
+- **Cabecera y pie se adaptan a esas secciones** con `:has()`. Se sirven desde el layout
+  raíz, fuera del `<main>`, así que no heredaban la paleta: el menú era verde casi negro
+  sobre una fotografía oscura. Y ahí estaba **el fallo del pie al bajar** que se reportó:
+  el velo es `fixed` con `z-index: 1` y el pie no llevaba `z-index`, así que el velo se
+  pintaba encima del pie.
+- **Los dos accesos del menú, como llamada a la acción.** Tres iteraciones hasta acertar
+  —verde plano «aburrido», multicolor animado con reflejo «no me gustan los colores», y
+  finalmente la especificación que entregó el titular—. Contraste del texto blanco
+  comprobado en los cuatro extremos de los dos degradados: entre 5,2:1 y 7,6:1.
+- **Hero más alto** (112vh en escritorio, pantalla completa en móvil) y **titular en el
+  verde de marca**. Se probó un halo crema detrás del texto para separarlo del fondo y
+  **se retiró**: el efecto fue el contrario del buscado —un resplandor claro alrededor de
+  un texto oscuro se lee como desenfoque, no como contraste— y así lo describió el
+  titular, «se ven rarísimos, como muy blanquecinos». La legibilidad se resuelve donde
+  debe, en el velo: el titular no baja de 3,66:1 en móvil y no mide menos de 48 px en
+  ningún tamaño, así que cumple el 3:1 de la WCAG para texto grande.
+- **Formulario:** fuera el asunto, casillas de consentimiento más discretas (14 px y
+  texto de 12) y el botón pasa a «Enviar mensaje». El asunto **sigue viajando**: el panel
+  lista las solicitudes por él, así que se deriva del tipo de evento, o se conserva el
+  texto del CTA cuando la solicitud viene de una ficha VIP. El área de pulsación de las
+  casillas no se reduce al empequeñecerlas: la etiqueta entera sigue siendo pulsable.
+
+#### Datos
+
+A petición del titular se vaciaron **todos los contactos y su historial** —solicitudes,
+consentimientos, actividad, sesiones VIP e interacciones— conservando los **7
+contenidos**. Los `AuditEvent` **no se tocan**: el esquema los declara supervivientes de
+los borrados a propósito, porque son la traza de quién hizo qué. La operación se hizo con
+un script temporal que **no se ha dejado en el repositorio**: `npm run test:clean` es
+seguro porque solo borra dominios que el IETF reserva, y un comando que borre todos los
+contactos es un accidente esperando a que alguien lo ejecute contra producción.
+
+#### Archivos modificados
+
+`app/globals.css`, `app/admin/(protected)/layout.tsx` (sin cambios de estructura),
+`app/admin/(protected)/crm-ui.tsx`, `app/admin/(protected)/export-button.tsx` (nuevo),
+`app/admin/(protected)/pipeline/page.tsx`, `app/admin/(protected)/pipeline/pipeline-board.tsx` (nuevo),
+`app/admin/(protected)/contactos/page.tsx`, `app/admin/(protected)/solicitudes/page.tsx`,
+`app/api/admin/crm/export/route.ts`, `app/politica-privacidad/page.tsx`,
+`lib/legal.ts`, `lib/email/resend.ts` (nuevo, sustituye a `sendgrid.ts`), `lib/email/config.ts`,
+`lib/email/index.ts`, `lib/email/provider.ts`, `lib/email/development.ts`,
+`lib/domain/crm-export.ts`, `lib/domain/crm-workbook.ts` (nuevo), `lib/security/secret-patterns.ts`,
+`lib/security/headers.ts`, `lib/validation/lead-request.ts`, `lib/leads.ts`,
+`components/header.tsx`, `components/sections/hero.tsx`, `components/sections/contact.tsx`,
+`components/vip/vip-library.tsx`, `components/vip/vip-story.tsx`,
+`data/site-content.ts`, `data/site-content.en.ts`,
+`scripts/optimize-background.ts` (nuevo), `scripts/email-test.ts` (nuevo), `scripts/e2e-env.ts`,
+`docs/email.md`, `.env.example`, `package.json`, y las pruebas afectadas.
+
+#### Validación
+
+`npm test`: **741 pruebas en 61 archivos, todas en verde**. Incluye la deuda que la Fase
+18 dejó anotada —las pruebas del formulario que esperaban nombre y apellidos separados,
+espacio y presupuesto— que queda saldada aquí.
+
+`npm run typecheck` y `npm run lint`: exit 0.
+
+En el navegador: envío real por Resend aceptado (`SENT`, con identificador) y **circuito
+completo verificado desde el formulario** (`SENT · resend · lead-request-created`);
+descarga de Excel abierta y validada con un parser independiente (hoja «Contactos», 13
+columnas, encabezado en negrita y congelado); arrastre de una tarjeta entre columnas con
+persistencia comprobada; capas de fondo y contraste medidos en los dos modos del panel;
+contraste del front medido en hero, bibliotecas y CTA.
+
+#### Pendiente para el titular
+
+1. **Rotar la clave de Resend.** Se compartió por chat y en una captura, así que hay que
+   considerarla comprometida: crear una nueva en el panel de Resend y revocar la actual.
+2. **Verificar un dominio propio en Resend** y cambiar `LEADS_FROM_EMAIL` a una dirección
+   de ese dominio. Hasta entonces el acuse al visitante debe seguir apagado.
+3. **Declarar las variables en Vercel**: `RESEND_API_KEY`, `LEADS_FROM_EMAIL`,
+   `LEADS_NOTIFICATION_TO` y, cuando proceda, `SEND_LEAD_ACKNOWLEDGEMENT=true`.
+4. **Revisión jurídica de la política de privacidad**, que ahora nombra a Resend como
+   encargado del tratamiento y declara el envío activo.
+
+### Fase 21 — Pipeline de cinco fases, panel en lenguaje de negocio y gráficas (2026-08-14)
+
+Quince peticiones del titular en un solo bloque. Tres cambian el dominio o la estructura de una pantalla entera; el resto son ajustes de forma. Se documentan juntas porque comparten una idea: **el panel deja de hablar como el código y empieza a hablar como el negocio**.
+
+#### El pipeline pasa de nueve estados a cinco fases
+
+Contacto, Presentación, Propuesta, Cliente y Perdida. Lo pedido era «deja las fases en» esas cinco, y había dos formas de hacerlo:
+
+- Agrupar los nueve estados guardados en cinco columnas **al pintar el tablero**. Barato, sin migración, sin riesgo.
+- Reducir el enumerado **en la base de datos**, con su migración.
+
+Se hizo lo segundo, y el motivo es que la primera opción no habría cumplido la petición: el mismo campo lo leen los informes, la exportación a Excel y el historial de cada persona, así que el tablero habría enseñado cinco fases y los informes nueve. Y esta misma fase pedía gráficas en los informes, es decir, habría dibujado un anillo con nueve porciones al lado de un tablero con cinco columnas. **El pipeline es dominio, no presentación.**
+
+La correspondencia va en el `CASE` de la migración `20260814120000_pipeline_cinco_fases`: `NEW` y `NURTURING` a `CONTACT`; `CONTACTED`, `QUALIFIED` y `VISIT_SCHEDULED` a `PRESENTATION`; `PROPOSAL_SENT` y `NEGOTIATION` a `PROPOSAL`; `WON` a `CLIENT`. `CONTACT` queda como fase de entrada, lo que conserva la métrica de tiempo hasta el primer contacto: es lo que tarda una solicitud en salir de ahí.
+
+**Es la primera migración del proyecto que no es reversible**, y queda dicho en §20 con su aviso: tres estados caen en `PRESENTATION` y nada guarda cuál era cada uno. También es la primera que contiene un `DROP TYPE`, porque PostgreSQL no sabe quitar valores de un enumerado de otra forma. Se aplicó con cuatro solicitudes en la base y el reparto resultante se comprobó: 2 en Contacto, 1 en Presentación, 1 en Perdida.
+
+**La máquina de estados gana un paso hacia atrás** (Presentación → Contacto, Propuesta → Presentación), que antes no hacía falta: con nueve estados existía `NURTURING` como aparcamiento al que retirar una solicitud enfriada, y por ahí se volvía. Sin él, deshacer un arrastre a la columna equivocada obligaría a darla por perdida y reabrirla, dejando dos movimientos falsos en el historial.
+
+**El histórico no se reescribe.** `LeadActivity` y `AuditEvent` conservan las transiciones tal como se anotaron —hay una real en la base: `{from: "NEW", to: "CONTACTED"}`—, porque cambiar un registro de auditoría para que diga lo que no dijo es falsearlo. En su lugar, quien lo lee acepta los dos vocabularios: `LEGACY_STATUS_LABEL` traduce los nueve nombres antiguos y `averageHoursToFirstContact` cuenta el paso a la segunda fase tanto si se anotó como `PRESENTATION` como si se anotó como `CONTACTED`. Comprobado en pantalla: ese movimiento se sigue leyendo «Nueva → Contactada».
+
+#### El panel renombrado
+
+Estatus Plataforma, Captaciones, Solicitudes Formulario, Seguimiento clientes, Acciones, Contenidos Biblioteca, Informes captación y Puntuación Visitantes. El rótulo pasa a «Gestión comercial · Seguimiento clientes».
+
+**Las rutas no cambian.** Siguen siendo `/admin/contactos`, `/admin/tareas`, `/admin/configuracion`. Renombrar las carpetas habría roto los marcadores guardados, las llamadas a `revalidatePath` de cada Server Action y los diez escenarios E2E, sin que se viera nada distinto en pantalla.
+
+Efecto lateral que hubo que resolver: los rótulos nuevos son largos, y en mayúsculas con `0.15em` de espaciado las ocho pastillas de navegación no cabían en una línea ni en pantalla ancha —se partían en tres filas y la cabecera crecía hasta comerse el título de la página—. Pasan a caja normal con el espaciado justo, que además es lo que hace un CRM: la navegación se lee, no se declama.
+
+#### Gráficas, escritas a mano
+
+Se pidió «todo lo que se pueda en gráficas, circulares con colores». Hay anillo, barras y embudo, en un módulo compartido por Estatus Plataforma e Informes captación, y **están escritas en SVG y HTML**, no con una librería.
+
+El proyecto arrastra `recharts` de la plantilla inicial, así que usarla no habría añadido una dependencia. Se descarta por dos razones concretas: solo funciona en el cliente —las siete pantallas del panel son componentes de servidor, así que cada gráfica exigiría una frontera de cliente— y obligaría a **pasar los colores por props**. El panel resuelve día y noche enteramente con variables CSS, así que una gráfica que recibe `#3b82f6` es un segundo sitio donde vive la paleta y se queda con el color del otro modo al cambiar de tema. Aquí el SVG usa `var(--tono)` y cambia solo.
+
+Para eso hubo que sacar los ocho tonos del tablero: estaban atados a `.pipe-pill[data-tono]`, y ahora la regla apunta a `[data-tono]` en cualquier elemento y expone el color en `--tono`, que hereda. Un `<circle>` de SVG puede escribir `stroke="var(--tono)"` sin recibir ningún color.
+
+Dos decisiones sobre qué **no** dibujar:
+
+- **El dibujo lleva `aria-hidden` y el dato va en la leyenda**, que es texto real con su cifra y su porcentaje. Un anillo no se puede leer en voz alta.
+- **Las tres cifras de Acciones no son un anillo tal cual.** «Pendientes en total» incluye a las vencidas y a las de esta semana, así que un anillo con las tres sumaría lo mismo dos y tres veces y mentiría sobre el total. Se convierten en una partición real restando los tramos.
+
+#### Dos tablas que se editan en la celda
+
+**Acciones** pierde las seis pestañas de filtro y pasa a una tabla donde cada campo guarda al modificarlo: el texto al salir del campo o con Intro, los desplegables y la fecha al cambiar. Cada cambio envía la fila completa, porque el dominio valida la tarea entera. Una acción cerrada se pinta como texto, porque `updateFollowUpTask` rechaza cualquiera que no esté pendiente: ofrecer un desplegable que el servidor va a rechazar es peor que no ofrecerlo.
+
+**Puntuación Visitantes** (antes «Configuración») pierde los ocho formularios apilados y pasa a una tabla agrupada en tres bloques, con el subtotal de cada uno y el máximo alcanzable al pie, calculados en vivo. La agrupación no es decoración: en la lista alfabética con la que llegan de la base de datos no hay forma de ver si «dejar el teléfono» y «pedir una visita» están bien valorados uno respecto al otro.
+
+En las dos, el resultado de cada guardado va a una región `aria-live` además del icono: una tabla que guarda sola no da ninguna otra señal, y un icono que aparece y desaparece no dice nada a quien no lo ve.
+
+También pedido y hecho en esa pantalla: el bloque de «Usuarios internos» —un párrafo y un botón— deja de mostrarse. La ruta `/admin/usuarios` sigue existiendo y sigue exigiendo ADMIN: se retira el cartel, no el permiso. Y las explicaciones largas bajan **por debajo** de la tabla, porque lo pedido era que el contenido importante no quedara tan abajo.
+
+#### Contenidos Biblioteca, y las acciones en iconos
+
+Fuera las seis pestañas, el buscador y los seis filtros: doce controles para elegir entre siete fichas. Las cinco acciones por fila pasan de enlaces en mayúsculas a iconos, que era lo pedido, con dos cosas que hacen falta las dos: `title` para la sugerencia del navegador y `aria-label` para el lector de pantalla, **y el título de la ficha dentro de ambos**. Con seis filas hay seis botones «Editar», y sin el título son indistinguibles al navegar por controles.
+
+Se retiró `content-filters.tsx` y el recuento por estado, que alimentaba los números de las pestañas, pasó a la línea de resumen bajo el título.
+
+#### Filtros plegables en los dos listados
+
+Interesados y Solicitudes tenían once campos de filtro desplegados: **291 px**, más que las primeras filas de datos. Plegados ocupan **38 px**, medido. Es un `<details>` nativo —funciona sin JavaScript, y el rol y el estado expandido los da el navegador— y se abre solo si hay algún filtro puesto: al revés sería una trampa, porque quien llega por un enlace filtrado vería tres resultados sin encontrar el filtro que los recorta.
+
+#### Informes captación: pastillas de año
+
+Los dos campos de fecha con su botón «Aplicar» se sustituyen por pastillas de año desde 2025, arriba a la izquierda y discretas. El cambio no es solo de aspecto: aquellos permitían pedir del 3 de marzo al 17 de julio, y en la práctica nadie compara eso. Los años se calculan en cada petición y no se escriben a mano, porque una lista fija se queda corta el 1 de enero y el síntoma sería el peor posible: los informes del año nuevo no existirían y nadie sabría por qué.
+
+#### Cortina de carga del sitio público
+
+Pedida «acorde a la estética de la web para conexiones lentas». Conviene no venderla como lo que no es: **un preloader no acelera nada**; tapa el momento en que la página se pinta a medias y lo sustituye por una pantalla de marca. El diseño está puesto en que no pueda romper nada:
+
+- **La retira el CSS y el JavaScript solo lo adelanta.** La regla lleva una animación con retardo que la desvanece sola a los 4,5 s, así que si el bundle no llega, está bloqueado o falla la hidratación, la web se ve igual. Con el JavaScript como único responsable, cualquiera de esos fallos deja una pantalla en blanco permanente.
+- **`pointer-events: none` siempre.** Incluso opaca, los enlaces de debajo responden.
+- **Se pinta desde el servidor**, en el HTML inicial: un componente de cliente aparecería tras descargar el bundle, es decir, cuando ya no hace falta.
+- **La marca de «ya cargó» va en `<html>`**, no en la cortina. La cortina se desmonta al entrar en /admin y se vuelve a montar al salir; con la marca en su propio elemento, cada vuelta al sitio público traería un destello de cortina en una navegación que no carga nada.
+
+#### Ajustes de forma
+
+- **Los CTA de Catering y Bodas reales bajan de 44 a 34 px de alto** y el texto a 13 px, el mismo de los enlaces de texto que tienen al lado. La reducción va **dentro de una consulta de medios en 1280 px**: `.nav-cta` sirve también al menú móvil, y ahí conserva los 44 px, que es el objetivo táctil mínimo. El bloque va **después** de `.nav-cta:hover`, porque una consulta de medios no añade especificidad y el `box-shadow` del hover declarado más abajo habría ganado.
+- **El aviso de captación baja de 90 a 35 segundos.**
+- **El modo día baja otro escalón**: el lienzo pasa de 0,855 a 0,80 de luminosidad. Con cada escalón hay que **subir** el contraste del texto secundario, no bajarlo, porque es texto oscuro sobre un fondo que se ha oscurecido: el token pasa de 0,40 a 0,36. Medido sobre los píxeles reales: 5,17:1 en día y 8,42:1 en noche para el texto secundario, 7,83:1 y 10,9:1 para los títulos.
+- **El conmutador de día y noche se queda solo con el icono**, en un cuadrado de 36 px, y «Salir» se alinea a esa altura. El nombre accesible sigue en `aria-label`: un botón con un icono y nada más es un fallo de accesibilidad si se queda sin nombre, y es el error habitual al pedir «solo iconos».
+- La fase de cada solicitud se muestra con la **misma pastilla de color en las cuatro pantallas** que la enseñan. Antes cada una decidía con un ternario `LOST ? alerta : WON ? acento : neutro`, así que las siete fases intermedias salían todas del mismo gris y el color del tablero no se correspondía con el del listado.
+
+#### Dos defectos encontrados al validar
+
+- **Desborde horizontal del panel a 360 y 390 px.** Los `grid` con `lg:grid-cols-2` no declaraban `grid-cols-1`, así que por debajo de ese punto de ruptura la pista implícita era `auto` —con suelo de min-content— en lugar de `minmax(0, 1fr)`, y una tarjeta de gráfica de 430 px ensanchaba la columna por encima de los 342 disponibles. Corregido declarando `grid-cols-1`.
+- **Un correo anonimizado desbordaba la ventana.** En «Últimos movimientos», cuando la persona no tiene nombre se muestra su correo, y uno anonimizado del CRM —`anonimizado+cmst9jnzj00147k08hjvrtqk2@…`— son 45 caracteres sin un punto de corte natural. `break-words` no sirve: no rompe dentro de una palabra, y eso es técnicamente una sola palabra. Corregido con `overflow-wrap: anywhere`.
+
+#### Deuda retirada
+
+`countTasksByView` (seis `count` por carga, uno por pestaña), `ScoringRuleForm`, `content-filters.tsx` y el `TONO` local del tablero, que ahora sale de `PIPELINE_TONE` en `lib/crm/labels.ts`.
+
+#### Documentación
+
+Se revisó el README entero, no solo se le añadió esta entrada, y aparecieron **ocho afirmaciones que la Fase 20 dejó desactualizadas en el cuerpo** mientras actualizaba solo su historial: §10 seguía describiendo la exportación en CSV con neutralización de fórmulas y el pipeline «sin arrastrar y soltar, por decisión», §27 declaraba esa misma ausencia como logro de accesibilidad, §14 la mantenía como decisión vigente, §15 y §12 seguían nombrando a SendGrid, §32 afirmaba que ningún correo se había enviado de verdad, y las cifras de §1 iban dos fases por detrás. Corregido todo, con las dos reversiones anotadas **como reversiones** y no reescritas.
+
+Además: la tabla de estado de §6 se reordenó por número de fase —tenía la Fase 14 después de la 20— y ganó una columna de fase; la sección «Documentación», que estaba sin numerar entre la §36 y el historial, pasa a ser la §37 y el historial la §38, las dos bajo un grupo «Anexos» en el índice.
+
+**Archivos modificados:** `prisma/schema.prisma`, `prisma/migrations/20260814120000_pipeline_cinco_fases/migration.sql` (nuevo), `lib/domain/lead-requests.ts`, `lib/domain/metrics.ts`, `lib/domain/tasks.ts`, `lib/domain/crm-requests.ts`, `lib/domain/privacy.ts`, `lib/crm/labels.ts`, `lib/validation/crm.ts`, `app/globals.css`, `app/layout.tsx`, `app/admin/(protected)/layout.tsx`, `page.tsx`, `theme-toggle.tsx`, `logout-button.tsx`, `crm-ui.tsx`, `crm-charts.tsx` (nuevo), `crm-forms.tsx`, `contactos/page.tsx`, `contactos/[id]/page.tsx`, `solicitudes/page.tsx`, `solicitudes/[id]/page.tsx`, `pipeline/page.tsx`, `pipeline/pipeline-board.tsx`, `tareas/page.tsx`, `tareas/tasks-table.tsx` (nuevo), `contenidos/page.tsx`, `contenidos/content-row-actions.tsx`, `configuracion/page.tsx`, `configuracion/scoring-table.tsx` (nuevo), `components/site-preloader.tsx` (nuevo), `components/site-preloader-dismiss.tsx` (nuevo), `components/vip/vip-invite-popup.tsx`, `app/api/vip/access/route.ts`, `scripts/demo-seed.ts`, ocho archivos de prueba y tres de E2E. Retirados: `contenidos/content-filters.tsx`.
+
+**Validación:** `npm test` → **741 pruebas en 61 archivos, todas en verde**. `npx tsc --noEmit` y `npm run lint` exit 0. Migración aplicada con `npx prisma migrate deploy` y reparto comprobado en la base. Comprobación real en el navegador: las 5 rutas públicas y las 8 del panel sin un solo error de consola ni respuesta 5xx; la cortina de carga en las cinco rutas (opacidad 1 en el primer pintado, `pointer-events: none`, y 0 tras `load`); los CTA del menú a 34 px en escritorio y 44 px en el menú móvil; el arrastre en el tablero de cinco columnas ofreciendo solo Presentación y Perdida desde Contacto; la edición en línea de Acciones y de Puntuación Visitantes con persistencia verificada tras recargar —y el valor de puntuación devuelto a su original—; las pastillas de año; el bloque de filtros plegado (38 px) y abierto con dos filtros activos (291 px); los cinco iconos de acción de Contenidos con su `title` y su `aria-label`; contraste medido sobre los píxeles reales en los dos modos; y **55 combinaciones responsive** (5 anchos × 3 rutas públicas + 5 anchos × 8 del panel) sin desbordamiento horizontal en ninguna.

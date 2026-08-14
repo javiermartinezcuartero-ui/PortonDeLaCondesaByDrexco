@@ -18,7 +18,7 @@ Ordenados por lo que costaría perderlos.
 | **Notas internas del equipo** | `lead_note` | Opiniones sobre personas identificadas. Su filtración es peor que la de un email |
 | **Consentimientos** | `consent_event` | Son la prueba de que el tratamiento es legítimo. Sin ellos, todo lo demás es ilícito |
 | **Credenciales del equipo** | `account.password` (hash), `session` | Dan acceso a todo el CRM |
-| **Claves de infraestructura** | `.env` (Supabase service role, `BETTER_AUTH_SECRET`, secretos HMAC, SendGrid) | La service role de Supabase salta el control de acceso de la base de datos entera |
+| **Claves de infraestructura** | `.env` (Supabase service role, `BETTER_AUTH_SECRET`, secretos HMAC, Resend) | La service role de Supabase salta el control de acceso de la base de datos entera |
 | **Contenido VIP no publicado** | `content_entry`, bucket `vip-content` | Es el activo comercial del negocio y la razón de existir del gate |
 | **Tokens de acceso VIP** | `vip_access_session.tokenHash` | Solo el hash. El token en claro únicamente en la cookie del visitante |
 
@@ -33,7 +33,7 @@ Ordenados por lo que costaría perderlos.
 | **Usuario SALES** | Sesión válida, CRM completo | Sacarse una copia de la base de clientes antes de irse |
 | **Atacante con un enlace filtrado** | Un correo reenviado, una URL compartida | Entrar al CRM o a una ficha sin credenciales |
 | **Atacante con acceso al repositorio** | Código y su historial | Buscar credenciales versionadas |
-| **Proveedor de infraestructura** | Supabase, Vercel, SendGrid | No es adversario, pero es superficie: un incidente suyo es un incidente nuestro |
+| **Proveedor de infraestructura** | Supabase, Vercel, Resend | No es adversario, pero es superficie: un incidente suyo es un incidente nuestro |
 
 ## 3. Límites de confianza
 
@@ -53,7 +53,7 @@ Ordenados por lo que costaría perderlos.
 │  Storage: bucket PRIVADO, acceso solo con service role desde servidor
 └────────────────────────────────────────────────────────────────────
                │  servidor a servidor, nunca desde el navegador
-┌──────────────▼─ SendGrid (si está configurado) ────────────────────
+┌──────────────▼─ Resend (si está configurado) ──────────────────────
 ```
 
 Tres cruces de frontera merecen atención especial:
@@ -64,7 +64,7 @@ Tres cruces de frontera merecen atención especial:
    endpoint.
 2. **Aplicación → Storage.** El bucket es privado y la clave privilegiada nunca sale
    de servidor. El navegador solo recibe URLs firmadas y temporales.
-3. **Aplicación → SendGrid.** Un correo nunca puede afectar a lo ya guardado: se
+3. **Aplicación → Resend.** Un correo nunca puede afectar a lo ya guardado: se
    envía después del commit y su fallo solo produce un registro.
 
 ## 4. Amenazas y mitigaciones
@@ -98,7 +98,7 @@ Tres cruces de frontera merecen atención especial:
 | SQL injection | Prisma con consultas parametrizadas; el único `$queryRaw` es un `SELECT 1` sin interpolación | — |
 | XSS almacenado desde un formulario | El texto se guarda sin transformar y **se escapa en la salida**: JSX escapa solo y no hay `dangerouslySetInnerHTML` en el proyecto | `attack-surface.test.ts` → "el HTML y el script se guardan como texto" |
 | XSS en el cuerpo de un correo | `escapeHtml` en cada valor de las plantillas (ahí no hay JSX) | `lib/email/templates.test.ts` |
-| CSV injection al abrir una exportación | Los valores que empiezan por `=`, `+`, `-` o `@` se prefijan con apóstrofo en la primera posición de la celda | `lib/domain/crm-export.test.ts` |
+| Inyección de fórmulas al abrir una exportación | **Dejó de ser posible** al pasar de CSV a `.xlsx` en la Fase 20: la celda declara su tipo, así que una cadena que empieza por `=` sigue siendo una cadena. No es un saneado que pueda fallar, es una propiedad del formato | `app/api/admin/crm/export/route.test.ts` (abre el libro y comprueba que el valor llega íntegro) |
 | Caracteres de control que rompan la transacción | Se eliminan los C0/C1 antes de persistir (PostgreSQL rechaza NUL) | `lib/security/text.test.ts` |
 
 ### 4.4 SSRF y URLs externas (OWASP A10)
@@ -169,7 +169,7 @@ Tres cruces de frontera merecen atención especial:
 |---|---|
 | A01 Broken Access Control | Cubierto. Autorización en servidor en cada operación, probada por rol (§4.2) |
 | A02 Cryptographic Failures | Cubierto en lo aplicable. Contraseñas con scrypt, tokens solo como HMAC, HTTPS por plataforma |
-| A03 Injection | Cubierto. Prisma parametrizado, escapado en salida, CSV neutralizado (§4.3) |
+| A03 Injection | Cubierto. Prisma parametrizado, escapado en salida, y la exportación en `.xlsx` con celdas tipadas en lugar de CSV saneado (§4.3) |
 | A04 Insecure Design | Parcial. El diseño separa capas y minimiza datos; **la entrega garantizada de correo no existe** y está documentada como límite |
 | A05 Security Misconfiguration | Cubierto en esta fase. Cabeceras, CSP, sin cabecera de versión (§4.9) |
 | A06 Vulnerable Components | **Parcial.** Ver §7: 3 vulnerabilidades altas heredadas de `next@16.0.10` |

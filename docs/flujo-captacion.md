@@ -177,7 +177,7 @@ Dos avisos de configuración, porque son el error más frecuente al desplegar:
   se renombró en la Fase 8 y **ya no existe**: configurarla no hace nada, y cada
   aviso quedaría como `SKIPPED_CONFIG` sin que la interfaz lo advirtiera.
 - Hacen falta **las dos** junto con la clave. Con la clave y sin remitente
-  verificado, SendGrid rechazaría el envío.
+  verificado, Resend rechazaría el envío.
 
 El transporte real está implementado desde la Fase 8 (`lib/email/sendgrid.ts`).
 Detalle completo, plantillas y clasificación de respuestas del proveedor:
@@ -198,7 +198,7 @@ El texto que escribe una persona **no se transforma al guardarlo**. Si escribe
 equipo comercial. La defensa contra inyección está en la salida:
 
 - en la interfaz, React/JSX escapa cualquier cadena interpolada;
-- fuera de JSX (email, CSV, cabeceras) hay que escapar con `escapeHtml`;
+- fuera de JSX (email, cabeceras) hay que escapar con `escapeHtml`;
 - las consultas van por Prisma con parámetros, nunca concatenando SQL.
 
 La única limpieza previa es la de caracteres de control, y por un motivo técnico

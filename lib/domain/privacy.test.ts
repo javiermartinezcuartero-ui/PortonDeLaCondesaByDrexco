@@ -100,7 +100,7 @@ describe("retención configurable", () => {
       lastActivityAt: new Date("2020-02-01T00:00:00.000Z"),
     })
     await prisma.leadRequest.create({
-      data: { leadId: staleButOpen.id, eventType: "WEDDING", status: "NEGOTIATION" },
+      data: { leadId: staleButOpen.id, eventType: "WEDDING", status: "PROPOSAL" },
     })
     const recent = await createLead({ lastActivityAt: new Date() })
 

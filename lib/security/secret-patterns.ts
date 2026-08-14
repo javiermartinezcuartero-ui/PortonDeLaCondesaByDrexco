@@ -26,7 +26,19 @@ export const SECRET_PATTERNS: SecretPattern[] = [
   { name: "clave secreta de Supabase (formato nuevo)", regex: /\bsb_secret_[A-Za-z0-9_-]{8,}/ },
   { name: "clave publicable de Supabase (formato nuevo)", regex: /\bsb_publishable_[A-Za-z0-9_-]{8,}/ },
   { name: "JWT de Supabase (anon/service_role)", regex: /\beyJhbGciOi[A-Za-z0-9_-]{10,}/ },
-  { name: "clave de API de SendGrid", regex: /\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}/ },
+  // Sustituye al patrón de SendGrid, que se retiró junto con el proveedor: la lista
+  // reconoce las credenciales que pueden aparecer en ESTE repositorio, y una de un
+  // servicio que ya no se usa solo alarga una lista que hay que poder leer de un
+  // vistazo.
+  //
+  // El formato es `re_` seguido de una cadena larga de letras, dígitos y guiones
+  // bajos. **Sin guiones medios**, y eso no es un detalle: la primera versión del
+  // patrón los admitía y marcaba como secreto la constante ficticia de
+  // `lib/email/resend.test.ts` (`re_clave-de-prueba-…`), que es texto con guiones. Lo
+  // detectó el propio escáner al ejecutar la suite. Ceñirse al formato real cumple dos
+  // cosas a la vez: detecta mejor y deja fuera los valores de prueba, que se escriben
+  // con guiones justo para no parecer una credencial.
+  { name: "clave de API de Resend", regex: /\bre_[A-Za-z0-9_]{24,}\b/ },
   { name: "cadena de conexión de PostgreSQL con contraseña", regex: /postgres(?:ql)?:\/\/[^\s:@"']+:[^\s@"']+@/ },
   { name: "secreto hexadecimal de 64 caracteres", regex: /\b[0-9a-f]{64}\b/ },
   { name: "clave privada", regex: /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/ },

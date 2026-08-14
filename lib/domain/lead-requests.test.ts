@@ -38,8 +38,8 @@ describe("changeLeadRequestStatus", () => {
     const { lead, leadRequest } = await createLeadRequest({ email, eventType: "boda" })
     createdLeadIds.push(lead.id)
 
-    const updated = await changeLeadRequestStatus({ leadRequestId: leadRequest.id, nextStatus: "CONTACTED" })
-    expect(updated.status).toBe("CONTACTED")
+    const updated = await changeLeadRequestStatus({ leadRequestId: leadRequest.id, nextStatus: "PRESENTATION" })
+    expect(updated.status).toBe("PRESENTATION")
 
     const activity = await prisma.leadActivity.findFirst({
       where: { leadRequestId: leadRequest.id, type: "STATUS_CHANGED" },
@@ -53,7 +53,7 @@ describe("changeLeadRequestStatus", () => {
     createdLeadIds.push(lead.id)
 
     await expect(
-      changeLeadRequestStatus({ leadRequestId: leadRequest.id, nextStatus: "WON" })
+      changeLeadRequestStatus({ leadRequestId: leadRequest.id, nextStatus: "CLIENT" })
     ).rejects.toBeInstanceOf(InvalidTransitionError)
   })
 

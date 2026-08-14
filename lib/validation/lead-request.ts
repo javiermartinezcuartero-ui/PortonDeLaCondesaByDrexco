@@ -315,10 +315,70 @@ const corporateRule = (
   }
 }
 
-/** Esquema que usa el formulario. Mismas reglas que el endpoint, sin transporte. */
-export const leadRequestFormSchema = z.object(formShape).superRefine(corporateRule)
+/**
+ * Esquema que usa el formulario. Mismas reglas que el endpoint, sin transporte, con
+ * tres diferencias que son de **pantalla** y no de dominio:
+ *
+ * - `firstName` y `lastName` se cambian por un único `fullName`. El titular pidió un
+ *   solo campo de nombre; el CRM sigue guardando los dos por separado, porque ordena,
+ *   busca y saluda con ellos. `splitFullName` es quien los separa al enviar, y por eso
+ *   `fullName` exige dos palabras: con una sola no habría apellido, y rellenarlo con
+ *   un guion o repitiendo el nombre sería meter basura en la ficha del cliente.
+ * - `preferredSpace` pasa a opcional: se retiró de la pantalla, y quien no lo
+ *   pregunta envía `NO_SPACE_PREFERENCE` —«sin preferencia, aconsejadme»—, que es
+ *   exactamente lo que significa. El endpoint lo sigue exigiendo.
+ * - `budgetRange` también sale de la pantalla; ya era opcional, así que deja de
+ *   enviarse sin más.
+ * - `subject` pasa a opcional. Se retiró el campo de la pantalla —dos cajas de texto
+ *   seguidas para decir una sola cosa—, pero **no del dominio**: el panel ordena y
+ *   lee las solicitudes por su asunto, y dejarlo en blanco llenaría el CRM de fichas
+ *   indistinguibles. Sigue siendo opcional aquí en lugar de desaparecer porque el CTA
+ *   de las fichas VIP lo rellena por debajo («Quiero una boda así»), y ese dato es la
+ *   mejor descripción posible de la solicitud. Cuando no llega, el formulario lo
+ *   deriva del tipo de evento antes de enviar.
+ *
+ * **El contrato del endpoint no se toca.** `leadRequestSchema` sigue construido sobre
+ * `formShape` con nombre y apellidos separados, y el espacio y el asunto obligatorios:
+ * la simplificación vive en el formulario, no en la API.
+ */
+export const leadRequestFormSchema = z
+  .object(formShape)
+  .omit({ firstName: true, lastName: true, preferredSpace: true, subject: true })
+  .extend({
+    fullName: requiredText(FIELD_LIMITS.name * 2).refine(
+      (value) => value.trim().split(/\s+/).length >= 2,
+      "Escribe tu nombre y tus apellidos"
+    ),
+    preferredSpace: z
+      .string()
+      .trim()
+      .optional()
+      .refine((value) => !value || PREFERRED_SPACES.includes(value), "Espacio no válido"),
+    subject: optionalText(FIELD_LIMITS.subject),
+  })
+  .superRefine(corporateRule)
 
 export type LeadRequestFormValues = z.infer<typeof leadRequestFormSchema>
+
+/**
+ * Parte «Ana María Pérez Gómez» en nombre y apellidos.
+ *
+ * La primera palabra es el nombre y el resto los apellidos. Es una convención, no una
+ * verdad: hay nombres compuestos («Ana María») que quedarán partidos. Se acepta a
+ * conciencia porque la alternativa —adivinar dónde acaba un nombre compuesto— falla
+ * más y de forma menos predecible, y porque en el panel ambos campos son editables:
+ * quien atienda la solicitud lo corrige en dos segundos si hace falta.
+ *
+ * El esquema garantiza que hay al menos dos palabras, así que `lastName` nunca sale
+ * vacío por esta vía.
+ */
+export function splitFullName(fullName: string): { firstName: string; lastName: string } {
+  const parts = fullName.trim().split(/\s+/)
+  return {
+    firstName: parts[0] ?? "",
+    lastName: parts.slice(1).join(" "),
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Esquema completo del endpoint (formulario + transporte y atribución)

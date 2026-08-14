@@ -1,6 +1,6 @@
 # Migraciones de base de datos
 
-Las nueve migraciones del proyecto, en orden, qué hace cada una y cómo se corrige
+Las diez migraciones del proyecto, en orden, qué hace cada una y cómo se corrige
 un despliegue que sale mal. Amplía el README §Prisma y migraciones.
 
 ---
@@ -22,13 +22,30 @@ ellas y saltarse una deja el esquema inconsistente.
 | 7 | `20260812210000_notification_status_values` | Dos valores nuevos en `NotificationStatus` | No |
 | 8 | `20260812210100_notification_log_fields` | `provider`, `recipients`, `leadId` opcional + corrección | No (ver §2) |
 | 9 | `20260813205449_add_metrics_indexes` | Tres índices que faltaban (auditoría final) | No |
+| 10 | `20260814120000_pipeline_cinco_fases` | `LeadRequestStatus` de nueve valores a cinco | **Sí** (ver abajo) |
 
-**Ninguna migración borra una tabla ni una columna.** No hay ningún `DROP TABLE`,
-`DROP COLUMN` ni `DROP TYPE` en el historial. Lo más cerca que hay de un cambio
-irreversible es el `ALTER COLUMN "leadId" DROP NOT NULL` de la 8, que **amplía** lo
-que la columna admite: aplicarla no puede perder datos.
+**Ninguna migración borra una tabla ni una columna.** No hay ningún `DROP TABLE` ni
+`DROP COLUMN` en el historial.
 
-Verificado a mano: las ocho se aplican en orden sobre una base virgen sin ningún
+**La 10 sí es destructiva, y conviene entender exactamente qué destruye.** PostgreSQL
+no sabe quitar valores de un tipo enumerado: la única vía es crear un tipo nuevo,
+convertir la columna con un `CASE` y borrar el viejo, así que esa migración contiene
+un `DROP TYPE "LeadRequestStatus"`. Lo que se pierde no es el tipo —se vuelve a crear
+con el mismo nombre— sino **información**: `CONTACTED`, `QUALIFIED` y
+`VISIT_SCHEDULED` caen los tres en `PRESENTATION`, y nada guarda cuál era cada uno.
+**Copia antes de aplicarla en un entorno con historial.**
+
+Lo que la 10 no toca es la pista de auditoría: `lead_activity` y `audit_event`
+conservan las transiciones con el vocabulario de su día. Reescribir un registro de
+auditoría para que diga lo que no dijo es falsearlo; en su lugar, los lectores
+aceptan los dos vocabularios (`LEGACY_STATUS_LABEL` en `lib/crm/labels.ts` y el
+filtro de `averageHoursToFirstContact` en `lib/domain/metrics.ts`).
+
+Lo más cerca de un cambio irreversible que hay entre las nueve primeras es el
+`ALTER COLUMN "leadId" DROP NOT NULL` de la 8, que **amplía** lo que la columna
+admite: aplicarla no puede perder datos.
+
+Verificado a mano: las diez se aplican en orden sobre una base virgen sin ningún
 error (`npm run e2e:db:reset && npm run e2e:db:migrate`).
 
 ### Por qué 7 y 8 están separadas

@@ -29,7 +29,13 @@ export function Header() {
         "fixed top-0 left-0 right-0 z-50 transition-all duration-700 ease-out",
         isScrolled
           ? "bg-background/95 backdrop-blur-sm border-b border-border"
-          : "bg-transparent"
+          // Sin scroll el header va sobre la fotografía del hero, y ahí estaba el
+          // problema: los enlaces son texto pequeño en mayúsculas sobre una imagen
+          // con zonas claras y oscuras, así que no había contraste fiable en
+          // ninguna. Un degradado desde arriba les da base sin tapar la foto ni
+          // convertir la cabecera en una barra sólida, que es lo que el diseño
+          // evita a propósito en la portada.
+          : "bg-gradient-to-b from-background/72 via-background/28 to-transparent"
       )}
     >
       <div className="max-w-[1800px] mx-auto px-6 md:px-12 lg:px-20">
@@ -72,7 +78,7 @@ export function Header() {
               <Link
                 key={item.label}
                 href={item.href}
-                className="relative group shrink-0 whitespace-nowrap text-xs tracking-[0.1em] uppercase text-muted-foreground hover:text-foreground transition-colors duration-300"
+                className="relative group shrink-0 whitespace-nowrap text-[13px] font-medium tracking-[0.08em] uppercase text-foreground/90 hover:text-foreground transition-colors duration-300"
               >
                 {item.label}
                 <span className="absolute -bottom-1 left-0 w-0 h-px bg-accent transition-all duration-300 group-hover:w-full" />
@@ -82,7 +88,7 @@ export function Header() {
 
           {/* Language toggle */}
           <label className="hidden xl:flex items-center gap-2 shrink-0 cursor-pointer select-none">
-            <span className={cn("text-xs tracking-[0.1em]", locale === "es" ? "text-foreground" : "text-muted-foreground")}>ES</span>
+            <span className={cn("text-xs font-medium tracking-[0.1em]", locale === "es" ? "text-foreground" : "text-foreground/55")}>ES</span>
             <span className="relative inline-flex h-4 w-8 items-center rounded-full bg-border transition-colors">
               <input
                 type="checkbox"
@@ -98,7 +104,7 @@ export function Header() {
                 )}
               />
             </span>
-            <span className={cn("text-xs tracking-[0.1em]", locale === "en" ? "text-foreground" : "text-muted-foreground")}>EN</span>
+            <span className={cn("text-xs font-medium tracking-[0.1em]", locale === "en" ? "text-foreground" : "text-foreground/55")}>EN</span>
           </label>
 
           {/* Acceso al panel privado. El CTA de contacto se retiró de la barra
@@ -188,12 +194,12 @@ export function Header() {
             {headerCta.label}
           </Link>
           <label className="mt-4 flex items-center gap-2 cursor-pointer select-none">
-            <span className={cn("text-xs tracking-[0.1em]", locale === "es" ? "text-foreground" : "text-muted-foreground")}>ES</span>
+            <span className={cn("text-xs font-medium tracking-[0.1em]", locale === "es" ? "text-foreground" : "text-foreground/55")}>ES</span>
             <span className="relative inline-flex h-4 w-8 items-center rounded-full bg-border">
               <input type="checkbox" checked={locale === "en"} onChange={toggleLocale} className="peer sr-only" aria-label="Switch language / Cambiar idioma" />
               <span className={cn("absolute left-0.5 h-3 w-3 rounded-full bg-primary transition-transform duration-300", locale === "en" && "translate-x-4")} />
             </span>
-            <span className={cn("text-xs tracking-[0.1em]", locale === "en" ? "text-foreground" : "text-muted-foreground")}>EN</span>
+            <span className={cn("text-xs font-medium tracking-[0.1em]", locale === "en" ? "text-foreground" : "text-foreground/55")}>EN</span>
           </label>
 
           {/* El mismo acceso, para que en móvil no quede fuera de alcance */}

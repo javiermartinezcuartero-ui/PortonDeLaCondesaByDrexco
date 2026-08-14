@@ -305,11 +305,58 @@ body.cookie-banner-visible .floating-action {
   --accent-foreground: oklch(0.16 0.03 255);
 
   color: var(--foreground);
-  background:
-    radial-gradient(ellipse 80% 60% at 20% -10%, oklch(0.35 0.09 250 / 55%) 0%, transparent 60%),
-    radial-gradient(ellipse 70% 50% at 90% 10%, oklch(0.38 0.10 320 / 35%) 0%, transparent 55%),
-    linear-gradient(165deg, oklch(0.17 0.03 255) 0%, oklch(0.21 0.035 265) 100%);
+
+  /* Tipografía del panel: DM Sans en todo, también donde el sitio público usa la
+   * serif Cormorant.
+   *
+   * El panel es una herramienta de trabajo, no una pieza editorial: se leen cifras,
+   * estados y nombres de un vistazo, muchas veces al día. La serif clásica que da
+   * carácter a la web pública resta legibilidad a un tamaño pequeño y en tablas, y
+   * hace que el panel parezca la misma cosa que el escaparate cuando no lo es. Se
+   * usa la sans que ya está en el repositorio en lugar de traer una familia nueva:
+   * DM Sans es geométrica y moderna, y no añade ni una petición ni un archivo.
+   */
+  font-family: var(--font-dm-sans), system-ui, -apple-system, sans-serif;
+
+  /* Fondo con la paleta de la pantalla de acceso —azul noche con halos magenta,
+   * cian y ámbar—, pero **sin la fotografía**. Dos razones: una imagen a pantalla
+   * completa detrás de una tabla compite con lo que hay que leer, y son 290 KB que
+   * el panel no necesita descargar en cada visita. Lo que da continuidad es el
+   * color, no el archivo. */
+  background-color: oklch(0.18 0.03 258);
+  background-image:
+    radial-gradient(ellipse 70% 55% at 10% -8%, oklch(0.55 0.20 330 / 30%) 0%, transparent 62%),
+    radial-gradient(ellipse 62% 50% at 92% 2%, oklch(0.62 0.15 205 / 26%) 0%, transparent 60%),
+    radial-gradient(ellipse 85% 55% at 45% 108%, oklch(0.58 0.17 35 / 18%) 0%, transparent 62%),
+    linear-gradient(168deg, oklch(0.17 0.03 262) 0%, oklch(0.21 0.035 272) 100%);
   background-attachment: fixed;
+}
+
+/* Los títulos que en el sitio público van en serif pasan a sans con el tracking
+ * cerrado, que es lo que hace que un encabezado se lea como de producto y no de
+ * revista. `:where()` mantiene la especificidad en cero: cualquier utilidad escrita
+ * en el componente sigue ganando. */
+.admin-shell :where(.font-serif) {
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+/* Las cifras de las tarjetas de métricas, en monoespaciada con cifras de ancho fijo:
+ * es lo que impide que los números "salten" de posición al cambiar de valor y lo que
+ * permite compararlos en columna de un vistazo.
+ *
+ * El selector es `span.font-serif` y no la clase de tamaño. La primera versión
+ * apuntaba a `.font-serif.text-3xl`, que es exactamente lo que usan **también** los
+ * encabezados de página, así que "Resumen" y "Solicitudes" salían monoespaciados —se
+ * vio en la captura de comprobación—. Los valores de métrica son `span`
+ * (`crm-ui.tsx`) y los encabezados son `h1`, así que el elemento es lo que los
+ * distingue de verdad. */
+.admin-shell :where(span.font-serif) {
+  font-family: var(--font-jetbrains), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: -0.03em;
 }
 
 /* Superficies de vidrio: todo lo que el panel dibuja como "una caja con borde".

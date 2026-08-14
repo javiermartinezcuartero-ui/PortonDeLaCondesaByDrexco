@@ -191,6 +191,7 @@ Alguien pide su copia de datos: ADMIN la descarga en JSON desde la ficha del con
 | Documentación de entrega y preparación de la publicación | **Implementado** (Fase 11) — §34, §36, `docs/publicacion-github.md` |
 | Auditoría correctiva final | **Implementado** (Fase 12) — 15 defectos reales corregidos con su prueba de regresión. Ver §37 |
 | Publicación del código y despliegue | **Implementado** (Fase 13) — §30, §36 |
+| Identidad propia del panel y contraste del menú público | **Implementado** (Fase 16) |
 | Acceso al panel con clave única y rediseño del panel | **Implementado** (Fase 14) — §21, §25 |
 | **Despliegue en producción** | **Desplegado** (Fase 13) en https://elportondelacondesa.solucionesbonicas.com — §30 |
 | **Revisión jurídica de los textos legales** | `PENDIENTE` — la base jurídica y el plazo de retención los tiene que fijar un profesional. §26 |
@@ -2214,3 +2215,23 @@ El segundo era **el mismo defecto que la auditoría corrigió en la exportación
 La lección de fondo: **corregir un defecto en un sitio y no buscar el mismo patrón en los demás deja el fallo vivo**. La auditoría lo arregló en `crm-export.ts` y anotó el intermitente como irreproducible; estaba a una consulta de distancia, en el módulo de al lado.
 
 **Validación:** 737 pruebas en 61 archivos, **tres pasadas consecutivas en verde**; 26 E2E; lint, typecheck y build exit 0.
+
+---
+
+### Fase 16 — Identidad propia del panel y contraste del menú público (2026-08-14)
+
+Cinco ajustes de interfaz pedidos por el titular. Los dos que tienen fondo son la tipografía del panel y el menú del sitio público.
+
+**El panel deja de usar la serif del sitio público.** Todo pasa a DM Sans con el tracking cerrado, y las cifras de las tarjetas de métricas a JetBrains Mono con `font-variant-numeric: tabular-nums`. El motivo no es estético: el panel es una herramienta de trabajo donde se leen cifras y estados de un vistazo muchas veces al día, y una serif clásica resta legibilidad a tamaño pequeño y en tablas. Las cifras tabulares impiden además que los números cambien de posición al cambiar de valor, que es lo que permite compararlos en columna. **Se usa la sans que ya estaba en el repositorio** en lugar de traer una familia nueva: ni una petición más, ni un archivo más, ni una licencia más que auditar.
+
+**Un fallo propio, visto en la captura de comprobación:** la primera versión aplicaba la monoespaciada con el selector `.font-serif.text-3xl`, y eso es exactamente lo que usan **también** los encabezados de página, así que «Resumen» y «Solicitudes» salían monoespaciados. Los valores de métrica son `span` y los encabezados son `h1`: el elemento es lo que los distingue de verdad, no el tamaño. Es el tipo de error que un typecheck no ve y una captura sí.
+
+**El menú del sitio público no se leía, y el motivo estaba en la combinación, no en el color.** Los enlaces eran texto de 12 px en mayúsculas con el gris de texto secundario, y la cabecera es transparente sobre la fotografía del hero mientras no se hace scroll: sobre una imagen con zonas claras y oscuras no hay contraste fiable en ninguna. Se corrigió por tres vías a la vez —color de texto principal, peso medio y un punto más de tamaño— y sobre todo dándole base con un degradado desde arriba, que es lo que garantiza el contraste sin convertir la cabecera en una barra sólida, cosa que el diseño de la portada evita a propósito.
+
+El degradado se ajustó **dos veces**: al 92 % aclaraba el tercio superior de la fotografía y deshacía parte del oscurecido de la Fase 14, así que bajó al 72 %. Con el texto ya en negro y con peso, sigue sobrando para leerlo.
+
+**El resto:** el título del panel pasa de «Panel privado» a **«Seguimiento comercial»**, que dice lo que se hace ahí; desaparece la etiqueta con el nombre y el rol de la sesión —con una sola clave de acceso siempre mostraba la misma cuenta, así que ocupaba sitio sin informar de nada—; «Cerrar sesión» pasa a **«Salir»** en pastilla, con estado de carga propio; y el fondo del panel toma la paleta de la pantalla de acceso —azul noche con halos magenta, cian y ámbar— **sin la fotografía**, porque una imagen a pantalla completa detrás de una tabla compite con lo que hay que leer y son 290 KB que el panel no necesita descargar. Lo que da continuidad es el color, no el archivo.
+
+**Archivos modificados:** `app/globals.css`, `app/admin/(protected)/layout.tsx`, `app/admin/(protected)/logout-button.tsx`, `components/header.tsx`, `README.md`.
+
+**Validación:** `npm run lint` y `npm run typecheck` exit 0, y comprobación real en el navegador con capturas de la home, la cabecera, el Resumen y Solicitudes. **Las suites de pruebas no se han ejecutado en esta fase**, por decisión del titular: son cambios de presentación y cada pasada completa cuesta minutos. Quedan pendientes de la siguiente ejecución que él indique.

@@ -53,13 +53,8 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
     <div className="admin-shell min-h-screen">
       <header className="sticky top-0 z-20 border-b border-white/10 bg-black/20 backdrop-blur-xl">
         <div className="flex flex-wrap items-center justify-between gap-4 px-6 pt-4">
-          <span className="font-serif text-lg font-light text-foreground">Panel privado</span>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span className="rounded-full bg-white/10 px-3 py-1 text-xs tracking-wide">
-              {user.name} · {user.role}
-            </span>
-            <LogoutButton />
-          </div>
+          <span className="text-lg font-semibold tracking-[-0.02em] text-foreground">Seguimiento comercial</span>
+          <LogoutButton />
         </div>
         <nav aria-label="Secciones del panel" className="flex flex-wrap gap-1 px-6 pb-2 pt-3">
           {sections.map((section) => (

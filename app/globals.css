@@ -197,3 +197,167 @@ body.cookie-banner-visible .floating-action {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Pantalla de acceso al panel (/admin/login)
+ *
+ * Fotografía a pantalla completa con un zoom lento que va y vuelve. El efecto
+ * está pedido así por el titular; lo que aporta la implementación es que no se
+ * cuele fuera de esa pantalla y que no cueste rendimiento donde no debe:
+ *
+ * - Va en `.admin-gate__backdrop` y no en `body::before`. El `body` es común a
+ *   todo el sitio y el fondo habría aparecido también en la home.
+ * - Anima solo `transform`, que el navegador resuelve en la capa de composición
+ *   sin recalcular diseño ni repintar. Animar `background-size` daría el mismo
+ *   efecto a la vista y repintaría una imagen a pantalla completa 40 s seguidos.
+ * - `will-change: transform` la promueve a su propia capa desde el principio.
+ *
+ * La imagen se declara en una variable para poder sustituirla sin tocar la
+ * animación. Debajo va un degradado que se ve mientras la fotografía carga —y si
+ * faltara, la pantalla seguiría siendo usable en lugar de quedarse en blanco.
+ * ------------------------------------------------------------------------- */
+
+.admin-gate {
+  --admin-gate-image: url("/images/admin/acceso-fondo.jpg");
+  background: linear-gradient(140deg, #0b1d33 0%, #123047 45%, #1c1533 100%);
+}
+
+.admin-gate__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: var(--admin-gate-image);
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+  will-change: transform;
+  animation: admin-gate-zoom 40s linear infinite;
+}
+
+.admin-gate__veil {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(ellipse at center, rgb(8 15 30 / 25%) 0%, rgb(8 15 30 / 70%) 100%);
+}
+
+@keyframes admin-gate-zoom {
+  0% {
+    transform: scale(1, 1);
+  }
+
+  50% {
+    transform: scale(1.2, 1.2);
+  }
+
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+/* La regla global de `prefers-reduced-motion` reduce toda animación a 1 ms y una
+ * sola iteración, lo que aquí dejaría el fondo congelado en `scale(1)`: el
+ * resultado correcto —la fotografía quieta— sin ningún caso especial. */
+
+/* ---------------------------------------------------------------------------
+ * Panel privado (/admin)
+ *
+ * Estética continua con la pantalla de acceso: azul noche, superficies de vidrio
+ * y esquinas redondeadas, en lugar del blanco editorial del sitio público.
+ *
+ * Se implementa **redefiniendo los tokens de color** dentro de `.admin-shell`, no
+ * reescribiendo pantalla por pantalla. Las nueve vistas del panel ya se pintan
+ * con `bg-background`, `border-border` y `text-muted-foreground`, que en Tailwind
+ * 4 resuelven a `var(--color-x)` → `var(--x)`; como las variables CSS heredan por
+ * cascada, cambiarlas aquí las cambia en todo el subárbol. Un componente nuevo
+ * que use los tokens encajará solo, y no hay dos verdades sobre el color.
+ *
+ * El fondo del panel es un degradado y no la fotografía de la pantalla de acceso:
+ * una imagen a pantalla completa detrás de una tabla de datos compite con lo que
+ * hay que leer. Se conserva la gama, que es lo que da continuidad.
+ * ------------------------------------------------------------------------- */
+
+.admin-shell {
+  --background: oklch(0.19 0.03 255);
+  --foreground: oklch(0.97 0.005 250);
+  --card: oklch(0.24 0.035 255);
+  --card-foreground: oklch(0.97 0.005 250);
+  --popover: oklch(0.22 0.035 255);
+  --popover-foreground: oklch(0.97 0.005 250);
+  --muted: oklch(0.27 0.03 255);
+  /* 0.78 de luminosidad sobre el fondo 0.19: por encima de 4.5:1, que es lo que
+   * exige la WCAG para texto normal. El gris del sitio público, sobre este
+   * fondo, se habría quedado en torno a 3:1. */
+  --muted-foreground: oklch(0.78 0.02 250);
+  --border: oklch(0.45 0.04 255 / 35%);
+  --input: oklch(0.45 0.04 255 / 45%);
+  --ring: oklch(0.72 0.14 240);
+  --primary: oklch(0.72 0.15 240);
+  --primary-foreground: oklch(0.16 0.03 255);
+  --secondary: oklch(0.28 0.035 255);
+  --secondary-foreground: oklch(0.97 0.005 250);
+  --accent: oklch(0.75 0.13 200);
+  --accent-foreground: oklch(0.16 0.03 255);
+
+  color: var(--foreground);
+  background:
+    radial-gradient(ellipse 80% 60% at 20% -10%, oklch(0.35 0.09 250 / 55%) 0%, transparent 60%),
+    radial-gradient(ellipse 70% 50% at 90% 10%, oklch(0.38 0.10 320 / 35%) 0%, transparent 55%),
+    linear-gradient(165deg, oklch(0.17 0.03 255) 0%, oklch(0.21 0.035 265) 100%);
+  background-attachment: fixed;
+}
+
+/* Superficies de vidrio: todo lo que el panel dibuja como "una caja con borde".
+ * Se selecciona por el borde y no por una clase nueva para no tener que tocar
+ * las nueve pantallas; el `:where()` mantiene la especificidad en cero, así que
+ * cualquier utilidad de Tailwind escrita en el propio componente sigue ganando. */
+.admin-shell :where(.border) {
+  border-radius: 0.875rem;
+  background-color: oklch(1 0 0 / 5%);
+  backdrop-filter: blur(12px);
+}
+
+.admin-shell :where(.border-dashed) {
+  background-color: oklch(1 0 0 / 3%);
+}
+
+/* Tablas: sin líneas duras, con separación por transparencia y una fila que
+ * responde al puntero. La cabecera queda fija al desplazar listados largos. */
+.admin-shell :where(table) {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.admin-shell :where(thead th) {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background-color: oklch(0.24 0.035 255 / 92%);
+  backdrop-filter: blur(8px);
+}
+
+.admin-shell :where(tbody tr) {
+  transition: background-color 200ms ease;
+}
+
+.admin-shell :where(tbody tr:hover) {
+  background-color: oklch(1 0 0 / 6%);
+}
+
+.admin-shell :where(tbody td) {
+  border-top: 1px solid oklch(0.45 0.04 255 / 25%);
+}
+
+/* Campos de formulario y botones, que en el panel son etiquetas planas. */
+.admin-shell :where(input, select, textarea) {
+  border-radius: 0.625rem;
+  background-color: oklch(1 0 0 / 7%);
+}
+
+.admin-shell :where(input:focus-visible, select:focus-visible, textarea:focus-visible) {
+  background-color: oklch(1 0 0 / 12%);
+}
+
+.admin-shell :where(button, a.button) {
+  border-radius: 0.625rem;
+}

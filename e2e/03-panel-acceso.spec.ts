@@ -32,7 +32,7 @@ test.describe("Acceso al panel", () => {
   })
 
   test("7b. una contraseña incorrecta no entra y el mensaje no revela nada", async ({ page }) => {
-    await page.goto("/admin/login")
+    await page.goto("/admin/login/credenciales")
     await page.locator("#email").fill(ACCOUNTS.admin.email)
     await page.locator("#password").fill("contrasena-incorrecta-ficticia")
     await page.getByRole("button", { name: "Entrar" }).click()

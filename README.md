@@ -191,6 +191,7 @@ Alguien pide su copia de datos: ADMIN la descarga en JSON desde la ficha del con
 | Documentación de entrega y preparación de la publicación | **Implementado** (Fase 11) — §34, §36, `docs/publicacion-github.md` |
 | Auditoría correctiva final | **Implementado** (Fase 12) — 15 defectos reales corregidos con su prueba de regresión. Ver §37 |
 | Publicación del código y despliegue | **Implementado** (Fase 13) — §30, §36 |
+| Acceso al panel con clave única y rediseño del panel | **Implementado** (Fase 14) — §21, §25 |
 | **Despliegue en producción** | **Desplegado** (Fase 13) en https://elportondelacondesa.solucionesbonicas.com — §30 |
 | **Revisión jurídica de los textos legales** | `PENDIENTE` — la base jurídica y el plazo de retención los tiene que fijar un profesional. §26 |
 | Licencia del código | **MIT** (Fase 13) — `LICENSE`, §34 |
@@ -715,6 +716,9 @@ Plantilla sin valores en `.env.example`. El `.env` real **no se versiona** y hay
 | `RATE_LIMIT_HASH_SECRET` (+ `_PREVIOUS`) | HMAC irreversible de los identificadores de rate limit. **Nunca se guarda la IP** | **En uso** desde Fase 5 |
 | `VIP_TOKEN_HASH_SECRET` (+ `_PREVIOUS`) | HMAC irreversible del token de sesión VIP | **En uso** desde Fase 2 |
 | `NEXT_PUBLIC_SITE_URL` | Base de los enlaces al panel en los correos, sin barra final | **Opcional.** Sin ella, `http://localhost:3000`. **Única variable pública del proyecto** |
+| `ADMIN_GATE_PASSWORD` | La clave única que se teclea en `/admin/login`. Mínimo 8 caracteres | **En uso** desde Fase 14 |
+| `ADMIN_GATE_EMAIL` | Cuenta real, con rol ADMIN, contra la que se inicia sesión al acertar la clave | **En uso** desde Fase 14 |
+| `ADMIN_GATE_ACCOUNT_PASSWORD` | Contraseña de esa cuenta. No se teclea nunca en la pantalla | **En uso** desde Fase 14 |
 | `ENABLE_DEMO_CONTENT` | Si no es `"true"`, oculta de los listados públicos las fichas con `isDemo=true` | **En uso** desde Fase 2 |
 | `CSP_ENFORCE` | `"true"` hace que la CSP bloquee en vez de solo informar | **Opcional**, apagado (§25) |
 | `DATA_RETENTION_MONTHS` | Plazo de retención en meses (1–240) para **identificar** candidatos a anonimizar | **Opcional**, 36 por defecto. Nada se anonimiza solo, y el plazo no está validado jurídicamente |
@@ -836,6 +840,21 @@ npx prisma validate         # valida el esquema
 ---
 
 ## 21. Bootstrap de administración
+
+### Dos formas de entrar, un solo sistema de autenticación
+
+Desde la Fase 14 hay dos pantallas de acceso, y las dos acaban en la misma sesión de Better Auth:
+
+| Pantalla | Qué pide | Para quién |
+|---|---|---|
+| `/admin/login` | **Una sola clave**, sin usuario | Uso habitual del titular. Entra como la cuenta administradora configurada |
+| `/admin/login/credenciales` | Correo y contraseña | Los perfiles CONTENT y COMMERCIAL, y las pruebas E2E. No está enlazada |
+
+La clave única es una **decisión explícita del titular, tomada a sabiendas de lo que cuesta**, y lo que cuesta está en §25. Lo importante aquí es lo que *no* cambió: no se ha añadido un segundo sistema de autenticación —lo que las reglas del proyecto prohíben—, sino una forma distinta de abrir el que ya había. Al acertar la clave, el servidor inicia sesión contra una cuenta real con `auth.api.signInEmail`, y a partir de ahí todo el panel funciona como antes: permisos, `AuditEvent`, revocación de sesión y expiración incluidas.
+
+Las tres variables que la configuran están en §18. **Sin ellas la pantalla existe pero no deja entrar**: no hay valor por defecto, así que un despliegue a medio configurar deja la puerta cerrada, no abierta.
+
+### El registro público sigue desactivado
 
 **El registro público está desactivado** (`emailAndPassword.disableSignUp`). No hay pantalla de alta, y el endpoint de registro de Better Auth rechaza las peticiones: hay una prueba que lo comprueba. Por tanto el primer usuario tiene que crearse fuera de la aplicación.
 
@@ -998,6 +1017,21 @@ Modelo de amenazas completo, con activos, actores, superficie, correspondencia O
 - **404 en vez de 403** al acceder sin permiso: un 403 confirmaría que el recurso existe.
 - Exportar es un permiso propio (`crm:export`): consultar el CRM no implica poder sacarlo en un archivo.
 - **El contenido VIP no se consulta, renderiza ni serializa antes de validar la sesión de acceso en servidor.** Es la garantía central del producto, y está probada espiando la capa de datos.
+
+### La clave única del panel, y qué se pierde con ella
+
+Desde la Fase 14, `/admin/login` pide una sola clave sin usuario (§21). Es una decisión del titular, y conviene que quien lea este documento sepa exactamente qué implica en lugar de encontrárselo:
+
+- **Se pierde saber quién hizo cada cosa.** Los `AuditEvent` se siguen escribiendo, pero todos con el mismo actor. Con una sola persona operando es soportable; con equipo, el registro deja de servir para lo que existe.
+- **Se pierde revocar a una persona.** Cambiar la clave se la cambia a todo el mundo.
+- **Se pierde la separación de perfiles por esa puerta.** Quien entra por ahí entra como ADMIN. CONTENT y COMMERCIAL siguen existiendo y siguen validándose en servidor, pero se accede a ellos por `/admin/login/credenciales`.
+
+Lo que **no** se ha cedido, porque no formaba parte de la decisión:
+
+- **La clave no está en el código.** Sale de `ADMIN_GATE_PASSWORD`. Escribirla en el repositorio la habría publicado en GitHub —y en su historial, aunque se borrara después—, y el escáner de secretos del propio proyecto la habría detectado. Que funciona se comprobó sin querer: la primera versión de las pruebas usaba un valor de ejemplo sin marcador reconocible y **el escáner rompió la suite**, que es exactamente su trabajo.
+- **Rate limit propio**: cinco intentos cada diez minutos por IP, comprobado *antes* de mirar la clave. El de Better Auth solo entra en juego cuando la clave ya es correcta, así que no cubría este caso.
+- **Comparación en tiempo constante**, sobre digests de longitud fija. Con una clave única y sin usuario, el tiempo de respuesta es la única señal medible desde fuera; comparar las cadenas directamente habría filtrado la longitud correcta.
+- **Un fallo cerrado**: sin configuración no se entra, y una clave correcta con la cuenta mal configurada devuelve el mismo error que una clave incorrecta, para no convertir la pantalla en un oráculo sobre el estado del despliegue.
 
 ### Datos que no se guardan
 
@@ -1278,6 +1312,7 @@ Los dos se encontraron en la auditoría final. Ninguno se ha reescrito, y el mot
 
 ### Funcionalidad
 
+- **La clave única del panel no distingue quién entra.** Todo lo que se hace por esa puerta queda auditado con el mismo actor, y cambiar la clave se la cambia a todo el mundo. Es una decisión del titular, no un descuido; el detalle de lo que cuesta y de lo que se protegió a pesar de ella está en §25, y el acceso por credenciales sigue disponible para los perfiles no administradores.
 - **El alta de usuarios no tiene pantalla.** `/admin/usuarios` lista al equipo y cambia perfiles, pero no crea cuentas: hay que volver a ejecutar `npm run admin:bootstrap`, que crea un **ADMIN**, y degradar después. El README, el manual y la propia pantalla de Configuración prometían un alta desde el panel que no existía, lo que empujaba a dar privilegios de administración a todo el equipo; los tres textos están corregidos. Implementarla es una Server Action con creación de `User` + `Account` de credenciales y su auditoría.
 - **La tarea de seguimiento no guarda a qué solicitud pertenece.** El enlace queda en la actividad que registra su creación, no como columna, así que la vista de Tareas no puede filtrar por solicitud. Arreglarlo es una columna, una migración y un cambio en la vista.
 - **No se pueden añadir vídeos externos desde el editor.** El servicio y su validación están implementados y probados, pero el formulario solo sube imágenes. La media externa existente sí se lista, ordena y borra.
@@ -2089,3 +2124,43 @@ Tres detalles del camino, porque los tres eran evitables y ninguno lo pareció d
 2. **Comprobar `BETTER_AUTH_URL` y `NEXT_PUBLIC_SITE_URL` en Vercel.** Deben valer exactamente el origen del subdominio. Si no coinciden, Better Auth responde `403 INVALID_ORIGIN` y el login del panel falla mostrando el mensaje genérico de credenciales incorrectas — el mismo síntoma diagnosticado en la Fase 3.
 3. **Definir `NEXT_PUBLIC_SITE_URL` en Vercel** con el origen del subdominio. Hoy no está definida en ningún sitio, y aunque el resultado coincide con lo que se quiere —sin variable no se indexa—, coincide por omisión y no por decisión; además los enlaces de los correos caen a `http://localhost:3000` (§18).
 4. La revisión jurídica, que sigue siendo la condición de los tres veredictos de la Fase 12.
+
+---
+
+### Fase 14 — Acceso al panel con clave única y rediseño del panel (2026-08-14)
+
+Cuatro peticiones de interfaz del titular, más lo que cada una arrastró.
+
+**La fotografía del hero se veía lavada, y el motivo no era la fotografía.** El primer intento fue bajarle la luminosidad con un filtro; la captura de comprobación salió **idéntica** a la anterior. Leyendo el estilo calculado en el navegador, el filtro sí estaba aplicado (`brightness(0.72) contrast(1.12)`): lo que blanqueaba la escena eran los **dos velos del color de fondo** que van encima de la imagen, al 40 % y al 60 %. Aligerarlos —a 32 % y 48 %, no quitarlos, porque son lo que sostiene el contraste del titular, que es texto oscuro sobre foto— fue lo que se vio de verdad. Efecto colateral que hubo que corregir: con menos velo, el párrafo y la etiqueta de localización en `text-muted-foreground` se quedaron cortos de contraste sobre la imagen, y pasaron a `text-foreground/80` y `/75`.
+
+**El botón de acceso al panel no se veía, y pasó por dos versiones antes de verse.** Estaba en `bg-primary/5` con el icono en gris de texto secundario: sobre la cabecera clara no se distinguía de un separador. La primera corrección —lavado verde al 10 % con anillo— siguió leyéndose como un círculo gris en la captura a tamaño real. La que funciona es verde de marca **sólido**, con el icono claro, que aclara y crece al pasar por encima. Es el único punto de entrada al panel en toda la web.
+
+**`/admin/login` pide ahora una sola clave, sin usuario.** Fotografía a pantalla completa con el zoom lento de 40 s que pidió el titular, tarjeta de vidrio con sombra azulada, el logotipo de la finca, un único campo y el botón de entrar. Es una decisión tomada a sabiendas de lo que cuesta —trazabilidad individual, revocación por persona y separación de perfiles por esa puerta— y todo eso está enumerado en §25 en lugar de quedar implícito.
+
+Lo que la implementación **no** cedió, porque no formaba parte de lo pedido: la clave sale de `ADMIN_GATE_PASSWORD` y no del código, en un repositorio que es público y cuyo historial no se puede limpiar del todo; hay rate limit propio de cinco intentos cada diez minutos por IP, comprobado antes de mirar la clave, porque el de Better Auth solo actúa cuando la clave ya es correcta; la comparación es en tiempo constante sobre digests de longitud fija, porque con una clave única el tiempo de respuesta es la única señal medible; y sin configuración no se entra. Que la protección del secreto funciona quedó demostrado por accidente: la primera versión de las pruebas usaba un valor de ejemplo sin marcador reconocible y **el escáner de secretos rompió la suite**. Se corrigió el valor de la prueba, no el patrón.
+
+**No se ha introducido un segundo sistema de autenticación**, que es lo que las reglas del proyecto prohíben: al acertar la clave, el servidor abre una sesión real de Better Auth contra una cuenta existente. De ahí que permisos, auditoría, revocación y expiración sigan funcionando sin tocarlos.
+
+**El cambio rompía las pruebas E2E, y eso reveló lo que faltaba.** La suite inicia sesión con tres perfiles para comprobar que cada uno ve lo suyo; con una sola clave que entra siempre como ADMIN, CONTENT y COMMERCIAL habrían quedado **inservibles** —no solo sin probar—. Se conservó el formulario de correo y contraseña en `/admin/login/credenciales`, sin enlazarlo desde ninguna parte, y se amplió la exención del middleware a las subrutas del login con `startsWith("/admin/login/")` en vez de un `startsWith("/admin/login")` a secas, que habría dejado pasar también `/admin/loginfalso`.
+
+**El panel adopta la estética de la pantalla de acceso** redefiniendo los tokens de color dentro de una clase `.admin-shell`, no reescribiendo las nueve vistas: ya se pintan con `bg-background`, `border-border` y `text-muted-foreground`, que en Tailwind 4 resuelven a variables CSS y por tanto heredan. Azul noche, superficies de vidrio, esquinas redondeadas, cabecera fija con la navegación en pastillas y tablas con cabecera adherente y filas que responden al puntero. El fondo del panel es un degradado y no la fotografía: una imagen a pantalla completa detrás de una tabla de datos compite con lo que hay que leer. El `--muted-foreground` se fijó en 0.78 de luminosidad, no en el gris del sitio público, que sobre este fondo se habría quedado en torno a 3:1.
+
+**Pendiente de un archivo:** la fotografía de fondo del acceso va en `public/images/admin/acceso-fondo.jpg`, y no se ha podido añadir porque llegó por el chat y no por el repositorio. Mientras falte, la pantalla muestra el degradado azul noche que hay debajo y sigue siendo perfectamente usable — un acceso que se queda en blanco por un asset ausente no es un acceso. Instrucciones y requisitos de la imagen en `public/images/admin/README.md`.
+
+**Archivos creados:** `lib/auth/admin-gate.ts` (+ test), `app/admin/login/gate-action.ts`, `app/admin/login/gate-form.tsx`, `app/admin/login/credenciales/page.tsx`, `public/images/admin/README.md`.
+
+**Archivos modificados:** `app/admin/login/page.tsx`, `app/admin/(protected)/layout.tsx`, `app/globals.css`, `components/sections/hero.tsx`, `components/admin-access.tsx`, `middleware.ts`, `e2e/helpers.ts`, `e2e/03-panel-acceso.spec.ts`, `.env.example`, `README.md`.
+
+**Validación (comandos y resultados reales):**
+
+| Comando | Resultado |
+|---|---|
+| `npm run lint` | exit 0 |
+| `npm run typecheck` | exit 0 |
+| `npm test` | 60 archivos, **728 pruebas, todas verdes** (**+30**) |
+| `npm run e2e` | **23 pruebas, todas verdes** (2,9 min) |
+| `npm run build` | exit 0 |
+| Escáner de secretos | 0 hallazgos, tras corregir el valor de prueba que él mismo detectó |
+| Comprobación en navegador | Capturas de la home, la pantalla de acceso y tres vistas del panel con sesión ADMIN |
+
+**Dos fallos propios que conviene dejar escritos, porque los dos costaron una vuelta:** un `.next` que quedó inconsistente hacía que `/admin/login` devolviera **500 en producción y 200 en desarrollo**, y la primera captura salió en blanco por eso —se resolvió con `rm -rf .next` y build limpio—. Y la primera ejecución de las E2E falló en los tres perfiles porque `reuseExistingServer` reutilizó un `next start` mío que había quedado vivo en el puerto 3100 sirviendo justo ese build roto: las pruebas no fallaban por el cambio, sino por el servidor que encontraron.

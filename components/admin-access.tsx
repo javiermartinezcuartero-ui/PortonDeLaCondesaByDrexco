@@ -34,11 +34,15 @@ export function AdminAccess({ className }: { className?: string }) {
           aria-label={adminAccessContent.tooltip}
           className={cn(
             "group inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-            // En reposo, apenas se insinúa: un lavado verde muy tenue y el
-            // icono en el mismo gris que los enlaces del menú.
-            "bg-primary/5 text-muted-foreground",
-            // Al pasar por encima toma el verde de marca y una sombra suave.
-            "transition-all duration-300 hover:bg-primary/10 hover:text-primary hover:shadow-sm",
+            // Verde de marca **sólido** desde el reposo. Pasó por dos versiones
+            // que no se veían: `bg-primary/5` con el icono en gris de texto
+            // secundario, y después un lavado al 10 % con anillo, que a tamaño
+            // real seguía leyéndose como un círculo gris. Es el único punto de
+            // entrada al panel en toda la web, así que tiene que distinguirse.
+            "bg-primary text-primary-foreground shadow-sm",
+            // Al pasar por encima aclara y crece un poco, en vez de invertirse:
+            // sobre fondo sólido el cambio de color solo no se percibe.
+            "transition-all duration-300 hover:bg-primary/85 hover:scale-105 hover:shadow-md",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             className
           )}

@@ -3,7 +3,7 @@ import Image from "next/image"
 import { redirect } from "next/navigation"
 import { brand } from "@/data/site-content"
 import { getSessionUser } from "@/lib/auth/session"
-import { LoginForm } from "./login-form"
+import { GateForm } from "./gate-form"
 
 export const dynamic = "force-dynamic"
 
@@ -37,22 +37,32 @@ export default async function AdminLoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-6 py-24">
-      <div className="w-full max-w-sm space-y-10">
-        <div className="flex flex-col items-center gap-4 text-center">
+    <main className="admin-gate relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-16">
+      {/*
+        El fondo va en un elemento propio y no en `body::before`: el `body` es
+        común a todo el sitio, así que el efecto se habría colado en las páginas
+        públicas. Con `position: fixed` sobre este div el resultado visual es el
+        mismo y queda confinado a esta pantalla.
+      */}
+      <div className="admin-gate__backdrop" aria-hidden />
+      {/* Velo oscuro: la fotografía es muy saturada y sin él ni el texto blanco
+          ni el propio formulario se leen encima. */}
+      <div className="admin-gate__veil" aria-hidden />
+
+      <div className="relative z-10 w-full max-w-md rounded-3xl border border-white/25 bg-white/10 p-8 shadow-[0_25px_70px_-15px_rgba(30,64,175,0.65)] backdrop-blur-xl sm:p-10">
+        <div className="mb-8 flex flex-col items-center gap-3 text-center">
           <Image
             src="/brand/icon-porton-hq.png"
             alt={brand.name}
-            width={56}
-            height={56}
-            className="opacity-90"
+            width={64}
+            height={64}
+            priority
+            className="drop-shadow-lg"
           />
-          <div className="space-y-1">
-            <h1 className="font-serif text-2xl font-light text-foreground">Acceso privado</h1>
-            <p className="text-sm text-muted-foreground">{brand.name} — equipo interno</p>
-          </div>
+          <p className="text-xs uppercase tracking-[0.3em] text-white/70">Acceso privado</p>
         </div>
-        <LoginForm />
+
+        <GateForm />
       </div>
     </main>
   )

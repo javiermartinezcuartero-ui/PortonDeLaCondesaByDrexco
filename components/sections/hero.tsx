@@ -47,13 +47,23 @@ export function HeroSection() {
           src={heroContent.image.src}
           alt={heroContent.image.alt}
           priority
-          className="object-cover object-center"
+          // La fotografía original está muy quemada: el cielo y el toldo blanco
+          // se comían el contraste del titular. Se baja la luminosidad y se sube
+          // ligeramente el contraste sobre la propia imagen, en vez de añadir una
+          // capa oscura encima, para no alterar los dos degradados que vienen
+          // después ni el tono cálido del jardín.
+          className="object-cover object-center brightness-[0.72] contrast-[1.12] saturate-[1.05]"
           sizes="100vw"
           delay={300}
         />
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-background/60 via-transparent to-transparent" />
+        {/* Gradient Overlay
+            Estos dos velos crema son la razón real de que la escena se viera
+            lavada: el filtro de la imagen actuaba por debajo de un velo del
+            color de fondo al 40 % y 60 %. Se aligeran —no se quitan— porque son
+            lo que sostiene el contraste del titular, que es texto oscuro sobre
+            fotografía. El borde inferior sigue llegando a crema opaco. */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/32 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-background/48 via-transparent to-transparent" />
       </div>
 
       {/* Architectural Grid Lines */}
@@ -128,9 +138,12 @@ export function HeroSection() {
             >
               <div className="flex items-center gap-4">
                 <div className="w-8 h-px bg-accent shrink-0" />
-                <span className="text-xs tracking-[0.2em] uppercase text-muted-foreground">{brand.locationLabel}</span>
+                <span className="text-xs tracking-[0.2em] uppercase text-foreground/75">{brand.locationLabel}</span>
               </div>
-              <p className="text-base md:text-lg leading-relaxed text-muted-foreground max-w-md">
+              {/* `text-foreground/80` y no `text-muted-foreground`: este párrafo
+                  va sobre la fotografía, y al aligerar los velos el gris de
+                  texto secundario se quedaba corto de contraste. */}
+              <p className="text-base md:text-lg leading-relaxed text-foreground/80 max-w-md">
                 {heroContent.supportingText}
               </p>
               <div className="pt-2 flex flex-wrap items-center gap-4">

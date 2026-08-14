@@ -15,7 +15,10 @@ import { getSessionCookie } from "better-auth/cookies"
 // login, que puede validarla contra la base de datos. Aquí no se puede.
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const isLogin = pathname === "/admin/login"
+  // Las dos pantallas de acceso: la clave única y el formulario de credenciales
+  // que conservan los perfiles no administradores y las pruebas E2E. Compararlo
+  // con `startsWith` a secas dejaría pasar también `/admin/loginfalso`.
+  const isLogin = pathname === "/admin/login" || pathname.startsWith("/admin/login/")
   const hasSessionCookie = Boolean(getSessionCookie(request))
 
   const response =

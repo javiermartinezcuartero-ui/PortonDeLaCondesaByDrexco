@@ -46,23 +46,27 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
   const sections = SECTIONS.filter((section) => roleHasPermission(user.role, section.permission))
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border">
+    // `admin-shell` redefine los tokens de color de todo el subárbol (ver
+    // app/globals.css): el panel usa la gama azul noche de la pantalla de acceso
+    // en vez del blanco editorial del sitio público, sin que ninguna de las nueve
+    // vistas tenga que saberlo.
+    <div className="admin-shell min-h-screen">
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-black/20 backdrop-blur-xl">
         <div className="flex flex-wrap items-center justify-between gap-4 px-6 pt-4">
           <span className="font-serif text-lg font-light text-foreground">Panel privado</span>
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>
+            <span className="rounded-full bg-white/10 px-3 py-1 text-xs tracking-wide">
               {user.name} · {user.role}
             </span>
             <LogoutButton />
           </div>
         </div>
-        <nav aria-label="Secciones del panel" className="flex flex-wrap gap-1 px-6 pt-3">
+        <nav aria-label="Secciones del panel" className="flex flex-wrap gap-1 px-6 pb-2 pt-3">
           {sections.map((section) => (
             <Link
               key={section.href}
               href={section.href}
-              className="px-3 py-2.5 text-xs tracking-[0.15em] uppercase text-muted-foreground hover:text-foreground transition-colors duration-300"
+              className="rounded-full px-3.5 py-2 text-xs tracking-[0.15em] uppercase text-muted-foreground transition-all duration-300 hover:bg-white/10 hover:text-foreground"
             >
               {section.label}
             </Link>

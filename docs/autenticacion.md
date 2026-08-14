@@ -5,6 +5,22 @@ Fecha: 2026-08-11. Complementa `docs/modelo-datos.md` (el esquema `User`/
 compatible con el adaptador de Prisma de Better Auth) y
 `docs/arquitectura-backend.md` §7 (que dejaba esto como pendiente).
 
+## Dos pantallas de acceso (Fase 14)
+
+`/admin/login` pide **una sola clave, sin usuario**, por decisión del titular.
+`/admin/login/credenciales` conserva el acceso por correo y contraseña, y hace
+falta para los perfiles CONTENT y COMMERCIAL —la clave única entra siempre como
+la misma cuenta ADMIN— y para las pruebas E2E, que comprueban la autorización por
+rol.
+
+**No hay dos sistemas de autenticación.** La clave única no crea sesiones por su
+cuenta: cuando acierta, el servidor llama a `auth.api.signInEmail` contra una
+cuenta real, así que todo lo que describe el resto de este documento —sesión,
+cookie, expiración, revocación, roles— se aplica igual por las dos puertas.
+
+Qué se pierde con la clave única, qué se protegió a pesar de ella y por qué la
+exclusión se implementó así: README §Seguridad y `lib/auth/admin-gate.ts`.
+
 ## 1. Por qué Better Auth (y no Auth.js, sugerido en el documento de referencia)
 
 `project-reference/docs/03-arquitectura-crm-leads.md` sugería Auth.js si la

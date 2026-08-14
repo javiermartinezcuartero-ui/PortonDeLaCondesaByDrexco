@@ -30,7 +30,7 @@ export async function loginAs(page: Page, role: Role): Promise<void> {
   const account = ACCOUNTS[role]
 
   for (let attempt = 1; attempt <= 3; attempt++) {
-    await page.goto("/admin/login")
+    await page.goto("/admin/login/credenciales")
     await page.locator("#email").fill(account.email)
     await page.locator("#password").fill(account.password)
     await page.getByRole("button", { name: "Entrar" }).click()

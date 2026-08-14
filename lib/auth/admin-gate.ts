@@ -82,3 +82,20 @@ export function matchesAdminGatePassword(candidate: string, expected: string): b
 function fixedLengthDigest(value: string): Buffer {
   return createHash("sha256").update(value, "utf8").digest()
 }
+
+/**
+ * ¿Está disponible el acceso por correo y contraseña?
+ *
+ * Por decisión del titular, la clave única es la **única** puerta del despliegue.
+ * `/admin/login/credenciales` responde 404 salvo que el entorno declare
+ * `ENABLE_CREDENTIALS_LOGIN=true`, y quien lo declara es únicamente el servidor
+ * bajo prueba de `playwright.config.ts`, porque la autorización por rol no se
+ * puede verificar entrando siempre como la misma cuenta.
+ *
+ * Solo el valor exacto `"true"` activa, igual que `ENABLE_DEMO_CONTENT` y
+ * `SEND_LEAD_ACKNOWLEDGEMENT`: abrir una puerta de acceso es una decisión que se
+ * toma a propósito, no algo que se herede de un valor mal escrito.
+ */
+export function isCredentialsLoginEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.ENABLE_CREDENTIALS_LOGIN?.trim() === "true"
+}

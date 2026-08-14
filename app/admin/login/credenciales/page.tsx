@@ -1,7 +1,8 @@
 import type { Metadata } from "next"
 import Image from "next/image"
-import { redirect } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import { brand } from "@/data/site-content"
+import { isCredentialsLoginEnabled } from "@/lib/auth/admin-gate"
 import { getSessionUser } from "@/lib/auth/session"
 import { LoginForm } from "../login-form"
 
@@ -18,26 +19,37 @@ export const metadata: Metadata = {
 }
 
 /**
- * Acceso con correo y contraseña.
+ * Acceso con correo y contraseña. **Desactivado salvo que se active a propósito.**
  *
- * La pantalla principal (`/admin/login`) pasó en la Fase 14 a pedir una clave
- * única sin usuario, por decisión del titular. Esta ruta conserva el acceso por
- * credenciales, que sigue siendo el mecanismo real de autenticación, y hace falta
- * por dos motivos concretos:
+ * El titular pidió que la clave única de `/admin/login` sea la **única** forma de
+ * entrar, así que esta ruta responde **404** a menos que el entorno declare
+ * `ENABLE_CREDENTIALS_LOGIN=true`. En el despliegue esa variable no existe: no hay
+ * segunda puerta.
  *
- * 1. **Los perfiles que no son ADMIN.** La clave única entra siempre como la
- *    misma cuenta administradora, así que sin esta pantalla no habría forma de
- *    entrar como CONTENT o COMMERCIAL y los dos roles quedarían inservibles.
- * 2. **Las pruebas E2E**, que inician sesión con los tres perfiles para comprobar
- *    que cada uno ve lo suyo y no ve lo ajeno. Sin credenciales no se puede
- *    probar la autorización por rol, que es de lo que más depende este proyecto.
+ * Entonces, ¿por qué sigue existiendo el archivo? Porque **las pruebas E2E la
+ * necesitan** y son lo que sostiene la parte del proyecto que más depende de
+ * verificación: la autorización por rol. La suite inicia sesión como ADMIN,
+ * COMMERCIAL y CONTENT para comprobar que cada uno ve lo suyo y no ve lo ajeno;
+ * con una clave única que entra siempre como la misma cuenta administradora, esas
+ * comprobaciones no se podrían escribir. `playwright.config.ts` activa la
+ * variable en el servidor bajo prueba, y solo ahí.
  *
- * **No está enlazada desde ninguna parte**, y eso no es seguridad por
- * oscuridad: lo que protege el panel es la validación de sesión en servidor de
- * cada ruta, no que este formulario sea difícil de encontrar. Simplemente no
- * estorba a quien entra por la puerta principal.
+ * **La consecuencia real, que conviene tener presente:** mientras la variable no
+ * esté en el despliegue, los perfiles CONTENT y COMMERCIAL no pueden iniciar
+ * sesión en producción. Siguen existiendo y sus permisos se siguen validando en
+ * servidor, pero no hay puerta para ellos. Es exactamente lo que se pidió; el día
+ * que haya equipo, basta con declarar la variable.
+ *
+ * El 404 no es seguridad por oscuridad: lo que protege el panel es la validación
+ * de sesión en servidor de cada ruta. Es, simplemente, que la puerta no está.
  */
 export default async function AdminCredentialsLoginPage() {
+  if (!isCredentialsLoginEnabled()) {
+    // 404 y no 403, igual que el resto del proyecto: un 403 confirmaría que la
+    // ruta existe.
+    notFound()
+  }
+
   if (await getSessionUser()) {
     redirect("/admin")
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { matchesAdminGatePassword, readAdminGateConfig } from "@/lib/auth/admin-gate"
+import { isCredentialsLoginEnabled, matchesAdminGatePassword, readAdminGateConfig } from "@/lib/auth/admin-gate"
 
 /**
  * La puerta de clave única es la parte del proyecto con menos margen de error:
@@ -83,5 +83,31 @@ describe("matchesAdminGatePassword", () => {
     // tiempo de respuesta. Aquí toda comparación cuesta lo mismo.
     expect(matchesAdminGatePassword("x", esperada)).toBe(false)
     expect(matchesAdminGatePassword("x".repeat(500), esperada)).toBe(false)
+  })
+})
+
+describe("isCredentialsLoginEnabled", () => {
+  it("solo el valor exacto \"true\" abre la segunda puerta", () => {
+    // Es lo que hace que el despliegue tenga una sola forma de entrar. Cualquier
+    // otro valor —incluido "TRUE" o "1"— deja la ruta en 404.
+    expect(isCredentialsLoginEnabled({ ENABLE_CREDENTIALS_LOGIN: "true" } as unknown as NodeJS.ProcessEnv)).toBe(true)
+    expect(isCredentialsLoginEnabled({ ENABLE_CREDENTIALS_LOGIN: "  true  " } as unknown as NodeJS.ProcessEnv)).toBe(true)
+
+    for (const valor of ["TRUE", "True", "1", "yes", "sí", "false", ""]) {
+      expect(
+        isCredentialsLoginEnabled({ ENABLE_CREDENTIALS_LOGIN: valor } as unknown as NodeJS.ProcessEnv),
+        `"${valor}" no debe abrir la puerta`
+      ).toBe(false)
+    }
+  })
+
+  it("cerrada por defecto", () => {
+    expect(isCredentialsLoginEnabled({} as NodeJS.ProcessEnv)).toBe(false)
+  })
+
+  it("el entorno real de este proyecto la tiene cerrada", () => {
+    // Vitest no carga .env.e2e, así que aquí se lee el entorno de desarrollo: si
+    // alguien añadiera la variable a .env, esta prueba lo diría.
+    expect(isCredentialsLoginEnabled()).toBe(false)
   })
 })

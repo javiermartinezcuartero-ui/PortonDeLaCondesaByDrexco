@@ -19,6 +19,15 @@ const baseURL = process.env.E2E_BASE_URL?.trim() || "http://localhost:3100"
 const port = new URL(baseURL).port || "3100"
 
 /**
+ * Clave de la puerta única en el escenario de pruebas.
+ *
+ * Se exporta para que el spec use la misma constante y no una copia: dos
+ * literales iguales en dos archivos se separan en cuanto alguien cambia uno.
+ * Nada que ver con la clave del despliegue, que vive en su entorno.
+ */
+export const GATE_TEST_PASSWORD = "clave-de-prueba-del-gate"
+
+/**
  * Entorno del servidor bajo prueba.
  *
  * `DATABASE_URL` se sustituye por la base de pruebas: es lo que hace que el
@@ -43,6 +52,18 @@ function serverEnvironment(): Record<string, string> {
     VIP_TOKEN_HASH_SECRET: process.env.E2E_VIP_TOKEN_HASH_SECRET ?? "",
     // Las fichas del escenario son isDemo=true: sin esto no se listarían.
     ENABLE_DEMO_CONTENT: "true",
+    // Abre `/admin/login/credenciales`, que en el despliegue responde 404: la
+    // clave única de `/admin/login` es allí la única puerta. Aquí hace falta
+    // porque la suite inicia sesión como ADMIN, COMMERCIAL y CONTENT para
+    // comprobar que cada rol ve lo suyo, y la clave única entra siempre como la
+    // misma cuenta administradora. Es el único sitio donde se declara.
+    ENABLE_CREDENTIALS_LOGIN: "true",
+    // La puerta de clave única, apuntando a la cuenta ADMIN del escenario. La
+    // clave es de prueba y no tiene nada que ver con la del despliegue, que vive
+    // en su entorno y no en el repositorio.
+    ADMIN_GATE_PASSWORD: GATE_TEST_PASSWORD,
+    ADMIN_GATE_EMAIL: process.env.E2E_ADMIN_EMAIL ?? "",
+    ADMIN_GATE_ACCOUNT_PASSWORD: process.env.E2E_ADMIN_PASSWORD ?? "",
     // Storage se hereda del entorno real: el escenario 8 sube una imagen de
     // verdad y `scripts/e2e-seed.ts` borra después los objetos que subió.
     SUPABASE_URL: process.env.SUPABASE_URL ?? "",

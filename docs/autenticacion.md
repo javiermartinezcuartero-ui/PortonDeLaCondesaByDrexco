@@ -7,11 +7,16 @@ compatible con el adaptador de Prisma de Better Auth) y
 
 ## Dos pantallas de acceso (Fase 14)
 
-`/admin/login` pide **una sola clave, sin usuario**, por decisión del titular.
-`/admin/login/credenciales` conserva el acceso por correo y contraseña, y hace
-falta para los perfiles CONTENT y COMMERCIAL —la clave única entra siempre como
-la misma cuenta ADMIN— y para las pruebas E2E, que comprueban la autorización por
-rol.
+`/admin/login` pide **una sola clave, sin usuario**, por decisión del titular, y
+es la **única** puerta del despliegue. `/admin/login/credenciales` conserva el
+acceso por correo y contraseña, pero responde **404** salvo que el entorno declare
+`ENABLE_CREDENTIALS_LOGIN=true`; lo declara únicamente el servidor bajo prueba de
+`playwright.config.ts`, porque la autorización por rol no se puede verificar
+entrando siempre como la misma cuenta.
+
+Consecuencia a tener presente: mientras esa variable no esté en el despliegue,
+**CONTENT y COMMERCIAL no pueden iniciar sesión en producción**. Sus permisos se
+siguen validando en servidor; lo que no hay es puerta para ellos.
 
 **No hay dos sistemas de autenticación.** La clave única no crea sesiones por su
 cuenta: cuando acierta, el servidor llama a `auth.api.signInEmail` contra una

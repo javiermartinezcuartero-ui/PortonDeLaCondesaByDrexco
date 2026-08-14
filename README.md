@@ -719,6 +719,7 @@ Plantilla sin valores en `.env.example`. El `.env` real **no se versiona** y hay
 | `ADMIN_GATE_PASSWORD` | La clave única que se teclea en `/admin/login`. Mínimo 8 caracteres | **En uso** desde Fase 14 |
 | `ADMIN_GATE_EMAIL` | Cuenta real, con rol ADMIN, contra la que se inicia sesión al acertar la clave | **En uso** desde Fase 14 |
 | `ADMIN_GATE_ACCOUNT_PASSWORD` | Contraseña de esa cuenta. No se teclea nunca en la pantalla | **En uso** desde Fase 14 |
+| `ENABLE_CREDENTIALS_LOGIN` | Abre `/admin/login/credenciales`, que sin ella responde 404. Solo el valor exacto `true` | **No se declara en el despliegue.** La usa el servidor de las pruebas E2E |
 | `ENABLE_DEMO_CONTENT` | Si no es `"true"`, oculta de los listados públicos las fichas con `isDemo=true` | **En uso** desde Fase 2 |
 | `CSP_ENFORCE` | `"true"` hace que la CSP bloquee en vez de solo informar | **Opcional**, apagado (§25) |
 | `DATA_RETENTION_MONTHS` | Plazo de retención en meses (1–240) para **identificar** candidatos a anonimizar | **Opcional**, 36 por defecto. Nada se anonimiza solo, y el plazo no está validado jurídicamente |
@@ -845,10 +846,14 @@ npx prisma validate         # valida el esquema
 
 Desde la Fase 14 hay dos pantallas de acceso, y las dos acaban en la misma sesión de Better Auth:
 
-| Pantalla | Qué pide | Para quién |
+| Pantalla | Qué pide | Disponible |
 |---|---|---|
-| `/admin/login` | **Una sola clave**, sin usuario | Uso habitual del titular. Entra como la cuenta administradora configurada |
-| `/admin/login/credenciales` | Correo y contraseña | Los perfiles CONTENT y COMMERCIAL, y las pruebas E2E. No está enlazada |
+| `/admin/login` | **Una sola clave**, sin usuario | Siempre. Es la puerta del despliegue |
+| `/admin/login/credenciales` | Correo y contraseña | **404 salvo que el entorno declare `ENABLE_CREDENTIALS_LOGIN=true`**, que solo hace el servidor de las pruebas E2E |
+
+**En el despliegue hay una sola forma de entrar**, por decisión expresa del titular. La segunda pantalla existe porque las pruebas E2E inician sesión como ADMIN, COMMERCIAL y CONTENT para verificar que cada rol ve lo suyo y no ve lo ajeno, y eso no se puede comprobar con una clave que entra siempre como la misma cuenta. `playwright.config.ts` declara la variable; ningún otro sitio lo hace.
+
+La consecuencia, dicha sin rodeos: **mientras esa variable no esté en el despliegue, CONTENT y COMMERCIAL no pueden iniciar sesión en producción.** Los roles siguen existiendo y sus permisos se siguen validando en servidor; lo que no hay es puerta para ellos. Es lo que se pidió, y el día que haya equipo basta con declarar la variable.
 
 La clave única es una **decisión explícita del titular, tomada a sabiendas de lo que cuesta**, y lo que cuesta está en §25. Lo importante aquí es lo que *no* cambió: no se ha añadido un segundo sistema de autenticación —lo que las reglas del proyecto prohíben—, sino una forma distinta de abrir el que ya había. Al acertar la clave, el servidor inicia sesión contra una cuenta real con `auth.api.signInEmail`, y a partir de ahí todo el panel funciona como antes: permisos, `AuditEvent`, revocación de sesión y expiración incluidas.
 
@@ -1024,7 +1029,7 @@ Desde la Fase 14, `/admin/login` pide una sola clave sin usuario (§21). Es una 
 
 - **Se pierde saber quién hizo cada cosa.** Los `AuditEvent` se siguen escribiendo, pero todos con el mismo actor. Con una sola persona operando es soportable; con equipo, el registro deja de servir para lo que existe.
 - **Se pierde revocar a una persona.** Cambiar la clave se la cambia a todo el mundo.
-- **Se pierde la separación de perfiles por esa puerta.** Quien entra por ahí entra como ADMIN. CONTENT y COMMERCIAL siguen existiendo y siguen validándose en servidor, pero se accede a ellos por `/admin/login/credenciales`.
+- **Se pierde la separación de perfiles.** Quien entra por ahí entra como ADMIN, y como el acceso por credenciales responde 404 en el despliegue, CONTENT y COMMERCIAL no tienen puerta en producción. Sus permisos se siguen validando en servidor: lo que falta es por dónde entrar.
 
 Lo que **no** se ha cedido, porque no formaba parte de la decisión:
 
@@ -1312,7 +1317,7 @@ Los dos se encontraron en la auditoría final. Ninguno se ha reescrito, y el mot
 
 ### Funcionalidad
 
-- **La clave única del panel no distingue quién entra.** Todo lo que se hace por esa puerta queda auditado con el mismo actor, y cambiar la clave se la cambia a todo el mundo. Es una decisión del titular, no un descuido; el detalle de lo que cuesta y de lo que se protegió a pesar de ella está en §25, y el acceso por credenciales sigue disponible para los perfiles no administradores.
+- **La clave única del panel no distingue quién entra, y es la única puerta del despliegue.** Todo lo que se hace queda auditado con el mismo actor, cambiar la clave se la cambia a todo el mundo, y CONTENT y COMMERCIAL no pueden iniciar sesión en producción porque el acceso por credenciales responde 404 sin `ENABLE_CREDENTIALS_LOGIN`. Es una decisión del titular, no un descuido; el detalle está en §25.
 - **El alta de usuarios no tiene pantalla.** `/admin/usuarios` lista al equipo y cambia perfiles, pero no crea cuentas: hay que volver a ejecutar `npm run admin:bootstrap`, que crea un **ADMIN**, y degradar después. El README, el manual y la propia pantalla de Configuración prometían un alta desde el panel que no existía, lo que empujaba a dar privilegios de administración a todo el equipo; los tres textos están corregidos. Implementarla es una Server Action con creación de `User` + `Account` de credenciales y su auditoría.
 - **La tarea de seguimiento no guarda a qué solicitud pertenece.** El enlace queda en la actividad que registra su creación, no como columna, así que la vista de Tareas no puede filtrar por solicitud. Arreglarlo es una columna, una migración y un cambio en la vista.
 - **No se pueden añadir vídeos externos desde el editor.** El servicio y su validación están implementados y probados, pero el formulario solo sube imágenes. La media externa existente sí se lista, ordena y borra.
@@ -2141,7 +2146,13 @@ Lo que la implementación **no** cedió, porque no formaba parte de lo pedido: l
 
 **No se ha introducido un segundo sistema de autenticación**, que es lo que las reglas del proyecto prohíben: al acertar la clave, el servidor abre una sesión real de Better Auth contra una cuenta existente. De ahí que permisos, auditoría, revocación y expiración sigan funcionando sin tocarlos.
 
-**El cambio rompía las pruebas E2E, y eso reveló lo que faltaba.** La suite inicia sesión con tres perfiles para comprobar que cada uno ve lo suyo; con una sola clave que entra siempre como ADMIN, CONTENT y COMMERCIAL habrían quedado **inservibles** —no solo sin probar—. Se conservó el formulario de correo y contraseña en `/admin/login/credenciales`, sin enlazarlo desde ninguna parte, y se amplió la exención del middleware a las subrutas del login con `startsWith("/admin/login/")` en vez de un `startsWith("/admin/login")` a secas, que habría dejado pasar también `/admin/loginfalso`.
+**El cambio rompía las pruebas E2E, y eso reveló lo que faltaba.** La suite inicia sesión con tres perfiles para comprobar que cada uno ve lo suyo; con una sola clave que entra siempre como ADMIN, CONTENT y COMMERCIAL habrían quedado **inservibles** —no solo sin probar—. Se conservó el formulario de correo y contraseña en `/admin/login/credenciales`, y se amplió la exención del middleware a las subrutas del login con `startsWith("/admin/login/")` en vez de un `startsWith("/admin/login")` a secas, que habría dejado pasar también `/admin/loginfalso`.
+
+**Segunda vuelta, el mismo día: el titular pidió que no hubiera ninguna otra vía de acceso.** La primera versión dejaba el formulario de credenciales accesible pero sin enlazar, y eso no es lo que se pidió: no enlazar una puerta no es cerrarla. Ahora responde **404** salvo que el entorno declare `ENABLE_CREDENTIALS_LOGIN=true`, y el único sitio que lo declara es el servidor bajo prueba de `playwright.config.ts`. En el despliegue no existe esa variable, así que **la clave única es la única puerta**.
+
+La gradación importa y por eso se resolvió con una variable y no borrando el archivo: eliminarlo habría dejado sin cobertura la autorización por rol, que es lo que más sostiene este proyecto —23 de las 26 pruebas E2E dependen de poder iniciar sesión con tres perfiles distintos—. Con el interruptor, el despliegue tiene una sola entrada y las pruebas siguen verificando lo que siempre verificaron. Se añadió el escenario 14 (tres pruebas) para cubrir la puerta nueva de punta a punta: rechaza una clave incorrecta vaciando el campo, entra con Enter y da acceso completo, y no ofrece ninguna alternativa en pantalla.
+
+**Configuración de la puerta en este despliegue.** Se creó una cuenta ADMIN dedicada (`acceso.panel@…`) con una contraseña aleatoria de 40 caracteres que vive solo en el entorno: nadie la teclea nunca. La clave que se escribe es la que eligió el titular. Así la contraseña de la cuenta no es memorizable ni reutilizada, y la auditoría identifica esa cuenta como la de la puerta. Verificado en el navegador contra el servidor local: clave incorrecta rechazada con el campo vaciado, clave correcta dentro del panel con los ocho apartados de ADMIN, y `/admin/login/credenciales` devolviendo 404.
 
 **El panel adopta la estética de la pantalla de acceso** redefiniendo los tokens de color dentro de una clase `.admin-shell`, no reescribiendo las nueve vistas: ya se pintan con `bg-background`, `border-border` y `text-muted-foreground`, que en Tailwind 4 resuelven a variables CSS y por tanto heredan. Azul noche, superficies de vidrio, esquinas redondeadas, cabecera fija con la navegación en pastillas y tablas con cabecera adherente y filas que responden al puntero. El fondo del panel es un degradado y no la fotografía: una imagen a pantalla completa detrás de una tabla de datos compite con lo que hay que leer. El `--muted-foreground` se fijó en 0.78 de luminosidad, no en el gris del sitio público, que sobre este fondo se habría quedado en torno a 3:1.
 
@@ -2157,10 +2168,10 @@ Lo que la implementación **no** cedió, porque no formaba parte de lo pedido: l
 |---|---|
 | `npm run lint` | exit 0 |
 | `npm run typecheck` | exit 0 |
-| `npm test` | 60 archivos, **728 pruebas, todas verdes** (**+30**) |
-| `npm run e2e` | **23 pruebas, todas verdes** (2,9 min) |
+| `npm test` | 60 archivos, **731 pruebas, todas verdes** (**+33**) |
+| `npm run e2e` | **26 pruebas, todas verdes** (2,5 min) — 3 nuevas del escenario 14 |
 | `npm run build` | exit 0 |
 | Escáner de secretos | 0 hallazgos, tras corregir el valor de prueba que él mismo detectó |
-| Comprobación en navegador | Capturas de la home, la pantalla de acceso y tres vistas del panel con sesión ADMIN |
+| Comprobación en navegador | Home, pantalla de acceso, tres vistas del panel, y el recorrido real de la puerta: clave incorrecta, clave correcta y 404 de la segunda vía |
 
 **Dos fallos propios que conviene dejar escritos, porque los dos costaron una vuelta:** un `.next` que quedó inconsistente hacía que `/admin/login` devolviera **500 en producción y 200 en desarrollo**, y la primera captura salió en blanco por eso —se resolvió con `rm -rf .next` y build limpio—. Y la primera ejecución de las E2E falló en los tres perfiles porque `reuseExistingServer` reutilizó un `next start` mío que había quedado vivo en el puerto 3100 sirviendo justo ese build roto: las pruebas no fallaban por el cambio, sino por el servidor que encontraron.

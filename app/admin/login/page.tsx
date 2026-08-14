@@ -1,9 +1,7 @@
 import type { Metadata } from "next"
 import Image from "next/image"
 import Link from "next/link"
-import { redirect } from "next/navigation"
 import { brand } from "@/data/site-content"
-import { getSessionUser } from "@/lib/auth/session"
 import { GateForm } from "./gate-form"
 
 export const dynamic = "force-dynamic"
@@ -19,24 +17,22 @@ export const metadata: Metadata = {
 }
 
 /**
- * Quien ya tiene sesión válida no necesita ver este formulario.
+ * Esta pantalla se ve siempre, aunque el navegador conserve una sesión válida.
  *
- * La comprobación se hace **aquí** y no en el middleware a propósito. El
- * middleware solo puede mirar si la cookie existe (es Edge, no llega a la base de
- * datos), y con eso se producía un bucle infinito de redirecciones en cuanto una
- * cookie sobrevivía a su sesión —sesión caducada o revocada, rotación de
- * `BETTER_AUTH_SECRET`, base restaurada—: el panel redirigía al login por no
- * haber sesión, y el middleware devolvía al panel por haber cookie. El resultado
- * era `ERR_TOO_MANY_REDIRECTS`, no una pantalla de acceso.
+ * Antes, quien ya tenía sesión saltaba directo a `/admin` sin volver a teclear la
+ * clave: se comprobaba la sesión real **aquí** (no en el middleware, que solo mira
+ * si hay cookie) para evitar un bucle de redirecciones con una cookie que
+ * sobrevive a su sesión —caducada o revocada, rotación de `BETTER_AUTH_SECRET`,
+ * base restaurada—. Ese bucle se sigue evitando igual: el middleware deja pasar
+ * `/admin/login` sin condiciones, con o sin cookie.
  *
- * Validando la sesión de verdad, el caso se resuelve solo: sin sesión válida se
- * ve el formulario, aunque quede una cookie vieja en el navegador.
+ * Lo que cambia es que ya no se comprueba la sesión aquí para saltarse el
+ * formulario: es una decisión explícita del titular que entrar a la zona admin
+ * pida credenciales siempre, no solo cuando la sesión anterior ha caducado. Quien
+ * teclea la clave correcta abre una sesión nueva (`gate-action.ts`), que
+ * sustituye a la anterior en la cookie sin que haga falta cerrarla antes aposta.
  */
-export default async function AdminLoginPage() {
-  if (await getSessionUser()) {
-    redirect("/admin")
-  }
-
+export default function AdminLoginPage() {
   return (
     <main className="admin-gate relative flex min-h-screen items-center justify-center overflow-hidden px-6 py-16">
       {/*

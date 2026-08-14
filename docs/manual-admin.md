@@ -11,23 +11,25 @@ El acceso está en el **icono de engranaje** de la cabecera del sitio, arriba a 
 derecha. No hay enlace en el menú ni en el pie: es el único punto de entrada, y es
 discreto a propósito.
 
-También se puede escribir la dirección directamente: `/admin`.
+Se entra con una **clave única**, sin usuario: un solo campo de contraseña. Esta
+pantalla se ve siempre que se pulsa el engranaje, aunque el navegador conserve una
+sesión de una visita anterior: entrar a la zona admin pide la clave en todos los
+casos, no solo la primera vez.
 
-Se entra con **email y contraseña**. No hay registro público: las cuentas las crea
-una persona con perfil ADMIN desde el propio panel.
+Si el mensaje de error dice "Contraseña incorrecta", puede ser esa clave o que la
+cuenta a la que da acceso esté mal configurada en el despliegue. Es intencionado: un
+mensaje más preciso le diría a un desconocido más de lo necesario.
 
-Si el mensaje de error dice "Email o contraseña incorrectos", puede ser cualquiera de
-las dos cosas. Es intencionado: un mensaje más preciso le diría a un desconocido qué
-correos existen en el sistema.
-
-Tras tres intentos fallidos seguidos hay que esperar diez segundos. También es una
+Tras cinco intentos fallidos en diez minutos hay que esperar. También es una
 protección, no una avería.
 
-### Cerrar sesión
+### Salir
 
-El enlace **Cerrar sesión**, arriba a la derecha del panel. Cierra la sesión de
-verdad: no basta con cerrar la pestaña. Si alguien copiase la cookie del navegador
-antes de cerrar, dejaría de servirle en el momento en que se pulsa ese enlace.
+El botón **Salir**, arriba a la derecha del panel. Cierra la sesión de verdad: no
+basta con cerrar la pestaña. Si alguien copiase la cookie del navegador antes de
+cerrar, dejaría de servirle en el momento en que se pulsa ese botón. Si el cierre no
+se puede confirmar, el botón lo dice en vez de dar la sesión por cerrada sin
+estarlo.
 
 ---
 
@@ -96,6 +98,11 @@ puntuación mínima, tipo de interacción, consentimiento de marketing (concedid
 conceder / indiferente) y rango de fechas. Los filtros quedan en la dirección de la
 página, así que se puede guardar en favoritos una vista concreta o pasarla a un
 compañero.
+
+**Eliminar** (solo ADMIN, icono de papelera al final de la fila). Es la misma
+anonimización irreversible del apartado 13, solo que en un clic desde la lista, sin
+tener que entrar antes en la ficha: pide escribir `ANONIMIZAR` antes de aplicarse. La
+fila no desaparece del listado; se queda anonimizada.
 
 ### Ficha del contacto (vista 360º)
 
@@ -374,9 +381,14 @@ lo que la ley permite pedir:
 - **Revocar los accesos VIP** de esa persona.
 - **Anonimizar.** Borra nombre, email, teléfono, mensajes y notas, y conserva solo lo
   que sirve para estadísticas (tipo de evento, invitados, espacio, estado). Pide
-  escribir la palabra `ANONIMIZAR` porque **no se puede deshacer**.
+  escribir la palabra `ANONIMIZAR` porque **no se puede deshacer**. También
+  disponible como botón directo desde el listado de Captaciones (apartado 4).
 
-Una persona anonimizada deja de aparecer en las búsquedas y en las exportaciones.
+Una persona anonimizada **sigue apareciendo** en el listado, en las búsquedas y en
+las exportaciones: lo que cambia es que su nombre, email y teléfono ya no son los
+suyos, sino el marcador irreversible que deja la anonimización. Lo que desaparece es
+la persona identificable, no la fila: las cifras agregadas del CRM tienen que seguir
+cuadrando.
 
 ---
 

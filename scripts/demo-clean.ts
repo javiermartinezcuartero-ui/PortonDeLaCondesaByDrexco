@@ -9,7 +9,9 @@
  * **No borra nada que no sea de la demo.** Los contactos y usuarios ficticios se
  * identifican por el dominio `demo.portondelacondesa.test` (ver lib/domain/demo.ts)
  * y las fichas por `isDemo = true`. Un contacto real no puede coincidir con
- * ninguno de los dos criterios.
+ * ninguno de los dos criterios. Un contacto de demostración que además se
+ * anonimizó se reconoce aparte, por `LeadRequest.submissionId` (prefijo `demo-`),
+ * porque anonimizar le sobrescribe justo el email por el que se le reconocería.
  *
  * **"Desactivar la cuenta" no es borrarla.** Se le quitan las credenciales y se
  * revocan sus sesiones, de modo que no puede volver a entrar, pero el usuario sigue
@@ -37,10 +39,30 @@ async function main() {
     where: { emailNormalized: { endsWith: emailSuffix } },
     select: { id: true, email: true },
   })
-  console.log(`Contactos de demostración: ${leads.length}`)
 
-  if (!dryRun && leads.length) {
-    const { count } = await prisma.lead.deleteMany({ where: { id: { in: leads.map((lead) => lead.id) } } })
+  // Un contacto de demostración que se anonimizó alguna vez (para probar o enseñar
+  // esa función) deja de coincidir con la consulta de arriba: anonimizar sobrescribe
+  // justo el email por el que se reconoce la demo (ver lib/domain/privacy.ts). Sin
+  // esto, `demo:clean` no vuelve a verlo nunca y se queda huérfano para siempre, sin
+  // que ninguna herramienta sepa que es de la demo. Se reconoce en su lugar por
+  // `LeadRequest.submissionId`: la anonimización no lo toca, y solo el sembrado de
+  // demostración escribe uno con el prefijo `demo-` (ver scripts/demo-seed.ts).
+  const anonymizedDemoLeads = await prisma.lead.findMany({
+    where: {
+      lifecycle: "ANONYMIZED",
+      id: { notIn: leads.map((lead) => lead.id) },
+      requests: { some: { submissionId: { startsWith: "demo-" } } },
+    },
+    select: { id: true, email: true },
+  })
+
+  const demoLeadIds = [...leads.map((lead) => lead.id), ...anonymizedDemoLeads.map((lead) => lead.id)]
+  console.log(
+    `Contactos de demostración: ${leads.length} (por email) + ${anonymizedDemoLeads.length} (ya anonimizados, reconocidos por submissionId)`
+  )
+
+  if (!dryRun && demoLeadIds.length) {
+    const { count } = await prisma.lead.deleteMany({ where: { id: { in: demoLeadIds } } })
     console.log(`  borrados: ${count} (con su historial completo por cascada)`)
   }
 

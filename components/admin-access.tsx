@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils"
 import { adminAccessContent as adminAccessContentEs } from "@/data/site-content"
 import { adminAccessContent as adminAccessContentEn } from "@/data/site-content.en"
 import { useLocale } from "@/lib/i18n"
-import { authClient } from "@/lib/auth-client"
 
 /**
  * Acceso al panel privado desde la cabecera pública.
@@ -17,20 +16,26 @@ import { authClient } from "@/lib/auth-client"
  *
  * Su visibilidad no es una vulnerabilidad: `/admin/login` es una ruta pública
  * por diseño y todo lo que hay detrás se valida en servidor (ver
- * docs/autenticacion.md). Si ya existe sesión, lleva directamente a `/admin`.
+ * docs/autenticacion.md).
+ *
+ * Siempre lleva a `/admin/login`, aunque el navegador conserve una sesión
+ * válida. Antes, con sesión viva, saltaba directo a `/admin` sin volver a pedir
+ * la clave: es una decisión explícita del titular que ese atajo no exista, para
+ * que entrar a la zona admin pida credenciales siempre. `/admin/login` ya no
+ * redirige solo por tener sesión (ver app/admin/login/page.tsx), así que este
+ * enlace siempre desemboca en el formulario.
  */
 export function AdminAccess({ className }: { className?: string }) {
   const { locale } = useLocale()
   const adminAccessContent = locale === "en" ? adminAccessContentEn : adminAccessContentEs
   const router = useRouter()
-  const { data: session } = authClient.useSession()
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <button
           type="button"
-          onClick={() => router.push(session ? "/admin" : "/admin/login")}
+          onClick={() => router.push("/admin/login")}
           aria-label={adminAccessContent.tooltip}
           className={cn(
             // 32 px: el acceso al panel es una herramienta interna, no una llamada

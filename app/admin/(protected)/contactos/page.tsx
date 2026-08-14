@@ -14,6 +14,7 @@ import {
   parsePositiveIntParam,
 } from "@/lib/validation/crm"
 import { EmptyState, FilterPanel, Pagination, Pill, filterFieldClass, filterLabelClass } from "../crm-ui"
+import { DeleteLeadButton } from "./delete-lead-button"
 
 export const dynamic = "force-dynamic"
 
@@ -198,7 +199,8 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
                 <th scope="col" className="py-2.5 pr-4">Origen</th>
                 <th scope="col" className="py-2.5 pr-4">Solicitudes</th>
                 <th scope="col" className="py-2.5 pr-4">Interacciones</th>
-                <th scope="col" className="py-2.5">Última actividad</th>
+                <th scope="col" className="py-2.5 pr-4">Última actividad</th>
+                {canExport && <th scope="col" className="py-2.5">Acciones</th>}
               </tr>
             </thead>
             <tbody>
@@ -224,7 +226,14 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
                   <td className="py-3 pr-4 text-muted-foreground">{lead.firstSource ?? "—"}</td>
                   <td className="py-3 pr-4 text-muted-foreground">{lead._count.requests}</td>
                   <td className="py-3 pr-4 text-muted-foreground">{lead._count.interactions}</td>
-                  <td className="py-3 text-muted-foreground">{formatDate(lead.lastActivityAt)}</td>
+                  <td className="py-3 pr-4 text-muted-foreground">{formatDate(lead.lastActivityAt)}</td>
+                  {canExport && (
+                    <td className="py-3">
+                      {lead.lifecycle !== "ANONYMIZED" && (
+                        <DeleteLeadButton leadId={lead.id} name={leadName(lead)} />
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

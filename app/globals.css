@@ -620,14 +620,48 @@ html.cargado .site-preloader {
   background-color: var(--admin-pill-hover);
 }
 
+/* Envoltorio de cada grupo de pestañas: agrupa por tipología, no por página
+ * individual. Lee `--tono` del atributo `data-tono` que fija cada grupo en
+ * layout.tsx (el mismo canal que ya usan las pastillas de fase del pipeline) y
+ * lo aplica a muy baja opacidad, porque aquí es un fondo de agrupación, no una
+ * etiqueta de estado: tiene que leerse como "estas pestañas van juntas", no
+ * competir con el contenido. */
+.admin-shell .admin-navgroup {
+  background-color: color-mix(in oklch, var(--tono) 16%, transparent);
+}
+
 .admin-shell .admin-navlink {
+  position: relative;
   color: var(--muted-foreground);
   transition: background-color 250ms ease, color 250ms ease;
 }
 
 .admin-shell .admin-navlink:hover {
-  background-color: var(--admin-pill);
+  background-color: color-mix(in oklch, var(--tono) 30%, transparent);
   color: var(--foreground);
+}
+
+/* Línea de hover, siempre naranja con independencia del grupo: el matiz de cada
+ * grupo dice "estas pestañas van juntas"; el naranja dice "esta es la que estás
+ * señalando ahora mismo", y por eso no puede ser uno de los matices de grupo, o
+ * las dos lecturas se confundirían en el grupo que ya fuera naranja. Insertada
+ * unos px por dentro de los bordes de la pastilla para no quedar cortada por su
+ * esquina redondeada. */
+.admin-shell .admin-navlink::after {
+  content: "";
+  position: absolute;
+  left: 0.7rem;
+  right: 0.7rem;
+  bottom: 3px;
+  height: 2px;
+  border-radius: 1px;
+  background-color: oklch(0.57 0.17 50);
+  transform: scaleX(0);
+  transition: transform 220ms ease;
+}
+
+.admin-shell .admin-navlink:hover::after {
+  transform: scaleX(1);
 }
 
 /* Los títulos que en el sitio público van en serif pasan a sans con el tracking

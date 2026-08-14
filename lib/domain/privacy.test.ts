@@ -15,6 +15,7 @@ import { hashVipToken } from "@/lib/security/hash"
 import { hasMarketingConsent } from "@/lib/notifications/lead-request-notification"
 
 const createdEmails: string[] = []
+const createdLeadIds: string[] = []
 const createdUserIds: string[] = []
 const originalRetention = process.env.DATA_RETENTION_MONTHS
 
@@ -28,8 +29,16 @@ afterEach(async () => {
   if (originalRetention === undefined) delete process.env.DATA_RETENTION_MONTHS
   else process.env.DATA_RETENTION_MONTHS = originalRetention
 
-  if (createdEmails.length) {
-    await prisma.lead.deleteMany({ where: { emailNormalized: { in: createdEmails } } })
+  // Por id, no solo por email: `anonymizeLead` sobrescribe justo el email por el
+  // que se le reconocería (ver lib/domain/privacy.ts), así que un test que
+  // anonimiza su lead de prueba dejaba de coincidir con `createdEmails` y el
+  // contacto de prueba, ya anonimizado, se quedaba en la base para siempre. El id
+  // no lo toca la anonimización.
+  if (createdLeadIds.length || createdEmails.length) {
+    await prisma.lead.deleteMany({
+      where: { OR: [{ id: { in: createdLeadIds } }, { emailNormalized: { in: createdEmails } }] },
+    })
+    createdLeadIds.length = 0
     createdEmails.length = 0
   }
   if (createdUserIds.length) {
@@ -41,7 +50,7 @@ afterEach(async () => {
 async function createLead(overrides: Record<string, unknown> = {}) {
   const email = uniqueTestEmail("privacidad")
   createdEmails.push(email.toLowerCase())
-  return prisma.lead.create({
+  const lead = await prisma.lead.create({
     data: {
       email,
       emailNormalized: email.toLowerCase(),
@@ -52,6 +61,8 @@ async function createLead(overrides: Record<string, unknown> = {}) {
       ...overrides,
     },
   })
+  createdLeadIds.push(lead.id)
+  return lead
 }
 
 async function createActor() {

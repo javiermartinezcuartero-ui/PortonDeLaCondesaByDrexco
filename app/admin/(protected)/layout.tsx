@@ -33,15 +33,45 @@ export const metadata: Metadata = {
  * `revalidatePath` de cada Server Action y los diez escenarios E2E, sin ganar nada que se
  * vea en pantalla.
  */
-const SECTIONS: Array<{ href: string; label: string; permission: Permission }> = [
-  { href: "/admin", label: "Estatus Plataforma", permission: "crm:access" },
-  { href: "/admin/contactos", label: "Captaciones", permission: "crm:access" },
-  { href: "/admin/solicitudes", label: "Solicitudes Formulario", permission: "crm:access" },
-  { href: "/admin/pipeline", label: "Seguimiento clientes", permission: "crm:access" },
-  { href: "/admin/tareas", label: "Acciones", permission: "crm:access" },
-  { href: "/admin/contenidos", label: "Contenidos Biblioteca", permission: "cms:access" },
-  { href: "/admin/informes", label: "Informes captación", permission: "crm:access" },
-  { href: "/admin/configuracion", label: "Puntuación Visitantes", permission: "settings:manage" },
+type NavSection = { href: string; label: string; permission: Permission }
+
+/**
+ * Los ocho apartados agrupados por tipología, cada grupo con su propio matiz.
+ *
+ * Reutiliza el mismo sistema `[data-tono]` que ya tiñe las pastillas de fase del
+ * pipeline (ver app/globals.css): un grupo fija `--tono` y `.admin-navgroup` lo lee
+ * a baja opacidad, así que no hace falta un segundo esquema de color para esto.
+ * "naranja" queda fuera a propósito: es el único matiz que no identifica a ningún
+ * grupo, así que sirve sin ambigüedad para la línea de hover de cualquier pestaña,
+ * sea cual sea su grupo.
+ */
+const NAV_GROUPS: Array<{ tono: "gris" | "azul" | "verde" | "violeta"; items: NavSection[] }> = [
+  {
+    tono: "gris",
+    items: [{ href: "/admin", label: "Estatus Plataforma", permission: "crm:access" }],
+  },
+  {
+    tono: "azul",
+    items: [
+      { href: "/admin/contactos", label: "Captaciones", permission: "crm:access" },
+      { href: "/admin/solicitudes", label: "Solicitudes Formulario", permission: "crm:access" },
+    ],
+  },
+  {
+    tono: "verde",
+    items: [
+      { href: "/admin/pipeline", label: "Seguimiento clientes", permission: "crm:access" },
+      { href: "/admin/tareas", label: "Acciones", permission: "crm:access" },
+    ],
+  },
+  {
+    tono: "violeta",
+    items: [
+      { href: "/admin/contenidos", label: "Contenidos Biblioteca", permission: "cms:access" },
+      { href: "/admin/informes", label: "Informes captación", permission: "crm:access" },
+      { href: "/admin/configuracion", label: "Puntuación Visitantes", permission: "settings:manage" },
+    ],
+  },
 ]
 
 export default async function AdminProtectedLayout({ children }: { children: ReactNode }) {
@@ -54,7 +84,13 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
     redirect("/admin/login")
   }
 
-  const sections = SECTIONS.filter((section) => roleHasPermission(user.role, section.permission))
+  // Cada grupo se filtra por separado y se descarta si se queda vacío: un
+  // perfil CONTENT, por ejemplo, no debe ver un bloque violeta de un único
+  // elemento ("Contenidos Biblioteca") con el aire de una caja vacía a su lado.
+  const groups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((section) => roleHasPermission(user.role, section.permission)),
+  })).filter((group) => group.items.length > 0)
 
   // El modo se lee aquí, en el servidor, para que el HTML salga ya con el que
   // corresponde. Sin esto habría un parpadeo en cada carga: el primer pintado en un
@@ -100,15 +136,19 @@ export default async function AdminProtectedLayout({ children }: { children: Rea
             filas y la cabecera crecía hasta comerse el título de la página. Se pasan a
             caja normal con el espaciado justo, que además es lo que hace un CRM: la
             navegación se lee, no se declama. */}
-        <nav aria-label="Secciones del panel" className="flex flex-wrap gap-0.5 px-6 pb-2 pt-3">
-          {sections.map((section) => (
-            <Link
-              key={section.href}
-              href={section.href}
-              className="admin-navlink rounded-full px-3 py-1.5 text-[13px] font-medium tracking-[-0.005em]"
-            >
-              {section.label}
-            </Link>
+        <nav aria-label="Secciones del panel" className="flex flex-wrap gap-2.5 px-6 pb-2 pt-3">
+          {groups.map((group) => (
+            <div key={group.tono} data-tono={group.tono} className="admin-navgroup flex flex-wrap gap-0.5 rounded-full p-1">
+              {group.items.map((section) => (
+                <Link
+                  key={section.href}
+                  href={section.href}
+                  className="admin-navlink rounded-full px-3 py-1.5 text-[13px] font-medium tracking-[-0.005em]"
+                >
+                  {section.label}
+                </Link>
+              ))}
+            </div>
           ))}
         </nav>
       </header>

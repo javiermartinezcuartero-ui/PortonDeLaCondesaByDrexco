@@ -22,6 +22,7 @@
     "secrets:history": "tsx --tsconfig tsconfig.scripts.json scripts/secrets-scan-history.ts",
     "demo:seed": "tsx --env-file-if-exists=.env --tsconfig tsconfig.scripts.json scripts/demo-seed.ts",
     "demo:clean": "tsx --env-file-if-exists=.env --tsconfig tsconfig.scripts.json scripts/demo-clean.ts",
+    "test:clean": "tsx --env-file-if-exists=.env --tsconfig tsconfig.scripts.json scripts/test-data-clean.ts",
     "e2e": "playwright test",
     "e2e:env": "node scripts/e2e-env-init.mjs",
     "e2e:ui": "playwright test --ui",

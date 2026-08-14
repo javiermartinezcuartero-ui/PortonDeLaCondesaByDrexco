@@ -97,7 +97,7 @@ export async function listRequestsForAdmin(filters: RequestListFilters = {}) {
   const where = buildRequestWhere(filters)
   const orderBy = REQUEST_SORTS[filters.sort ?? "recientes"]
 
-  const [total, requests] = await Promise.all([
+  const [total, rows] = await Promise.all([
     prisma.leadRequest.count({ where }),
     prisma.leadRequest.findMany({
       where,
@@ -120,11 +120,38 @@ export async function listRequestsForAdmin(filters: RequestListFilters = {}) {
         utmSource: true,
         utmCampaign: true,
         sourceContentId: true,
-        lead: { select: { id: true, email: true, firstName: true, lastName: true, phone: true, score: true } },
+        // `leadId` en vez de la relación anidada: ver el comentario de abajo.
+        leadId: true,
         owner: { select: { id: true, name: true } },
       },
     }),
   ])
+
+  // El contacto se lee en una consulta aparte, igual que en la exportación
+  // (`crm-export.ts`), y por el mismo motivo.
+  //
+  // `LeadRequest.lead` es una relación **obligatoria**. Prisma la resuelve con una
+  // segunda consulta interna, y si el contacto desaparece entre las dos lanza
+  // `Inconsistent query result: Field lead is required to return data, got null` y
+  // **el listado entero de Solicitudes devuelve 500**. La auditoría final corrigió
+  // este mismo defecto en la exportación, pero el listado se quedó sin arreglar:
+  // volvió a aparecer como fallo intermitente de la suite, donde otro archivo de
+  // pruebas borra contactos en paralelo.
+  //
+  // En producción la ventana es estrecha —`anonymizeLead` vacía el contacto, no lo
+  // borra— pero existe: basta con abrir Solicitudes mientras alguien ejecuta una
+  // supresión o `test:clean`. Con dos consultas explícitas el número de viajes a la
+  // base no cambia, y una fila huérfana se omite en vez de tumbar la pantalla.
+  const leadIds = [...new Set(rows.map((row) => row.leadId))]
+  const leads = await prisma.lead.findMany({
+    where: { id: { in: leadIds } },
+    select: { id: true, email: true, firstName: true, lastName: true, phone: true, score: true },
+  })
+  const leadById = new Map(leads.map((lead) => [lead.id, lead]))
+
+  const requests = rows
+    .filter((row) => leadById.has(row.leadId))
+    .map(({ leadId, ...row }) => ({ ...row, lead: leadById.get(leadId)! }))
 
   return { requests, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) }
 }

@@ -526,69 +526,24 @@ describe("notas", () => {
 // ---------------------------------------------------------------------------
 // Scoring
 // ---------------------------------------------------------------------------
-
-describe("scoring", () => {
-  itDb("es idempotente: recalcular dos veces da el mismo número", async () => {
-    const lead = await createLead({ phone: "+34600112233", phoneNormalized: "+34600112233" })
-    await createRequest(lead.id, { eventDate: new Date("2027-06-12T12:00:00.000Z"), guestCount: 120 })
-
-    const first = await recalculateLeadScore(lead.id)
-    const second = await recalculateLeadScore(lead.id)
-    const third = await recalculateLeadScore(lead.id)
-
-    expect(second).toBe(first)
-    expect(third).toBe(first)
-    expect(first).toBeGreaterThan(0)
-  })
-
-  itDb("el mismo hito no suma dos veces aunque se repita", async () => {
-    const lead = await createLead()
-    await createRequest(lead.id)
-    const withOneRequest = await recalculateLeadScore(lead.id)
-
-    // Una segunda solicitud es más actividad, pero "ha enviado un formulario"
-    // sigue siendo un único hito cumplido.
-    await createRequest(lead.id, { subject: "Segunda consulta" })
-    const withTwoRequests = await recalculateLeadScore(lead.id)
-
-    expect(withTwoRequests).toBe(withOneRequest)
-  })
-
-  itDb("tres fichas distintas suman una sola vez, y dos no suman", async () => {
-    const twoViews = await createLead()
-    const threeViews = await createLead()
-
-    const entries = await Promise.all(
-      [1, 2, 3].map(() =>
-        prisma.contentEntry.create({ data: { type: "REAL_WEDDING", slug: uniqueSlug("score"), status: "PUBLISHED" } })
-      )
-    )
-    for (const entry of entries) createdContentIds.push(entry.id)
-
-    for (const entry of entries.slice(0, 2)) {
-      await prisma.contentInteraction.create({
-        data: { leadId: twoViews.id, contentEntryId: entry.id, section: "REAL_WEDDING", type: "CONTENT_VIEWED" },
-      })
-    }
-    for (const entry of entries) {
-      await prisma.contentInteraction.create({
-        data: { leadId: threeViews.id, contentEntryId: entry.id, section: "REAL_WEDDING", type: "CONTENT_VIEWED" },
-      })
-    }
-    // Repetir la misma ficha no cuenta como una ficha más.
-    await prisma.contentInteraction.create({
-      data: { leadId: threeViews.id, contentEntryId: entries[0].id, section: "REAL_WEDDING", type: "CONTENT_VIEWED" },
-    })
-
-    const rule = await prisma.scoringRule.findUnique({ where: { key: "CONTENT_VIEWED_3PLUS" } })
-    const weight = rule?.active ? rule.points : 0
-
-    const twoScore = await recalculateLeadScore(twoViews.id)
-    const threeScore = await recalculateLeadScore(threeViews.id)
-
-    expect(threeScore - twoScore).toBe(weight)
-  })
-})
+//
+// Las pruebas de puntuación se movieron a `lib/domain/scoring.test.ts`, y no por
+// orden: **eran la causa del fallo intermitente** que la auditoría final documentó
+// como "no se pudo capturar ni reproducir".
+//
+// El mecanismo, una vez visto, es simple. `ScoringRule` es una tabla de
+// configuración **global** —un peso por señal, una fila por clave— y
+// `scoring.test.ts` la modifica: fija puntos y desactiva `FORM_SUBMITTED` para
+// comprobar que una regla apagada no suma. Vitest ejecuta los archivos en paralelo
+// contra una única base de desarrollo, así que ese cambio ocurría mientras estas
+// pruebas recalculaban el mismo lead tres veces esperando el mismo número. El fallo
+// era `expected 40 to be 30`: entre el primer recálculo y el segundo, la regla
+// volvía a activarse y sumaba sus 10 puntos.
+//
+// Dentro de un mismo archivo Vitest sí ejecuta en serie, así que juntar a quien
+// muta la configuración con quien depende de ella elimina la carrera de raíz. No es
+// la solución de fondo —esa es una base aislada por archivo, que sigue pendiente—,
+// pero cierra este caso concreto en lugar de dejarlo anotado como misterio.
 
 // ---------------------------------------------------------------------------
 // Métricas
@@ -839,6 +794,57 @@ describe("listLeadsForAdmin — la paginación no puede repetir ni perder filas"
     } finally {
       await prisma.lead.deleteMany({ where: { id: { in: ids } } })
     }
+  })
+})
+
+describe("listRequestsForAdmin — resistente a un contacto que desaparece", () => {
+  itDb("una solicitud huérfana se omite en vez de tumbar el listado entero", async () => {
+    // Mismo defecto que abajo, en otro sitio, y esa es la lección: la auditoría
+    // final lo corrigió en la exportación y **dejó el listado sin arreglar**, así
+    // que el intermitente siguió apareciendo. Aquí el 500 es peor: la exportación
+    // es un clic ocasional, mientras que Solicitudes es la pantalla en la que el
+    // equipo trabaja todo el día.
+    //
+    // `LeadRequest.lead` es obligatoria y Prisma la resuelve con una segunda
+    // consulta; si el contacto desaparece entre ambas, lanza
+    // `Inconsistent query result: Field lead is required to return data, got null`.
+    // Ahora el contacto se lee aparte y la fila sin dueño se omite.
+    const marker = `listado-huerfano-${randomBytes(6).toString("hex")}`
+    const email = uniqueTestEmail(marker)
+
+    const lead = await prisma.lead.create({
+      data: { email, emailNormalized: email.toLowerCase(), firstName: "Sombra" },
+    })
+    await prisma.leadRequest.create({
+      data: { leadId: lead.id, eventType: "WEDDING", subject: marker, message: "mensaje" },
+    })
+
+    // Se rompe la integridad a propósito, saltándose la cascada de Prisma: la
+    // carrera real no se puede provocar de forma fiable.
+    await prisma.$executeRawUnsafe(`DELETE FROM "public"."lead" WHERE "id" = $1`, lead.id)
+
+    // Antes de la corrección esto lanzaba y la pantalla entera devolvía 500.
+    const { requests } = await listRequestsForAdmin({ search: marker })
+
+    expect(Array.isArray(requests)).toBe(true)
+    expect(requests.some((request) => request.subject === marker)).toBe(false)
+  })
+
+  itDb("un listado normal sí trae el contacto de cada solicitud", async () => {
+    // La otra mitad del contrato: al leer el contacto en una consulta aparte, lo
+    // que hay que asegurar es que sigue llegando. Sin esto, la corrección podría
+    // haber dejado el listado sin datos de contacto y nadie se enteraría.
+    const lead = await createLead({ firstName: "Presente", lastName: "Enlistado" })
+    const subject = `listado-ok-${randomBytes(6).toString("hex")}`
+    await createRequest(lead.id, { subject })
+
+    const { requests } = await listRequestsForAdmin({ search: subject })
+    const found = requests.find((request) => request.subject === subject)
+
+    expect(found).toBeDefined()
+    expect(found?.lead.id).toBe(lead.id)
+    expect(found?.lead.firstName).toBe("Presente")
+    expect(found?.lead.email).toBe(lead.email)
   })
 })
 

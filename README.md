@@ -953,6 +953,7 @@ Decisiones que hacen que la demo sea segura de enseñar y de retirar:
 | `npm run notify:overdue` | Envía el resumen interno de tareas vencidas. **Manual**: no hay programador |
 | `npm run privacy:retention` | Informa de qué contactos superan el plazo de retención. **No anonimiza** |
 | `npm run demo:seed` / `demo:clean` | Sembrar y retirar la demostración (§22) |
+| `npm run test:clean` | Retirar los contactos ficticios que dejan las pruebas de Vitest. `-- --seco` informa sin borrar; `-- --dominio=x.y` añade un dominio puntual |
 | `npm run secrets:history` | Escáner de secretos sobre **todo el historial de Git** (§25) |
 | `npm run e2e` | Las 23 pruebas end-to-end |
 | `npm run e2e:env` | Crea `.env.e2e` con secretos aleatorios. No sobrescribe |
@@ -1330,8 +1331,8 @@ Los dos se encontraron en la auditoría final. Ninguno se ha reescrito, y el mot
 
 ### Pruebas y operación
 
-- **Queda un fallo intermitente residual en la suite completa, y conviene decirlo con precisión.** Vitest ejecuta los archivos de prueba **en paralelo** contra una única base de datos de desarrollo, así que un archivo puede borrar filas que otro está leyendo. La auditoría final identificó y corrigió el mecanismo concreto que lo provocaba —la exportación de solicitudes reventaba con 500 si un contacto desaparecía entre las dos consultas de una relación obligatoria— y después la suite dio **cuatro pasadas consecutivas en verde**. Pero en una de las seis pasadas de validación apareció un fallo que **no se pudo capturar ni reproducir**, y por tanto no se puede afirmar que fuera el mismo. No se declara la suite "siempre verde": se declara que es del mismo tipo (paralelismo contra base compartida), que el único mecanismo identificado está corregido con su prueba, y que la solución de fondo es la migración pendiente que sigue en la línea siguiente. Un `npm test` que falla una vez de cada seis en integración continua sería un problema; en local, con este diagnóstico escrito, es una limitación conocida.
-- **Las pruebas de Vitest que usan base de datos corren contra la base de desarrollo real**, no contra una aislada. Las E2E **sí** usan una propia y desechable desde la Fase 10, pero migrar las 698 de Vitest al mismo contenedor está pendiente y merece su propia revisión.
+- **El intermitente residual quedó capturado y corregido en la Fase 15.** Eran **dos** mecanismos, no uno, y los dos venían del mismo origen: Vitest ejecuta los archivos **en paralelo** contra una única base de desarrollo. El primero, un estado global compartido —`ScoringRule` es una tabla de configuración, y un archivo cambiaba pesos mientras otro comprobaba que recalcular dos veces da el mismo número—. El segundo, el mismo defecto de relación obligatoria que la auditoría había corregido en la exportación **pero no en el listado de Solicitudes**, que es la pantalla donde el equipo trabaja todo el día. Ambos con su corrección y su prueba (§Historial, Fase 15), y después **tres pasadas consecutivas de la suite completa en verde**. La solución de fondo —una base aislada por archivo— sigue siendo la de la línea siguiente.
+- **Las pruebas de Vitest que usan base de datos corren contra la base de desarrollo real**, no contra una aislada. Las E2E **sí** usan una propia y desechable desde la Fase 10, pero migrar las de Vitest al mismo contenedor está pendiente y merece su propia revisión. Mientras tanto, cada ejecución completa deja cientos de contactos ficticios en el CRM: se retiran con **`npm run test:clean`**, que solo alcanza dominios reservados por el IETF y por tanto no puede tocar a nadie real (§Scripts).
 - **Las E2E no están en integración continua.** Necesitan un PostgreSQL de servicio y las credenciales de Storage como secretos del repositorio. La guardia ya contempla ese caso (`E2E_ALLOW_NONLOCAL`), así que es configuración, no desarrollo.
 - **El escenario E2E de subida de imagen usa el bucket real de Supabase.** Storage no tiene equivalente local: su API no es S3, así que ni MinIO sirve. El sembrado borra los objetos de la ejecución anterior; si alguien borra el volumen sin sembrar, quedan unos pocos PNG huérfanos de 40 KB.
 - **Sin métricas de Lighthouse ni de Core Web Vitals medidas sobre el despliegue.** Ya hay dónde medirlas (§30); no se han ejecutado, así que no se declara ninguna cifra (§29).
@@ -2179,3 +2180,37 @@ Con la fotografía puesta se ajustó el velo que va encima: iba del 25 % al 70 %
 | Comprobación en navegador | Home, pantalla de acceso, tres vistas del panel, y el recorrido real de la puerta: clave incorrecta, clave correcta y 404 de la segunda vía |
 
 **Dos fallos propios que conviene dejar escritos, porque los dos costaron una vuelta:** un `.next` que quedó inconsistente hacía que `/admin/login` devolviera **500 en producción y 200 en desarrollo**, y la primera captura salió en blanco por eso —se resolvió con `rm -rf .next` y build limpio—. Y la primera ejecución de las E2E falló en los tres perfiles porque `reuseExistingServer` reutilizó un `next start` mío que había quedado vivo en el puerto 3100 sirviendo justo ese build roto: las pruebas no fallaban por el cambio, sino por el servidor que encontraron.
+
+---
+
+### Fase 15 — Limpieza de los datos ficticios (2026-08-14)
+
+El CRM en producción mostraba 68 solicitudes nuevas y 382 contactos. Ninguno era real.
+
+**El inventario fue la parte que decidió el trabajo**, y por eso se hizo antes de borrar nada: 382 contactos con correo en `@example.invalid` —residuo de las pruebas de Vitest, que corren contra la base de desarrollo real (§Limitaciones)—, 1 contacto de una prueba manual con un dominio mal escrito, **0 contactos reales**, 6 reportajes marcados `isDemo` y 10.053 `AuditEvent` generados por los tests (5.011 `content.create`, 432 `crm.export.leads`, 382 `privacy.anonymize`).
+
+`npm run demo:clean`, que existía para esto, encontró **0 contactos**: identifica lo suyo por el dominio `demo.portondelacondesa.test` y los residuos de Vitest usan otro. De ahí el script nuevo.
+
+**Se borraron solo los contactos**, por decisión del titular tras ver el desglose: 383 contactos con su cascada —101 solicitudes, 33 consentimientos, 30 sesiones VIP, 31 notificaciones, 7 interacciones, 1 actividad—. Se conservaron los 6 reportajes (borrarlos habría dejado `/bodas-reales` y `/catering` sin nada detrás del gate), los 10.053 eventos de auditoría y las cuentas de administración.
+
+**`npm run test:clean`** queda en el proyecto, y no como comando de una vez, porque el residuo **se regenera en cada `npm test`**. Tiene modo seco, imprime el desglose por dominio y cuenta lo que arrastra la cascada *antes* de borrar, porque después ya no habría forma de decirlo. No toca los `AuditEvent`: un registro de auditoría que desaparece con lo auditado no es un registro de auditoría.
+
+**Lo que hace segura la operación** es que solo alcanza sufijos que el IETF reserva —`.test`, `.invalid`, `.example` y los `example.com/net/org` de la RFC 2606—, dominios que no se pueden registrar ni resolver. Ningún contacto legítimo puede coincidir. Para un dominio que no esté en la lista hay que nombrarlo con `--dominio=`, y esa fricción es intencionada. `lib/testing/test-data-clean.test.ts` falla si alguien añade a la lista algo que sí podría ser real.
+
+**Un fallo propio, encontrado al escribir esa prueba:** importaba la lista directamente del script, y el script llama a `main()` en su nivel superior. Es decir, **cada `npm test` habría ejecutado el borrado contra la base de datos**. Pasó desapercibido porque la base ya estaba vacía cuando la prueba corrió por primera vez. La lista se movió a `lib/testing/test-data-domains.ts`, un módulo sin efectos, y el comentario de ese archivo explica por qué vive ahí y no donde parecería natural.
+
+**Comprobado con la base vacía**, que es un caso límite que nadie prueba: el Resumen, Informes, Contactos, Solicitudes, Pipeline y Tareas responden 200 sin un solo error de página, los ratios dicen "Sin datos" en lugar de inventar un porcentaje, y los estados vacíos explican qué falta ("Nadie ha pasado por el gate todavía").
+
+**Archivos creados:** `scripts/test-data-clean.ts`, `lib/testing/test-data-domains.ts`, `lib/testing/test-data-clean.test.ts`.
+
+**Archivos modificados:** `lib/domain/crm-requests.ts`, `lib/domain/crm.test.ts`, `lib/domain/scoring.test.ts`, `package.json`, `README.md`.
+
+**Y lo que apareció al validar la limpieza: el fallo intermitente que la auditoría final no pudo capturar. Eran dos mecanismos.**
+
+El primero, **estado global compartido**. `ScoringRule` no son datos de un test: es la tabla de configuración de la puntuación, una fila por señal, compartida por todo el sistema. `scoring.test.ts` la modifica —fija pesos, desactiva `FORM_SUBMITTED` para comprobar que una regla apagada no suma— mientras `crm.test.ts` recalculaba el mismo contacto tres veces esperando el mismo número. El síntoma exacto era `expected 40 to be 30`: entre el primer recálculo y el segundo, la regla volvía a activarse y sus 10 puntos volvían a contar. **Vitest ejecuta los archivos en paralelo pero los tests de un mismo archivo en serie**, así que la corrección fue juntar a quien muta la configuración con quien depende de ella: las pruebas de puntuación viven ahora todas en `scoring.test.ts`, con un `afterAll` que devuelve los pesos a los del seed y un comentario que le dice a quien añada una prueba nueva por qué tiene que ponerla ahí.
+
+El segundo era **el mismo defecto que la auditoría corrigió en la exportación, en un sitio donde no se corrigió**: `listRequestsForAdmin` traía la relación obligatoria `lead` anidada, y Prisma la resuelve con una segunda consulta interna. Si el contacto desaparece entre ambas —otro archivo borrando en paralelo, o en producción alguien ejecutando una supresión mientras un comercial abre la pantalla— lanza `Inconsistent query result: Field lead is required to return data, got null` y **el listado entero de Solicitudes devuelve 500**. Es peor que en la exportación: exportar es un clic ocasional, Solicitudes es donde se trabaja. Corregido con el mismo patrón —`leadId` en el `select` y los contactos en una consulta aparte, omitiendo la fila sin dueño— y con dos pruebas: una que rompe la integridad a propósito con un `DELETE` directo, y otra que comprueba que en el caso normal el contacto sí llega, porque una corrección así podría haber dejado el listado sin datos de contacto sin que nada avisara.
+
+La lección de fondo: **corregir un defecto en un sitio y no buscar el mismo patrón en los demás deja el fallo vivo**. La auditoría lo arregló en `crm-export.ts` y anotó el intermitente como irreproducible; estaba a una consulta de distancia, en el módulo de al lado.
+
+**Validación:** 737 pruebas en 61 archivos, **tres pasadas consecutivas en verde**; 26 E2E; lint, typecheck y build exit 0.

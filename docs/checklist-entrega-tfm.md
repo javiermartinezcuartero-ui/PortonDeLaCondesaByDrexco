@@ -4,7 +4,7 @@ Estado real de cada entregable de la entrega académica. Una sola tabla que
 responde a la pregunta que importa: **¿está esto entregado, accesible y
 comprobado por alguien que no sea yo?**
 
-Última revisión: **14 de agosto de 2026**.
+Última revisión: **19 de agosto de 2026**.
 
 Los marcadores son literales y no se sustituyen por nada parecido a una URL:
 
@@ -23,14 +23,14 @@ privado acordado — ver `docs/formulario-entrega-tfm.md` y §4 de este document
 | Entregable | Estado | URL | Permiso | Última prueba en incógnito | Responsable | Pendiente |
 |---|---|---|---|---|---|---|
 | **Aplicación pública usable** | **Desplegada** en Vercel | https://elportondelacondesa.solucionesbonicas.com | Pública y usable | 14/08/2026 — `/`, `/robots.txt`, `/sitemap.xml` y `/admin/login` responden 200 sin sesión | Javier | Recorrer el flujo completo del visitante en incógnito: gate, formulario y páginas legales |
-| **Repositorio GitHub público** | Código publicado; **visibilidad todavía privada** | https://github.com/javiermartinezcuartero-ui/PortonDeLaCondesaByDrexco | Debe ser: público | `[PENDIENTE: fecha]` | Javier | Cambiar la visibilidad desde Settings → General → Danger Zone (no hay `gh` instalado en el equipo). Antes: decidir licencia (§6 de `docs/publicacion-github.md`) y revisar `NOTICE` con el cliente. Árbol e historial escaneados y limpios |
+| **Repositorio GitHub público** | **Publicado y público** | https://github.com/javiermartinezcuartero-ui/PortonDeLaCondesaByDrexco | Público | `[PENDIENTE: fecha]` | Javier | Confirmar en incógnito que se lee sin sesión de GitHub |
 | **URL directa del README** | Depende del anterior | https://github.com/javiermartinezcuartero-ui/PortonDeLaCondesaByDrexco/blob/main/README.md | Pública con el repositorio | `[PENDIENTE: fecha]` | Javier | Comprobar que se lee sin sesión de GitHub y que ningún enlace interno da 404 |
-| **Google Slides** | No creado | `[PENDIENTE: URL]` | «Cualquier persona con el enlace puede ver» | `[PENDIENTE: fecha]` | Javier | Montar las 14 diapositivas de `docs/guion-presentacion-tfm.md`. El guion incluye mensaje, evidencia, tiempo y notas del orador de cada una |
-| **Vídeo OBS en Google Drive** | No grabado | `[PENDIENTE: URL]` | Visualización mediante enlace | `[PENDIENTE: fecha]` | Javier | Grabar siguiendo `docs/guion-video-obs.md`, ya sobre la aplicación desplegada |
+| **Google Slides** | **Creado** y verificado | https://docs.google.com/presentation/d/14L8D95c2vqTkQTHp6n94fpqZSJUrF6N2sbCGjEEpkA4/edit?usp=sharing | «Cualquier persona con el enlace puede ver» | 18/08/2026 — se abre en incógnito sin pedir cuenta y sin botón de editar | Javier | Comprobar que las 14 diapositivas siguen `docs/guion-presentacion-tfm.md` |
+| **Vídeo OBS en Google Drive** | **Grabado, subido y verificado** | https://drive.google.com/file/d/1LMFmwPcavI7Nf59l0JnjH45q--Ki2x4l/view?usp=sharing | Visualización mediante enlace | 19/08/2026 — se abre en incógnito con un navegador distinto y se reproduce bien | Javier | — |
 | **Dashboard (panel de administración)** | **Desplegado** y protegido | https://elportondelacondesa.solucionesbonicas.com/admin | **Protegido**: exige sesión | 14/08/2026 — `/admin` responde 307 a `/admin/login` sin cookie | Javier | Verificar en incógnito que las 9 rutas del panel no filtran nada |
-| **Cuenta demo** | Procedimiento listo; no creada en producción | `[NO PROCEDE]` — se entra por el panel | Solo evaluación; se retira después | `[PENDIENTE: fecha]` | Javier | `npm run demo:seed` con `DEMO_ADMIN_EMAIL`/`DEMO_ADMIN_PASSWORD`. Ver §4 y `docs/runbook-demo.md` |
-| **Formulario de entrega** | Plantilla lista; sin enviar | `[PENDIENTE: URL del formulario de la institución]` | Según la institución | `[NO PROCEDE]` | Javier | Rellenar `docs/formulario-entrega-tfm.md` cuando existan las URLs anteriores |
-| **Justificante final** | No obtenido | `[PENDIENTE: URL o archivo]` | Copia privada del autor | `[NO PROCEDE]` | Javier | Guardar el acuse de la institución tras enviar el formulario. Es la única prueba de que la entrega llegó |
+| **Cuenta para calificación y revisión** | Se usan las cuentas ya existentes; no hay cuenta demo independiente | `[NO PROCEDE]` — se entra por el panel | Solo evaluación | `[NO PROCEDE]` | Javier | Decisión de Javier: sin cuenta demo separada. Ver nota de seguridad en §4 |
+| **Formulario de entrega** | Listo para enviar | `[PENDIENTE: URL del formulario de la institución]` | Según la institución | `[NO PROCEDE]` | Javier | Enviar `docs/formulario-entrega-tfm.md` ya con las URL anteriores |
+| **Justificante final** | Lo gestiona Javier con la empresa (Fundae) | `[NO PROCEDE]` | Copia privada del autor | `[NO PROCEDE]` | Javier | Fuera del alcance de este repositorio |
 
 ---
 
@@ -43,23 +43,24 @@ dos. La Fase 13 los ejecutó, y con ellos cayó la mitad del árbol:
 
 ```
 desplegar la aplicación ──────────────────────────── HECHO
-    ├── URL pública ──────┬── vídeo (se graba sobre la app real)   ← ya se puede grabar
+    ├── URL pública ──────┬── vídeo (grabado, subido, verificado)  HECHO
     │                     └── dashboard accesible ───────────────  HECHO
-    └── cuenta demo en producción ─────────────────────────────── pendiente
+    └── calificación con cuentas existentes ──────────────────── decidido
 
-publicar el repositorio ─── código subido; falta cambiar la visibilidad
+publicar el repositorio ─────────────────────────────────────── HECHO
     ├── URL del README ──────────────────────────────────────────  conocida
-    └── enlaces de las Slides y del vídeo ──────────────────────── pendientes
+    ├── enlace de las Slides ─────────────────────────────────────  HECHO
+    └── enlace del vídeo ─────────────────────────────────────────  HECHO
 
 las dos cosas
-    └── formulario de entrega ── justificante ─────────────────── pendientes
+    └── formulario de entrega ── justificante ─── listo para enviar / a cargo de Javier
 ```
 
-Quedan cuatro cosas, todas de Javier y ninguna técnica: cambiar la visibilidad
-del repositorio, crear la cuenta de evaluación, montar las Slides y grabar el
-vídeo. Lo demás está terminado y verificado: la aplicación completa y en línea,
-las 698 pruebas + 23 E2E, los datos de demostración con su retirada y los cuatro
-guiones de entrega.
+Solo queda una cosa técnica: rellenar y enviar el formulario de entrega con las
+URL de arriba. Lo demás está terminado y verificado: la aplicación completa y
+en línea, el repositorio publicado en GitHub, las Slides y el vídeo montados y
+comprobados en incógnito, las 698 pruebas + 23 E2E, los datos de demostración
+con su retirada y los cuatro guiones de entrega.
 
 ---
 
@@ -75,7 +76,7 @@ Lo que hay que dejar configurado, y qué comprobar en cada caso.
 | README | Público con el repositorio | Abrir la URL `blob/main/README.md` en incógnito | — |
 | Aplicación | Pública y usable | Recorrer home → gate → ficha → formulario en incógnito | — |
 | Dashboard | Protegido | En incógnito, `/admin` debe redirigir a `/admin/login`; **no** debe abrirse | Un panel accesible sin sesión con datos personales dentro es una brecha, no un fallo de entrega |
-| Cuenta demo | Solo para evaluación | Iniciar sesión una vez y comprobar que se ve el CRM | — |
+| Cuentas de calificación | Las que ya existen; sin cuenta demo separada | Iniciar sesión una vez y comprobar que se ve el CRM | Al no rotarse tras la evaluación como haría una cuenta demo, conviene revisar después quién conserva acceso |
 
 **La prueba en incógnito no es opcional.** Una ventana normal arrastra las
 sesiones de Google y de GitHub del autor, así que todo parece accesible aunque
@@ -91,7 +92,18 @@ distinto no demuestra que todo funcionara a la vez.
 
 ## 4. Cuenta de evaluación
 
-Procedimiento completo en `docs/runbook-demo.md`. Lo imprescindible:
+**Decisión de Javier para esta entrega: no se crea cuenta demo independiente.**
+La calificación y revisión del TFM se hace con las cuentas ya existentes en
+producción. El procedimiento de cuenta demo de más abajo queda documentado
+para un uso futuro, pero no se ejecuta en esta entrega.
+
+Nota de seguridad a tener presente: al usar una cuenta real en lugar de una
+desechable, no hay un paso de "desactivar después de la evaluación" como el
+del punto 4 de abajo. Conviene revisar el acceso una vez terminada la
+calificación.
+
+Procedimiento completo (no usado en esta entrega) en `docs/runbook-demo.md`.
+Lo imprescindible:
 
 1. **Crear.** `npm run demo:seed` con `DEMO_ADMIN_EMAIL` y `DEMO_ADMIN_PASSWORD`
    en el entorno. La contraseña necesita 12 caracteres como mínimo. El script no
@@ -115,14 +127,14 @@ con `npm run admin:bootstrap` y su contraseña no se comparte con nadie.
 
 ## 5. Antes de dar la entrega por cerrada
 
-- [ ] Ninguna celda de la tabla §1 contiene `[PENDIENTE: ...]`.
-- [ ] Las siete comprobaciones de §3 hechas en una sola sesión de incógnito, con
-      su fecha anotada.
-- [ ] La cuenta de evaluación funciona, y sus credenciales han viajado **solo**
-      por el canal privado.
-- [ ] `DEMO_ADMIN_EMAIL`, `DEMO_ADMIN_PASSWORD` y las tres `ADMIN_BOOTSTRAP_*`
-      borradas del entorno de Vercel.
-- [ ] Formulario de entrega enviado y **justificante guardado**.
+- [ ] Ninguna celda de la tabla §1 contiene `[PENDIENTE: ...]` salvo la URL del
+      formulario de la institución.
+- [ ] Las comprobaciones de §3 hechas en una sola sesión de incógnito, con su
+      fecha anotada.
+- [ ] Las credenciales de las cuentas de calificación han viajado **solo** por
+      el canal privado acordado.
+- [ ] Formulario de entrega enviado. El justificante lo gestiona Javier
+      directamente con la empresa para Fundae, fuera de este repositorio.
 - [ ] Fecha de esta revisión actualizada en la cabecera.
 
 Y una comprobación que no está en ninguna lista oficial: **pedirle a otra persona

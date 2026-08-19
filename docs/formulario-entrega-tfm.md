@@ -36,12 +36,12 @@ Google ni de GitHub. Sin excepción.
 | 1 | Aplicación | https://elportondelacondesa.solucionesbonicas.com | Pública y usable | `[PENDIENTE: fecha]` |
 | 2 | Repositorio GitHub | https://github.com/javiermartinezcuartero-ui/PortonDeLaCondesaByDrexco | Público | `[PENDIENTE: fecha]` |
 | 3 | README | https://github.com/javiermartinezcuartero-ui/PortonDeLaCondesaByDrexco/blob/main/README.md | Público con el repositorio | `[PENDIENTE: fecha]` |
-| 4 | Google Slides | `[PENDIENTE: URL]` | Cualquier persona con el enlace puede ver | `[PENDIENTE: fecha]` |
-| 5 | Vídeo (Drive) | `[PENDIENTE: URL]` | Cualquier persona con el enlace puede ver | `[PENDIENTE: fecha]` |
+| 4 | Google Slides | https://docs.google.com/presentation/d/14L8D95c2vqTkQTHp6n94fpqZSJUrF6N2sbCGjEEpkA4/edit?usp=sharing | Cualquier persona con el enlace puede ver | 18/08/2026 |
+| 5 | Vídeo (Drive) | https://drive.google.com/file/d/1LMFmwPcavI7Nf59l0JnjH45q--Ki2x4l/view?usp=sharing | Cualquier persona con el enlace puede ver | 19/08/2026 — navegador distinto, reproduce bien |
 | 6 | Dashboard | https://elportondelacondesa.solucionesbonicas.com/admin | **Protegido**: debe pedir sesión | `[PENDIENTE: fecha]` |
 
-Las dos URL de GitHub solo se abrirán en incógnito **cuando el repositorio pase a
-público**; hoy sigue privado y darían 404.
+El repositorio ya es público. Quedan por confirmar en incógnito las dos URL de
+GitHub (repositorio y README).
 
 El dashboard es el único que se comprueba **al revés**: lo que hay que verificar
 es que **no** se abre. Si `/admin` carga en incógnito, hay un problema de
@@ -91,20 +91,20 @@ Rellenar **al enviar**, no antes, y con el canal que la institución acepte.
 | Canal utilizado | `[PENDIENTE: campo privado del formulario / correo al tutor / otro]` |
 | Enviado a | `[PENDIENTE: destinatario]` |
 | Fecha y hora del envío | `[PENDIENTE: fecha y hora]` |
-| Correo de la cuenta de evaluación | `[se indica en el canal privado]` |
+| Correo de la cuenta de calificación | `[se indica en el canal privado]` |
 | Contraseña | `[se indica en el canal privado]` |
-| Caducidad prevista | `[PENDIENTE: fecha]` — se desactiva tras la evaluación |
+| Caducidad prevista | `[NO PROCEDE]` — cuenta existente, no una demo desechable. Revisar el acceso una vez terminada la calificación |
 
 ### Texto para el canal privado
 
-> Credenciales de la cuenta de evaluación del TFM «El Portón de la Condesa».
+> Credenciales de acceso al panel del TFM «El Portón de la Condesa».
 >
 > Panel: https://elportondelacondesa.solucionesbonicas.com/admin
 > Usuario: `[correo]`
 > Contraseña: `[contraseña]`
 >
-> Es una cuenta con rol ADMIN creada exclusivamente para la evaluación, con datos
-> de demostración ficticios. Se desactivará una vez terminada.
+> Cuenta con rol ADMIN ya existente, usada para la calificación y revisión del
+> TFM.
 >
 > El manual de uso del panel está en `docs/manual-admin.md` del repositorio.
 

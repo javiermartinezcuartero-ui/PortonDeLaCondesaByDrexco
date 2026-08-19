@@ -3,11 +3,9 @@
 Qué hay que comprobar antes de que este repositorio pase a público, qué está ya
 comprobado de forma automática, y qué hacer si aparece un secreto.
 
-**Estado: preparado, no ejecutado.** El repositorio ya existe en GitHub y su
-historial ya está subido (`origin/main`), pero **la visibilidad no se ha
-cambiado**: el enunciado de esta fase pedía preparar la publicación sin
-ejecutarla. Cambiar la visibilidad es una decisión de Javier y una acción
-manual.
+**Estado: publicado.** El repositorio existe en GitHub, su historial está
+subido (`origin/main`) y la visibilidad ya se cambió a público — decisión y
+acción manual de Javier.
 
 Un detalle que conviene tener claro antes de seguir: los commits del historial
 —Fases 1 a 6— **ya están en GitHub**. Si hubiera un secreto ahí, ya estaría
@@ -32,7 +30,7 @@ Ejecutado el 13 de agosto de 2026. Todas las salidas son reales.
 | 7 | Secretos en el **árbol** | `npm test` → `lib/security/secrets-scan.test.ts` | 8 pruebas verdes, 11 patrones, 0 hallazgos |
 | 8 | Secretos en el **historial** | `npm run secrets:history` | 5 commits, 288 versiones de archivo, 0 hallazgos |
 | 9 | CI verde | simulación del entorno del runner (sin `.env`) | 329 pruebas pasan, 325 se saltan solas, exit 0 |
-| 10 | LICENSE | — | **Pendiente de decisión de Javier.** Ver §6 |
+| 10 | LICENSE | — | MIT, decisión de Javier. Ver §6 |
 | 11 | NOTICE | `NOTICE` en la raíz | Escrito: marca, fotografías, textos y tipografías fuera de cualquier licencia de software |
 | 12 | CONTRIBUTING | `CONTRIBUTING.md` | Escrito |
 | 13 | Plantilla de release/tag | `.github/RELEASE_TEMPLATE.md` | Escrita |
@@ -264,11 +262,10 @@ Tres cosas que conviene tener presentes al decidir:
    repositorio conserva los derechos que la licencia le dio en ese momento.
 
 Hecho: `LICENSE` creado, referenciado en README §Licencia y con el párrafo que
-remite a `NOTICE`. **Queda una comprobación que no es técnica:** el punto 2 de
-esta lista. Si existe contrato con el cliente que ceda la titularidad del
-desarrollo, hay que confirmar que la decisión de licenciar como MIT es de Javier
-y no del cliente. Y el punto 3 sigue vigente: quien clone el repositorio a partir
-de ahora conserva los derechos que la MIT le da, aunque se cambie después.
+remite a `NOTICE`. **Confirmado por Javier:** la decisión de licenciar como MIT
+es suya y es la apropiada para la presentación del máster. El punto 3 sigue
+vigente como aviso general: quien clone el repositorio a partir de ahora
+conserva los derechos que la MIT le da, aunque se cambie después.
 
 ---
 
@@ -276,11 +273,11 @@ de ahora conserva los derechos que la MIT le da, aunque se cambie después.
 
 Ninguno lo hace este proyecto. Todos son de Javier.
 
-1. **Decidir la licencia** (§6) y, si procede, crear `LICENSE`.
-2. **Revisar `NOTICE`** con el cliente, en particular la fotografía con marca de
-   agua de `public/images/porton/02-salon-celebraciones.jpg`, cuyos derechos no
-   están confirmados. Sustituirla o conseguir la cesión por escrito.
-3. **Comprobar la titularidad del código** si hay contrato con el cliente.
+1. ~~Decidir la licencia~~ (§6) — **hecho:** MIT.
+2. ~~Revisar `NOTICE` con el cliente~~ — **hecho:** Javier confirma que tiene
+   permiso de uso de la fotografía con marca de agua de
+   `public/images/porton/02-salon-celebraciones.jpg`.
+3. ~~Comprobar la titularidad del código~~ — **hecho.**
 4. **Ejecutar las comprobaciones** de §1 una última vez sobre el commit que se
    vaya a entregar:
 
@@ -290,8 +287,7 @@ Ninguno lo hace este proyecto. Todos son de Javier.
    ```
 
 5. **Confirmar que CI está verde** en ese commit, en la pestaña Actions.
-6. **Cambiar la visibilidad**: GitHub → Settings → General → Danger Zone →
-   Change visibility → Make public.
+6. ~~Cambiar la visibilidad~~ — **hecho:** el repositorio ya es público.
 7. **Rellenar la descripción y los temas** del repositorio, y enlazar la
    aplicación desplegada si existe.
 8. **Crear el tag y la release** con `.github/RELEASE_TEMPLATE.md`.

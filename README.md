@@ -1343,7 +1343,7 @@ Ordenadas por lo que importa. Cada una con su motivo.
 
 - **La base jurídica y el plazo de retención necesitan revisión profesional.** El mecanismo existe y es configurable; la cifra y la redacción las tiene que fijar alguien cualificado. La política de privacidad **no indica ningún plazo** en lugar de inventarlo (§26).
 - **Los tramos de presupuesto** del formulario son una propuesta de trabajo, no tarifas de la finca. Marcado con `TODO(negocio)` en el código.
-- **Contenido pendiente de verificar con el cliente**, marcado explícitamente en el código: la fotografía `public/images/porton/02-salon-celebraciones.jpg` lleva marca de agua de un fotógrafo externo **sin derechos de uso confirmados**; el teléfono y el código postal del aviso legal original son inconsistentes con el resto de la web; la ficha de Bodas.net está pendiente de confirmación; y el CIF y los datos registrales del aviso legal siguen como `[PENDIENTE]`.
+- **Contenido pendiente de verificar con el cliente**, marcado explícitamente en el código: el teléfono y el código postal del aviso legal original son inconsistentes con el resto de la web; la ficha de Bodas.net está pendiente de confirmación; y el CIF y los datos registrales del aviso legal siguen como `[PENDIENTE]`. La fotografía `public/images/porton/02-salon-celebraciones.jpg`, que lleva marca de agua de un fotógrafo externo, tiene el permiso de uso confirmado por el titular.
 
 ### Seguridad
 
@@ -1475,7 +1475,7 @@ Es la licencia habitual en una entrega académica: permisiva, de una página, y 
 
 **La licencia cubre el código fuente y nada más.** El propio `LICENSE` lo dice en sus dos últimos párrafos, en inglés y en español, para que no haya que leer el `NOTICE` para enterarse: la marca, el nombre, el logotipo, las fotografías y los textos comerciales de El Portón de la Condesa **no son software**, no pertenecen al autor y no se licencian aquí. Ver §35.
 
-Queda una comprobación que no es técnica y sigue siendo del titular: si existe contrato con el cliente, confirmar que la titularidad del código permite licenciarlo así. Desarrollado en **`docs/publicacion-github.md`** §6.
+El titular ha confirmado que la titularidad del código permite licenciarlo así. Desarrollado en **`docs/publicacion-github.md`** §6.
 
 **Lo que sí está decidido, y no depende de esa elección:** ninguna licencia de software que se aplique al código cubre el contenido del negocio. Ver §35.
 
@@ -1512,14 +1512,14 @@ Los marcadores son literales: `[PENDIENTE: URL]` significa que el entregable no 
 | Entregable | URL | Permiso |
 |---|---|---|
 | **Aplicación pública** | https://elportondelacondesa.solucionesbonicas.com | Pública y usable |
-| **Repositorio GitHub** | https://github.com/javiermartinezcuartero-ui/PortonDeLaCondesaByDrexco | Debe pasar a público (§34, `docs/publicacion-github.md`) |
+| **Repositorio GitHub** | https://github.com/javiermartinezcuartero-ui/PortonDeLaCondesaByDrexco | Público |
 | **README** | https://github.com/javiermartinezcuartero-ui/PortonDeLaCondesaByDrexco/blob/main/README.md | Público con el repositorio |
-| **Google Slides** | `[PENDIENTE: URL]` | Cualquier persona con el enlace puede ver |
-| **Vídeo (Google Drive)** | `[PENDIENTE: URL]` | Visualización mediante enlace |
+| **Google Slides** | https://docs.google.com/presentation/d/14L8D95c2vqTkQTHp6n94fpqZSJUrF6N2sbCGjEEpkA4/edit?usp=sharing | Cualquier persona con el enlace puede ver. Verificado en incógnito el 18/08/2026 |
+| **Vídeo (Google Drive)** | https://drive.google.com/file/d/1LMFmwPcavI7Nf59l0JnjH45q--Ki2x4l/view?usp=sharing | Visualización mediante enlace. Verificado en incógnito el 19/08/2026 |
 | **Dashboard** | https://elportondelacondesa.solucionesbonicas.com/admin | **Protegido**: exige sesión. Verificado: `/admin` responde 307 a `/admin/login` |
-| **Cuenta de evaluación** | Se entra por el panel | Credenciales **solo por canal privado**. Se desactiva tras la evaluación |
+| **Cuentas de calificación** | Se entra por el panel | Cuentas ya existentes, sin cuenta demo independiente. Credenciales **solo por canal privado** |
 
-**Ninguna credencial aparece en este documento, en el repositorio, en las Slides ni en el vídeo.** La cuenta de evaluación se entrega por el formulario de entrega o el canal privado acordado, y se retira con `npm run demo:clean -- --cuenta`.
+**Ninguna credencial aparece en este documento, en el repositorio, en las Slides ni en el vídeo.** Las credenciales se entregan por el formulario de entrega o el canal privado acordado.
 
 Material de la entrega:
 
@@ -2847,3 +2847,17 @@ Arreglo de raíz en los dos archivos de test: se rastrea también el `id` de cad
 **Archivos modificados:** `app/admin/(protected)/logout-action.ts` (nuevo), `app/admin/(protected)/logout-button.tsx`, `components/admin-access.tsx`, `app/admin/login/page.tsx`, `app/admin/(protected)/layout.tsx`, `app/globals.css`, `app/admin/(protected)/contactos/delete-lead-button.tsx` (nuevo), `app/admin/(protected)/contactos/page.tsx`, `eslint.config.mjs`, `docs/manual-admin.md`, `scripts/demo-clean.ts`, `lib/domain/privacy.test.ts`, `lib/security/attack-surface.test.ts`.
 
 **Validación:** `npx tsc --noEmit` y `npm run lint` exit 0. Verificación real en navegador con un script Playwright puntual (no incorporado a la suite): engranaje → siempre `/admin/login`; con sesión ya abierta, `/admin/login` sigue mostrando el formulario; tras "Salir", la URL vuelve a `/admin/login` con el formulario visible y una nueva petición a `/admin` **vuelve a redirigir al login** en vez de entrar — confirma que la sesión se invalidó de verdad, no solo la navegación; botón de eliminar presente en Captaciones y diálogo de confirmación operativo (cancelado sin anonimizar el contacto de prueba). Captura de la navegación agrupada, en reposo y con hover, verificada visualmente. Limpieza de contactos: inspección real de la base (28 contactos, 25 anonimizados) antes de borrar, confirmación explícita del titular sobre el único caso dudoso, y borrado verificado (28 → 3). `npx vitest run lib/domain/privacy.test.ts lib/security/attack-surface.test.ts` tras el arreglo de la fuga → **43 pruebas en verde**, y una segunda inspección de la base tras esa ejecución confirmó cero contactos nuevos. Pendiente: relanzar la suite E2E completa y el resto de `npm test` (no se ejecutan en cada iteración, solo al pedirlo) y barrer el resto de `docs/` (`checklist-aceptacion.md`, `despliegue-vercel.md`, `evidencias-tfm.md`, `pruebas-e2e.md`) que aún mencionan "Cerrar sesión" y el login por email/contraseña como si fueran el flujo principal.
+
+### Fase 23 — Enlace del vídeo y cierre de los entregables del TFM (2026-08-19)
+
+Cuatro decisiones del titular, ya con la aplicación desplegada y el repositorio publicado, que cierran lo que quedaba pendiente en `docs/checklist-entrega-tfm.md`.
+
+Se incorporó el enlace del vídeo de presentación (`https://drive.google.com/file/d/1LMFmwPcavI7Nf59l0JnjH45q--Ki2x4l/view?usp=sharing`) en el README §36, `docs/checklist-entrega-tfm.md` y `docs/formulario-entrega-tfm.md`. El titular confirmó haberlo verificado en incógnito con un navegador distinto al usado para subirlo: se reproduce entero.
+
+Tres confirmaciones del titular resuelven puntos que estos documentos marcaban como pendientes de una decisión no técnica: el permiso de uso de la fotografía con marca de agua de `public/images/porton/02-salon-celebraciones.jpg` (§32), la titularidad del código para licenciarlo como MIT (§34), y que el repositorio de GitHub ya es público. Se actualizaron en consecuencia `docs/publicacion-github.md` §1 y §7, README §32 y §34, y las tablas de `docs/checklist-entrega-tfm.md`.
+
+Cambio de procedimiento para la calificación del TFM: el titular decidió no crear la cuenta demo independiente de `docs/runbook-demo.md` — la calificación y revisión se hará con las cuentas ya existentes en producción. Se documentó la decisión en `docs/checklist-entrega-tfm.md` §4 y en README §36, junto con la advertencia de que, al no ser una cuenta desechable, conviene revisar el acceso una vez terminada la calificación. El procedimiento de `runbook-demo.md` queda intacto para un uso futuro, pero no se ejecuta en esta entrega.
+
+**Archivos modificados:** `README.md`, `docs/checklist-entrega-tfm.md`, `docs/formulario-entrega-tfm.md`, `docs/publicacion-github.md`.
+
+**Validación:** ninguno de los cambios toca código; son actualizaciones de documentación. No se ha ejecutado la suite de pruebas en esta fase, conforme a la práctica ya acordada de no relanzarla en cada iteración. **Pendiente:** rellenar y enviar `docs/formulario-entrega-tfm.md` con la URL del formulario de la institución; el justificante lo gestiona el titular directamente con la empresa para Fundae, fuera del alcance de este repositorio.
